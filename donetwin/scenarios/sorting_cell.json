@@ -1,0 +1,148 @@
+{
+  "name": "sorting_cell",
+  "title": "Line A sorting cell retrofit",
+  "goal": "Insert a heavy-duty robotic arm between conveyor line A and sorting bin B.",
+  "floor": {
+    "w": 16,
+    "d": 10
+  },
+  "objects": [
+    {
+      "id": "walkway_main",
+      "kind": "walkway",
+      "x": 8.0,
+      "y": 0.75,
+      "w": 16.0,
+      "d": 1.5,
+      "h": 0.0,
+      "rot": 0,
+      "fixed": true
+    },
+    {
+      "id": "pillar_P1",
+      "kind": "pillar",
+      "x": 3.0,
+      "y": 4.5,
+      "w": 0.6,
+      "d": 0.6,
+      "h": 6.0,
+      "rot": 0,
+      "fixed": true
+    },
+    {
+      "id": "pillar_P2",
+      "kind": "pillar",
+      "x": 9.0,
+      "y": 4.5,
+      "w": 0.6,
+      "d": 0.6,
+      "h": 6.0,
+      "rot": 0,
+      "fixed": true
+    },
+    {
+      "id": "pillar_P3",
+      "kind": "pillar",
+      "x": 15.0,
+      "y": 4.5,
+      "w": 0.6,
+      "d": 0.6,
+      "h": 6.0,
+      "rot": 0,
+      "fixed": true
+    },
+    {
+      "id": "pillar_P4",
+      "kind": "pillar",
+      "x": 3.0,
+      "y": 7.2,
+      "w": 0.6,
+      "d": 0.6,
+      "h": 6.0,
+      "rot": 0,
+      "fixed": true
+    },
+    {
+      "id": "pillar_P5",
+      "kind": "pillar",
+      "x": 9.3,
+      "y": 7.2,
+      "w": 0.6,
+      "d": 0.6,
+      "h": 6.0,
+      "rot": 0,
+      "fixed": true
+    },
+    {
+      "id": "pillar_P6",
+      "kind": "pillar",
+      "x": 15.0,
+      "y": 7.2,
+      "w": 0.6,
+      "d": 0.6,
+      "h": 6.0,
+      "rot": 0,
+      "fixed": true
+    },
+    {
+      "id": "conveyor_A",
+      "kind": "conveyor",
+      "x": 4.0,
+      "y": 8.6,
+      "w": 7.0,
+      "d": 0.8,
+      "h": 0.9,
+      "rot": 0,
+      "fixed": true,
+      "points": {
+        "pick": [
+          3.2,
+          0.0
+        ]
+      },
+      "note": "flows +x; parts arrive at the pick point at the east end"
+    },
+    {
+      "id": "sensor_S",
+      "kind": "sensor",
+      "x": 10.4,
+      "y": 6.6,
+      "w": 0.2,
+      "d": 0.2,
+      "h": 0.1,
+      "z": 2.8,
+      "rot": 0,
+      "fixed": true,
+      "points": {
+        "target": [
+          0.0,
+          0.0
+        ]
+      },
+      "note": "overhead fill-level / drop-off sensor on a fixed gantry"
+    },
+    {
+      "id": "bin_B",
+      "kind": "bin",
+      "x": 10.5,
+      "y": 6.6,
+      "w": 1.2,
+      "d": 1.0,
+      "h": 1.1,
+      "rot": 0,
+      "fixed": false,
+      "points": {
+        "drop": [
+          0.0,
+          0.0
+        ]
+      },
+      "note": "sorting bin; movable"
+    }
+  ],
+  "research_queries": [
+    "ISO 10218-2 industrial robot restricted space safeguarding",
+    "OSHA minimum aisle width clearance industrial robot cell",
+    "industrial robot maintenance clearance around base"
+  ]
+}

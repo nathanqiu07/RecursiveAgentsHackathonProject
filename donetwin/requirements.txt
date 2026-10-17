@@ -1,0 +1,6 @@
+openai>=1.40
+matplotlib>=3.8
+shapely>=2.0
+numpy>=1.26
+rich>=13
+python-dotenv>=1.0
