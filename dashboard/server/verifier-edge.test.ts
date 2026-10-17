@@ -5,6 +5,9 @@ import { BenchmarkStore } from './benchmark-store.ts';
 import { ResourceStore } from './store.ts';
 import { VerificationWorker } from './verification-worker.ts';
 
+const CHECKPOINT_SHA = 'a'.repeat(40);
+const CHECKPOINT_URL = `https://github.com/example/solution/commit/${CHECKPOINT_SHA}`;
+
 function definition(verifier: Record<string, unknown> = {}) {
   return benchmarkSchema.parse({
     title: 'Verifier boundaries', prompt: 'Solve the objective.',
@@ -17,14 +20,20 @@ function mock(handler: (url: string, init: RequestInit) => Response | Promise<Re
   return (async (url: string | URL | Request, init: RequestInit = {}) => handler(String(url), init)) as typeof fetch;
 }
 
+function verifierWorker(store: BenchmarkStore, options: { request?: typeof fetch; checkpointRequest?: typeof fetch } = {}) {
+  return new VerificationWorker(store, {
+    checkpointRequest: mock(() => Response.json({ sha: CHECKPOINT_SHA })), ...options,
+  });
+}
+
 for (const [httpStatus, status] of [[202, 'queued'], [200, 'running']] as const) {
   test(`synchronous mode cannot publish a provisional score from HTTP ${httpStatus} / ${status}`, async () => {
     const resources = new ResourceStore(':memory:');
     const store = new BenchmarkStore(resources);
     try {
       const benchmark = store.createBenchmark(definition());
-      const submission = store.createSubmission(benchmark.id, submissionSchema.parse({ title: 'Solution', payload: {} }));
-      const worker = new VerificationWorker(store, {
+      const submission = store.createSubmission(benchmark.id, submissionSchema.parse({ title: 'Solution', base_checkpoint_url: CHECKPOINT_URL, payload: {} }));
+      const worker = verifierWorker(store, {
         request: mock(() => new Response(JSON.stringify({ status, score: 0.9 }), { status: httpStatus })),
       });
       await worker.tick();
@@ -65,9 +74,9 @@ test('a transient polling network failure resumes the same remote job without re
     const benchmark = store.createBenchmark(definition({
       mode: 'asynchronous', poll_url: 'https://verifier.example/jobs/{{job_id}}', poll_interval_seconds: 1,
     }));
-    const submission = store.createSubmission(benchmark.id, submissionSchema.parse({ title: 'Solution', payload: {} }));
+    const submission = store.createSubmission(benchmark.id, submissionSchema.parse({ title: 'Solution', base_checkpoint_url: CHECKPOINT_URL, payload: {} }));
     const methods: string[] = [];
-    const worker = new VerificationWorker(store, { request: mock((_url, init) => {
+    const worker = verifierWorker(store, { request: mock((_url, init) => {
       methods.push(String(init.method));
       if (methods.length === 1) return new Response('{"id":"job-123","status":"queued"}', { status: 202 });
       if (methods.length === 2) throw new TypeError('Temporary connection failure');
@@ -92,7 +101,7 @@ test('expired dispatch leases fail safely and stale claims cannot add leaderboar
   const store = new BenchmarkStore(resources);
   try {
     const benchmark = store.createBenchmark(definition());
-    const submission = store.createSubmission(benchmark.id, submissionSchema.parse({ title: 'Solution', payload: {} }));
+    const submission = store.createSubmission(benchmark.id, submissionSchema.parse({ title: 'Solution', base_checkpoint_url: CHECKPOINT_URL, payload: {} }));
     const claim = store.claimDue()!;
     now += 60_001;
     assert.equal(store.claimDue(), null);

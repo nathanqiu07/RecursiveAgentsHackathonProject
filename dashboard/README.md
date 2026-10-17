@@ -13,6 +13,8 @@ The UI runs at `http://127.0.0.1:5173` and the API at `http://127.0.0.1:3001`. B
 
 **Benchmarks** replaces the Tasks tab. Choose **Create benchmark** to define an open-ended objective, submission instructions, a full submission format, and the verification API that scores solutions. Open the benchmark and choose **Submit solution** to provide a name, submitter, and JSON payload. The dashboard shows verification progress, feedback, submitted payloads, and the resulting leaderboard. No example benchmarks or scores are inserted automatically.
 
+Every submission also requires a top-level `base_checkpoint_url` pointing to a public GitHub checkpoint: `https://github.com/OWNER/REPO/commit/FULL_COMMIT_SHA` or `/tree/FULL_COMMIT_SHA`. Use a complete 40- or 64-character hexadecimal commit hash; branch links and private checkpoints are rejected. The server checks that the pinned checkpoint is publicly reachable before sending the submission to its verifier. This universal envelope field is separate from the benchmark's `submission_schema`, which validates `payload`.
+
 Every benchmark has a `submission_schema` JSON Schema object. The server validates the schema at creation and validates each payload before queueing verification; invalid payloads return HTTP 422. Draft 2020-12 is the default, and explicit draft-07 is also supported. Local fragment references such as `#/$defs/solution` work; remote references are rejected. Validation checks types, required fields, formats, patterns, and other schema constraints without coercing values or inserting defaults. Define artifact revisions, inputs, and other reproducibility requirements in the schema and instructions.
 
 Benchmark definitions are immutable. Create a new benchmark when changing the objective, submission contract, verifier, or scoring rules so existing leaderboard scores keep their original meaning.
@@ -26,7 +28,7 @@ The verifier can use its own HTTP JSON request and response format. Configure:
 - `mode: "synchronous"` for a response containing the final score, or `"asynchronous"` for a queued job. Async mode requires `poll_url`, `job_id_path`, `status_path`, and the API's completed/failure status values. The dashboard polls with GET; callbacks are not implemented.
 - An optional `auth_env` naming a server environment variable beginning with `BENCHMARK_VERIFIER_`. Its value becomes the verifier's bearer token and stays on the server. Authenticated polling must use the same origin as the initial endpoint. Redirects are rejected.
 
-Request templates support `{{submission.payload}}`, nested payload values such as `{{submission.payload.repository}}`, `{{submission.id}}`, `{{submission.title}}`, `{{submission.submitted_by}}`, `{{benchmark.id}}`, `{{benchmark.title}}`, and `{{benchmark.version}}`. A whole-value placeholder preserves the original JSON type; placeholders inside strings interpolate text. Placeholders are values, not property names. Poll URLs use `{{job_id}}`, which is URL-encoded before requesting the job status.
+Request templates support `{{submission.payload}}`, nested payload values such as `{{submission.payload.repository}}`, `{{submission.id}}`, `{{submission.title}}`, `{{submission.submitted_by}}`, `{{submission.base_checkpoint_url}}`, `{{benchmark.id}}`, `{{benchmark.title}}`, and `{{benchmark.version}}`. The default request includes the base checkpoint URL alongside the payload and submission/benchmark IDs. A whole-value placeholder preserves the original JSON type; placeholders inside strings interpolate text. Placeholders are values, not property names. Poll URLs use `{{job_id}}`, which is URL-encoded before requesting the job status.
 
 `server/index.ts` starts the verification worker automatically with the API. The SQLite queue persists across restarts, including external job references and polling progress. An interrupted or uncertain initial dispatch is marked failed rather than automatically replayed, because the verifier may already have accepted it; inspect the verifier before submitting again. Outgoing submissions include their stable ID as `Idempotency-Key`.
 
@@ -37,7 +39,7 @@ Only final, finite numeric scores within the configured optional minimum/maximum
 External clients can discover the machine-readable request contracts:
 
 - [Benchmark-creation JSON Schema](http://127.0.0.1:3001/api/schemas/benchmark): `GET /api/schemas/benchmark` defines the body for `POST /api/benchmarks`.
-- [Solution-submission JSON Schema](http://127.0.0.1:3001/api/schemas/submission): `GET /api/schemas/submission` defines the outer submission envelope (`title`, `submitted_by`, `payload`).
+- [Solution-submission JSON Schema](http://127.0.0.1:3001/api/schemas/submission): `GET /api/schemas/submission` defines the outer submission envelope (`title`, `submitted_by`, `base_checkpoint_url`, `payload`).
 - `GET /api/benchmarks/{id}` returns the selected benchmark's `submission_schema`, which defines the contents of `payload`.
 
 Use the deployed dashboard's origin in place of `http://127.0.0.1:3001` when connecting remotely. The **Guide** tab includes these schema links and copyable creation/submission examples using its current origin.
@@ -69,6 +71,7 @@ This example assumes you operate a verifier at `http://127.0.0.1:9000`; replace 
         "repository": "{{submission.payload.repository}}",
         "commit": "{{submission.payload.commit}}"
       },
+      "base_checkpoint_url": "{{submission.base_checkpoint_url}}",
       "submission_id": "{{submission.id}}"
     },
     "job_id_path": "evaluation.id",
@@ -90,7 +93,7 @@ curl --fail-with-body http://127.0.0.1:3001/api/benchmarks \
 
 curl --fail-with-body http://127.0.0.1:3001/api/benchmarks/BENCHMARK_ID/submissions \
   -H 'Content-Type: application/json' \
-  --data-binary '{"title":"Optimization attempt 1","submitted_by":"research-agent","payload":{"repository":"http://127.0.0.1:9001/solution.git","commit":"0123456789abcdef0123456789abcdef01234567"}}'
+  --data-binary '{"title":"Optimization attempt 1","submitted_by":"research-agent","base_checkpoint_url":"https://github.com/OWNER/BASE_REPO/commit/FULL_COMMIT_SHA","payload":{"repository":"http://127.0.0.1:9001/solution.git","commit":"0123456789abcdef0123456789abcdef01234567"}}'
 ```
 
 The initial verifier response can be `{"evaluation":{"id":"run-123","state":"queued"}}`. Its eventual completed response must include `evaluation.state: "done"` and a numeric `evaluation.metrics.throughput`. A string such as `"1000"` is not a numeric score.

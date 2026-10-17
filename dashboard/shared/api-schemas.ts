@@ -9,5 +9,5 @@ export const benchmarkDefinitionSchema = {
 export const solutionSubmissionSchema = {
   ...z.toJSONSchema(submissionSchema, { io: 'input' }),
   title: 'Submit a benchmark solution',
-  description: 'POST /api/benchmarks/{id}/submissions. The payload must additionally satisfy that benchmark\'s submission_schema. Scores are written only by the verifier.',
+  description: 'POST /api/benchmarks/{id}/submissions. A public GitHub base_checkpoint_url pinned to a full commit hash is required. The payload must additionally satisfy that benchmark\'s submission_schema. Scores are written only by the verifier.',
 };

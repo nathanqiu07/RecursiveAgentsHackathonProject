@@ -13,7 +13,8 @@ export const verifierSchema = z.object({
   method: z.enum(['POST', 'PUT']).default('POST'),
   mode: z.enum(['synchronous', 'asynchronous']).default('synchronous'),
   request_template: z.json().default({
-    submission: '{{submission.payload}}', submission_id: '{{submission.id}}', benchmark_id: '{{benchmark.id}}',
+    submission: '{{submission.payload}}', base_checkpoint_url: '{{submission.base_checkpoint_url}}',
+    submission_id: '{{submission.id}}', benchmark_id: '{{benchmark.id}}',
   }),
   score_path: fieldPath.default('score'),
   feedback_path: fieldPath.default('feedback'),
@@ -67,6 +68,15 @@ export const benchmarkSchema = z.object({
 export const submissionSchema = z.object({
   title: z.string().trim().min(1).max(200),
   submitted_by: z.string().trim().min(1).max(200).default('Anonymous'),
+  base_checkpoint_url: z.string().trim().max(2000).url().refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' && url.hostname === 'github.com' && !url.port
+        && !url.username && !url.password && !url.search && !url.hash
+        && /^\/[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+\/(?:commit|tree)\/(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})\/?$/.test(url.pathname);
+    } catch { return false; }
+  }, 'Provide a public GitHub checkpoint URL pinned to a full commit hash, such as https://github.com/owner/repo/commit/FULL_SHA')
+    .describe('Public GitHub base checkpoint URL pinned to a complete 40- or 64-character commit hash. Public accessibility is checked before verification.'),
   payload: z.json(),
 }).strict();
 

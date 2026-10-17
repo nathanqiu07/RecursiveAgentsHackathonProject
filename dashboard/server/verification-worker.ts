@@ -1,5 +1,6 @@
 import type { BenchmarkStore, VerificationClaim } from './benchmark-store.ts';
 import { readPath, renderTemplate } from './verifier-adapter.ts';
+import { checkpointReference, PublicCheckpointError, verifyPublicCheckpoint } from './github-checkpoint.ts';
 
 const RESPONSE_LIMIT = 1024 * 1024;
 class VerificationError extends Error {}
@@ -34,13 +35,15 @@ function message(value: unknown): string | null {
 export class VerificationWorker {
   store: BenchmarkStore;
   request: typeof fetch;
+  checkpointRequest: typeof fetch;
   timer: ReturnType<typeof setInterval> | null = null;
   active: Promise<void> | null = null;
   controller = new AbortController();
 
-  constructor(store: BenchmarkStore, options: { request?: typeof fetch } = {}) {
+  constructor(store: BenchmarkStore, options: { request?: typeof fetch; checkpointRequest?: typeof fetch } = {}) {
     this.store = store;
     this.request = options.request ?? fetch;
+    this.checkpointRequest = options.checkpointRequest ?? fetch;
   }
 
   start() {
@@ -77,6 +80,11 @@ export class VerificationWorker {
     const { benchmark, submission } = claim;
     const verifier = benchmark.verifier;
     try {
+      checkpointReference(submission.base_checkpoint_url);
+      if (claim.phase === 'submit') {
+        await verifyPublicCheckpoint(submission.base_checkpoint_url, this.checkpointRequest,
+          AbortSignal.any([this.controller.signal, AbortSignal.timeout(Math.max(1, claim.deadline_at - this.store.resources.now()))]));
+      }
       const headers: Record<string, string> = { Accept: 'application/json' };
       if (verifier.auth_env) {
         const credential = process.env[verifier.auth_env];
@@ -135,6 +143,10 @@ export class VerificationWorker {
       if (claim.phase === 'poll' && !status) throw new VerificationError('Queued verifier did not return a job status');
       this.store.pending(claim, String(external), ['queued', 'pending'].includes(status) ? 'queued' : 'running');
     } catch (error) {
+      if (error instanceof PublicCheckpointError) {
+        this.store.finish(claim, error.rejected ? 'rejected' : 'failed', null, null, error.message);
+        return;
+      }
       const detail = error instanceof VerificationError ? error.message : 'Could not reach or read the verification endpoint';
       if (claim.phase === 'poll' && !(error instanceof VerificationError)) {
         this.store.pending(claim, submission.external_job_id!, 'running', detail);

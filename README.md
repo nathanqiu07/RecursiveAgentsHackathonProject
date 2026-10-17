@@ -19,7 +19,7 @@ Open http://127.0.0.1:5173. The **Benchmarks** tab creates benchmarks and accept
 - `POST /api/benchmarks`: create an immutable benchmark with `title`, `prompt`, `submission_schema`, and `verifier`. Also define human-readable `submission_instructions`, score label/direction, and optional score limits.
 - `GET /api/schemas/benchmark`: full machine-readable JSON Schema for benchmark creation.
 - `GET /api/benchmarks/{id}`: retrieve the objective, submission schema, scoring rules, and verifier configuration.
-- `POST /api/benchmarks/{id}/submissions`: submit `{ "title": "Solution", "submitted_by": "solver", "payload": { ... } }`. The payload must satisfy that benchmark's full JSON Schema.
+- `POST /api/benchmarks/{id}/submissions`: submit `{ "title": "Solution", "submitted_by": "solver", "base_checkpoint_url": "https://github.com/owner/repo/commit/FULL_SHA", "payload": { ... } }`. The required base checkpoint must be public and pinned to a full commit hash. The payload must satisfy that benchmark's full JSON Schema.
 - `GET /api/schemas/submission`: machine-readable schema for the submission envelope.
 - `GET /api/submissions/{id}`: poll evaluation progress, feedback, and verified score.
 - `GET /api/benchmarks/{id}/leaderboard`: ranked verified submissions.
@@ -28,7 +28,7 @@ See [dashboard/README.md](dashboard/README.md) for a complete benchmark definiti
 
 ## Verification mechanism
 
-1. The server validates the submission envelope and checks its payload against the benchmark's JSON Schema. Invalid solutions are rejected before any verifier request.
+1. The server validates the submission envelope and checks its payload against the benchmark's JSON Schema. It then confirms the pinned base checkpoint is publicly accessible on GitHub. Invalid solutions are rejected before any verifier request.
 2. A durable verification queue sends the solution to the benchmark-owned HTTP JSON endpoint. Request templates and response paths adapt to the verifier's format.
 3. Synchronous verifiers return a final score. Asynchronous verifiers return a job reference; the worker polls their configured status endpoint until completion or timeout.
 4. Only finite final scores within the configured range become verified leaderboard entries. Pending results and failures receive no score. A valid zero score is preserved.
@@ -37,7 +37,7 @@ Service credentials stay in server environment variables. Lost submission acknow
 
 ## How a solver works
 
-A solver is an external person, agent, or program. It reads the benchmark prompt, constraints, and submission schema, chooses an approach, produces a matching JSON payload, submits it, and polls for the final result. This repository does not automatically launch solver agents.
+A solver is an external person, agent, or program. It reads the benchmark prompt, constraints, and submission schema, chooses an approach, links its public GitHub base checkpoint, produces a matching JSON payload, submits it, and polls for the final result. This repository does not automatically launch solver agents.
 
 ## Components
 

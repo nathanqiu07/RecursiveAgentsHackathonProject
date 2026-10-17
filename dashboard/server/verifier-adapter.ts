@@ -20,7 +20,7 @@ export function readPath(value: unknown, path: string): unknown {
 const tokenPattern = /\{\{\s*([^{}]+?)\s*\}\}/g;
 function allowedToken(token: string) {
   return ['benchmark.id', 'benchmark.title', 'benchmark.version', 'submission.id', 'submission.title',
-    'submission.submitted_by', 'submission.payload'].includes(token)
+    'submission.submitted_by', 'submission.base_checkpoint_url', 'submission.payload'].includes(token)
     || (token.startsWith('submission.payload.') && token.split('.').every((part) => !forbidden.has(part)));
 }
 

@@ -4,9 +4,9 @@ import './benchmarks.css';
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, options);
-  const body = await response.json();
+  const body = await response.json() as { error?: string; details?: { path?: (string | number)[]; message: string }[] };
   if (!response.ok) {
-    const detail = Array.isArray(body.details) ? body.details.map((item: { path?: string[]; message: string }) =>
+    const detail = Array.isArray(body.details) ? body.details.map((item) =>
       `${item.path?.join('.') ? `${item.path.join('.')}: ` : ''}${item.message}`).join('; ') : '';
     throw new Error(detail || body.error || 'Unable to complete this request');
   }
@@ -15,6 +15,7 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
 const requestTemplate = {
   submission: '{{submission.payload}}', submission_id: '{{submission.id}}', benchmark_id: '{{benchmark.id}}',
+  base_checkpoint_url: '{{submission.base_checkpoint_url}}',
 };
 const repositorySchema = {
   type: 'object',
@@ -162,7 +163,8 @@ function SubmitSolution({ benchmark, onClose, onSubmitted }: {
       const payload = parseJSON(text(form, 'payload'), 'Solution');
       await api<Submission>(`/benchmarks/${benchmark.id}/submissions`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: text(form, 'title'), submitted_by: text(form, 'submitted_by'), payload }),
+        body: JSON.stringify({ title: text(form, 'title'), submitted_by: text(form, 'submitted_by'),
+          base_checkpoint_url: text(form, 'base_checkpoint_url'), payload }),
       });
       onSubmitted();
     } catch (failure) {
@@ -181,6 +183,8 @@ function SubmitSolution({ benchmark, onClose, onSubmitted }: {
       <div className="benchmark-form">
         <label>Solution name<input name="title" required maxLength={200} placeholder="Name this submission" autoFocus /></label>
         <label>Submitted by<input name="submitted_by" required maxLength={200} placeholder="Agent, team, or your name" /></label>
+        <label>Base checkpoint · public GitHub<input name="base_checkpoint_url" type="url" required maxLength={2000} placeholder="https://github.com/owner/repo/commit/FULL_COMMIT_SHA" />
+          <span className="benchmark-field-note">Link to a public GitHub commit or tree pinned to a full 40- or 64-character commit hash. Every submission requires this base checkpoint in addition to the benchmark's payload.</span></label>
         <details className="benchmark-advanced"><summary>Required submission format</summary><pre className="benchmark-schema">{JSON.stringify(benchmark.submission_schema, null, 2)}</pre></details>
         <label>Solution · JSON<textarea name="payload" className="code-input" required rows={10} spellCheck={false} placeholder={'{\n  "repository": "https://github.com/your-team/solution",\n  "commit": "full commit hash"\n}'} />
           <span className="benchmark-field-note">Provide the fields required by this benchmark's submission format. The verifier evaluates this exact payload.</span></label>
@@ -275,7 +279,9 @@ export default function Benchmarks({ active }: { active: boolean }) {
           <div className="nodes-table-container"><table className="nodes-table benchmark-data-table" aria-label="Benchmark leaderboard"><thead><tr>
             <th scope="col">Rank</th><th scope="col">Solution</th><th scope="col">Submitted by</th><th scope="col">{detail.benchmark.score_name}</th><th scope="col">Verified</th>
           </tr></thead><tbody>{detail.entries.length === 0 ? <tr><td className="nodes-empty" colSpan={5}>No verified scores yet. Submit a solution to start the leaderboard.</td></tr>
-            : detail.entries.map((entry) => <tr key={entry.id}><td className="benchmark-rank">{entry.rank}</td><th scope="row">{entry.title}</th><td>{entry.submitted_by}</td><td className="benchmark-score">{score(entry.score)}</td><td className="muted">{entry.completed_at ? date(entry.completed_at) : '—'}</td></tr>)}</tbody></table></div>
+            : detail.entries.map((entry) => <tr key={entry.id}><td className="benchmark-rank">{entry.rank}</td><th scope="row">{entry.title}
+              {entry.base_checkpoint_url && <a className="cell-secondary" href={entry.base_checkpoint_url} target="_blank" rel="noreferrer">Base checkpoint ↗</a>}
+            </th><td>{entry.submitted_by}</td><td className="benchmark-score">{score(entry.score)}</td><td className="muted">{entry.completed_at ? date(entry.completed_at) : '—'}</td></tr>)}</tbody></table></div>
         </section>
         <section className="benchmark-section" aria-labelledby="submissions-title">
           <div className="section-heading"><div><h2 id="submissions-title">Submissions <span className="node-count">{detail.total}</span></h2><p className="muted">Verification progress and feedback for each solution.</p></div></div>
@@ -283,6 +289,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
             <th scope="col">Solution</th><th scope="col">Submitted by</th><th scope="col">Status</th><th scope="col">{detail.benchmark.score_name}</th><th scope="col">Submitted</th>
           </tr></thead><tbody>{detail.submissions.length === 0 ? <tr><td className="nodes-empty" colSpan={5}>No submissions yet.</td></tr> : detail.submissions.map((submission) => <tr key={submission.id}>
             <th scope="row">{submission.title}
+              {submission.base_checkpoint_url && <a className="cell-secondary" href={submission.base_checkpoint_url} target="_blank" rel="noreferrer">Base checkpoint ↗</a>}
               {submission.feedback && <span className="benchmark-submission-note">{submission.feedback}</span>}
               {submission.error && <span className="benchmark-submission-note error-text">{submission.error}</span>}
               <details className="benchmark-submission-payload"><summary>View submitted solution</summary><pre>{JSON.stringify(submission.payload, null, 2)}</pre></details>

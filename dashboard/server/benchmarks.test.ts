@@ -12,6 +12,9 @@ import { BenchmarkStore } from './benchmark-store.ts';
 import { ResourceStore, StoreError } from './store.ts';
 import { VerificationWorker } from './verification-worker.ts';
 
+const CHECKPOINT_SHA = 'a'.repeat(40);
+const CHECKPOINT_URL = `https://github.com/example/solution/commit/${CHECKPOINT_SHA}`;
+
 function definition(overrides: Record<string, unknown> = {}): BenchmarkInput {
   return benchmarkSchema.parse({
     title: 'Open-ended optimization',
@@ -26,7 +29,7 @@ function definition(overrides: Record<string, unknown> = {}): BenchmarkInput {
 }
 
 function solution(answer = 42, title = 'Candidate') {
-  return submissionSchema.parse({ title, submitted_by: 'Research agent', payload: { answer } });
+  return submissionSchema.parse({ title, submitted_by: 'Research agent', base_checkpoint_url: CHECKPOINT_URL, payload: { answer } });
 }
 
 function response(body: unknown, status = 200) {
@@ -35,6 +38,12 @@ function response(body: unknown, status = 200) {
 
 function mockRequest(handler: (url: string, init: RequestInit) => Response | Promise<Response>): typeof fetch {
   return (async (url: string | URL | Request, init: RequestInit = {}) => handler(String(url), init)) as typeof fetch;
+}
+
+function verifierWorker(store: BenchmarkStore, options: { request?: typeof fetch; checkpointRequest?: typeof fetch } = {}) {
+  return new VerificationWorker(store, {
+    checkpointRequest: mockRequest(() => response({ sha: CHECKPOINT_SHA })), ...options,
+  });
 }
 
 test('benchmark HTTP API persists complete submission definitions and rejects client-authored scores', async () => {
@@ -65,6 +74,12 @@ test('benchmark HTTP API persists complete submission definitions and rejects cl
     assert.equal((await request(`/benchmarks/${benchmark.id}/submissions`, {
       ...solution(), score: 999, status: 'verified',
     })).status, 400);
+    const missingCheckpoint = { ...solution() } as Record<string, unknown>;
+    delete missingCheckpoint.base_checkpoint_url;
+    assert.equal((await request(`/benchmarks/${benchmark.id}/submissions`, missingCheckpoint)).status, 400);
+    assert.equal((await request(`/benchmarks/${benchmark.id}/submissions`, {
+      ...solution(), base_checkpoint_url: 'https://github.com/example/solution/tree/main',
+    })).status, 400);
     assert.equal((await request(`/benchmarks/${benchmark.id}/submissions`, {
       ...solution(), payload: { answer: 'not a number' },
     })).status, 422);
@@ -94,14 +109,14 @@ test('synchronous verifier receives the submitted JSON and zero is a verified sc
     const benchmark = store.createBenchmark(definition());
     const submission = store.createSubmission(benchmark.id, solution(0));
     let calls = 0;
-    const worker = new VerificationWorker(store, {
+    const worker = verifierWorker(store, {
       request: mockRequest((url, init) => {
         calls += 1;
         assert.equal(url, benchmark.verifier.url);
         assert.equal(init.method, 'POST');
         assert.equal(init.redirect, 'error');
         assert.deepEqual(JSON.parse(String(init.body)), {
-          submission: { answer: 0 }, submission_id: submission.id, benchmark_id: benchmark.id,
+          submission: { answer: 0 }, submission_id: submission.id, benchmark_id: benchmark.id, base_checkpoint_url: CHECKPOINT_URL,
         });
         return response({ score: 0, feedback: 'Correct, with a valid zero score.' });
       }),
@@ -134,7 +149,7 @@ test('queued verifier honors custom mappings, encoded job IDs, and only final sc
     } }));
     const submission = store.createSubmission(benchmark.id, solution());
     const calls: string[] = [];
-    const worker = new VerificationWorker(store, { request: mockRequest((url, init) => {
+    const worker = verifierWorker(store, { request: mockRequest((url, init) => {
       calls.push(url);
       if (init.method === 'POST') {
         assert.deepEqual(JSON.parse(String(init.body)), { candidate: { answer: 42 }, author: 'Research agent' });
@@ -173,7 +188,7 @@ test('leaderboards honor score direction, preserve tied ranks, and exclude unver
         now += 1;
         submissions.push(store.createSubmission(benchmark.id, solution(score, `Score ${score}`)));
       }
-      const worker = new VerificationWorker(store, { request: mockRequest((_url, init) => {
+      const worker = verifierWorker(store, { request: mockRequest((_url, init) => {
         const payload = JSON.parse(String(init.body));
         return response({ score: payload.submission.answer });
       }) });
@@ -201,7 +216,7 @@ for (const [label, result] of [
     try {
       const benchmark = store.createBenchmark(definition({ score_min: 0, score_max: 1 }));
       const submission = store.createSubmission(benchmark.id, solution());
-      const worker = new VerificationWorker(store, { request: mockRequest(() => response(result)) });
+      const worker = verifierWorker(store, { request: mockRequest(() => response(result)) });
       await worker.tick();
       const saved = store.getSubmission(submission.id);
       assert.ok(['failed', 'rejected'].includes(saved.status));
@@ -219,7 +234,7 @@ test('a lost dispatch response is recorded without automatically submitting the 
     const benchmark = store.createBenchmark(definition());
     const submission = store.createSubmission(benchmark.id, solution());
     let calls = 0;
-    const worker = new VerificationWorker(store, { request: mockRequest(() => {
+    const worker = verifierWorker(store, { request: mockRequest(() => {
       calls += 1;
       throw new TypeError('Network connection lost after remote acceptance');
     }) });
@@ -243,7 +258,7 @@ test('nonfinite numbers, malformed reports, and HTTP failures never become verif
     try {
       const benchmark = store.createBenchmark(definition());
       const submission = store.createSubmission(benchmark.id, solution());
-      const worker = new VerificationWorker(store, { request: mockRequest(invalidResponse) });
+      const worker = verifierWorker(store, { request: mockRequest(invalidResponse) });
       await worker.tick();
       assert.equal(store.getSubmission(submission.id).status, 'failed');
       assert.equal(store.getSubmission(submission.id).score, null);
@@ -266,7 +281,7 @@ test('queued verification resumes after reopening the persistent database', asyn
     assert.equal(store.getBenchmark(benchmark.id).title, benchmark.title);
     assert.deepEqual(store.getBenchmark(benchmark.id).submission_schema, benchmark.submission_schema);
     assert.equal(store.getSubmission(submission.id).status, 'queued');
-    const worker = new VerificationWorker(store, { request: mockRequest(() => response({ score: 0.75 })) });
+    const worker = verifierWorker(store, { request: mockRequest(() => response({ score: 0.75 })) });
     await worker.tick();
     resources.close();
     resources = new ResourceStore(path);
@@ -301,13 +316,13 @@ test('a remote queued job resumes polling after restart without dispatching it a
       polls += 1;
       return response({ status: 'completed', score: 0.9 });
     });
-    await new VerificationWorker(store, { request }).tick();
+    await verifierWorker(store, { request }).tick();
     assert.equal(store.getSubmission(submission.id).external_job_id, 'remote-job-1');
     resources.close();
     now += 1001;
     resources = new ResourceStore(path, () => now);
     store = new BenchmarkStore(resources);
-    await new VerificationWorker(store, { request }).tick();
+    await verifierWorker(store, { request }).tick();
     assert.equal(submissions, 1);
     assert.equal(polls, 1);
     assert.equal(store.getSubmission(submission.id).status, 'verified');
@@ -330,8 +345,8 @@ test('concurrent verifier workers cannot dispatch the same submission twice', as
       await Promise.resolve();
       return response({ score: 0.5 });
     });
-    const first = new VerificationWorker(store, { request });
-    const second = new VerificationWorker(store, { request });
+    const first = verifierWorker(store, { request });
+    const second = verifierWorker(store, { request });
     await Promise.all([first.tick(), second.tick(), first.tick()]);
     assert.equal(calls, 1);
     assert.equal(store.getSubmission(submission.id).status, 'verified');
@@ -349,7 +364,7 @@ test('queued verification exceeding its time budget fails without another remote
     } }));
     const submission = store.createSubmission(benchmark.id, solution());
     let calls = 0;
-    const worker = new VerificationWorker(store, { request: mockRequest(() => {
+    const worker = verifierWorker(store, { request: mockRequest(() => {
       calls += 1;
       return response({ id: 'remote-queued', status: 'queued' }, 202);
     }) });
@@ -372,7 +387,7 @@ test('a score arriving after the verification deadline is not published', async 
       url: 'https://verifier.example/evaluate', timeout_seconds: 1,
     } }));
     const submission = store.createSubmission(benchmark.id, solution());
-    const worker = new VerificationWorker(store, { request: mockRequest(() => {
+    const worker = verifierWorker(store, { request: mockRequest(() => {
       now += 1001;
       return response({ score: 1 });
     }) });
@@ -400,7 +415,7 @@ test('a crashed dispatcher is not replayed after its persistent lease expires', 
     resources = new ResourceStore(path, () => now);
     store = new BenchmarkStore(resources);
     let calls = 0;
-    const worker = new VerificationWorker(store, { request: mockRequest(() => {
+    const worker = verifierWorker(store, { request: mockRequest(() => {
       calls += 1;
       return response({ score: 1 });
     }) });
@@ -427,7 +442,7 @@ test('transient network failure while polling preserves the remote job and retri
     const submission = store.createSubmission(benchmark.id, solution());
     let submissions = 0;
     let polls = 0;
-    const worker = new VerificationWorker(store, { request: mockRequest((_url, init) => {
+    const worker = verifierWorker(store, { request: mockRequest((_url, init) => {
       if (init.method === 'POST') {
         submissions += 1;
         return response({ id: 'durable-remote', status: 'queued' }, 202);
@@ -486,9 +501,102 @@ test('schema-invalid solutions never create verification jobs', () => {
   try {
     const benchmark = store.createBenchmark(definition());
     assert.throws(() => store.createSubmission(benchmark.id, submissionSchema.parse({
-      title: 'Invalid', payload: { answer: false },
+      title: 'Invalid', base_checkpoint_url: CHECKPOINT_URL, payload: { answer: false },
     })), (error: unknown) => error instanceof StoreError && error.status === 422);
     assert.equal(store.listSubmissions(benchmark.id).total, 0);
     assert.equal(store.getBenchmark(benchmark.id).submission_count, 0);
+  } finally { resources.close(); }
+});
+
+test('submission checkpoint format requires an immutable public GitHub commit or tree URL', () => {
+  const valid = solution();
+  assert.equal(submissionSchema.safeParse(valid).success, true);
+  assert.equal(submissionSchema.safeParse({ ...valid,
+    base_checkpoint_url: `https://github.com/example/solution/tree/${'b'.repeat(64)}`,
+  }).success, true);
+  for (const url of [
+    'https://github.com/example/solution/tree/main',
+    'https://github.com/example/solution/commit/abc1234',
+    `http://github.com/example/solution/commit/${CHECKPOINT_SHA}`,
+    `https://github.com.evil.example/example/solution/commit/${CHECKPOINT_SHA}`,
+    `https://token@github.com/example/solution/commit/${CHECKPOINT_SHA}`,
+    `https://gitlab.com/example/solution/commit/${CHECKPOINT_SHA}`,
+    'not-a-url',
+  ]) {
+    assert.equal(submissionSchema.safeParse({ ...valid, base_checkpoint_url: url }).success, false, url);
+  }
+});
+
+test('the checkpoint is fetched publicly and matched before sending the solution to its verifier', async () => {
+  const resources = new ResourceStore(':memory:');
+  const store = new BenchmarkStore(resources);
+  try {
+    const benchmark = store.createBenchmark(definition());
+    const submission = store.createSubmission(benchmark.id, solution());
+    const events: string[] = [];
+    const worker = verifierWorker(store, {
+      checkpointRequest: mockRequest((url, init) => {
+        events.push('checkpoint');
+        assert.equal(url, `https://api.github.com/repos/example/solution/git/commits/${CHECKPOINT_SHA}`);
+        assert.equal(init.method, 'GET');
+        assert.equal(init.redirect, 'error');
+        assert.equal(new Headers(init.headers).has('authorization'), false);
+        return response({ sha: CHECKPOINT_SHA });
+      }),
+      request: mockRequest((_url, init) => {
+        events.push('verifier');
+        assert.equal(JSON.parse(String(init.body)).base_checkpoint_url, CHECKPOINT_URL);
+        return response({ score: 0.7 });
+      }),
+    });
+    await worker.tick();
+    assert.deepEqual(events, ['checkpoint', 'verifier']);
+    assert.equal(store.getSubmission(submission.id).status, 'verified');
+    assert.equal(store.getSubmission(submission.id).base_checkpoint_url, CHECKPOINT_URL);
+  } finally { resources.close(); }
+});
+
+for (const [label, upstream] of [
+  ['inaccessible or private checkpoint', () => response({ message: 'Not Found' }, 404)],
+  ['mismatched checkpoint revision', () => response({ sha: 'b'.repeat(40) })],
+] as const) {
+  test(`${label} is rejected before any verification request`, async () => {
+    const resources = new ResourceStore(':memory:');
+    const store = new BenchmarkStore(resources);
+    try {
+      const benchmark = store.createBenchmark(definition());
+      const submission = store.createSubmission(benchmark.id, solution());
+      let verifierCalls = 0;
+      const worker = verifierWorker(store, {
+        checkpointRequest: mockRequest(upstream),
+        request: mockRequest(() => { verifierCalls += 1; return response({ score: 1 }); }),
+      });
+      await worker.tick();
+      assert.equal(verifierCalls, 0);
+      assert.equal(store.getSubmission(submission.id).status, 'rejected');
+      assert.equal(store.getSubmission(submission.id).score, null);
+      assert.match(store.getSubmission(submission.id).error ?? '', /checkpoint/i);
+      assert.equal(store.leaderboard(benchmark.id).entries.length, 0);
+    } finally { resources.close(); }
+  });
+}
+
+test('a checkpoint service failure is recorded separately from an unknown verifier dispatch', async () => {
+  const resources = new ResourceStore(':memory:');
+  const store = new BenchmarkStore(resources);
+  try {
+    const benchmark = store.createBenchmark(definition());
+    const submission = store.createSubmission(benchmark.id, solution());
+    let verifierCalls = 0;
+    const worker = verifierWorker(store, {
+      checkpointRequest: mockRequest(() => response({ message: 'Unavailable' }, 503)),
+      request: mockRequest(() => { verifierCalls += 1; return response({ score: 1 }); }),
+    });
+    await worker.tick();
+    assert.equal(verifierCalls, 0);
+    const saved = store.getSubmission(submission.id);
+    assert.equal(saved.status, 'failed');
+    assert.match(saved.error ?? '', /checkpoint/i);
+    assert.doesNotMatch(saved.error ?? '', /dispatch outcome is unknown/i);
   } finally { resources.close(); }
 });

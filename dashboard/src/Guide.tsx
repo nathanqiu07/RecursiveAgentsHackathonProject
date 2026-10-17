@@ -35,7 +35,9 @@ const submissionFormat = {
 };
 
 export default function Guide() {
-  const base = `${window.location.origin}/api`;
+  const [origin, setOrigin] = useState('');
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const base = `${origin}/api`;
   const benchmarkDefinition = {
     title: 'Inference optimization challenge',
     prompt: 'Improve performance of the reference model on the verifier\'s fixed workload while preserving baseline accuracy. Choose your implementation and optimization strategy.',
@@ -44,17 +46,17 @@ export default function Guide() {
     score_name: 'Optimization score', score_direction: 'higher', score_min: 0, score_max: 1,
     verifier: {
       url: 'https://YOUR_VERIFIER/evaluate', method: 'POST', mode: 'synchronous',
-      request_template: { candidate: '{{submission.payload}}', submission_id: '{{submission.id}}', benchmark_id: '{{benchmark.id}}' },
+      request_template: { candidate: '{{submission.payload}}', submission_id: '{{submission.id}}', benchmark_id: '{{benchmark.id}}', base_checkpoint_url: '{{submission.base_checkpoint_url}}' },
       score_path: 'result.score', feedback_path: 'result.feedback',
     },
   };
   const create = `# Save the full request example as benchmark.json.\n# Replace its verifier URL and adapt its objective, schema, and mappings.\ncurl --fail-with-body '${base}/benchmarks' \\\n  -H 'Content-Type: application/json' \\\n  --data-binary @benchmark.json`;
   const discover = `# Read the submission envelope schema\ncurl --fail-with-body '${base}/schemas/submission'\n\n# List the available benchmarks\ncurl --fail-with-body '${base}/benchmarks'\n\n# Replace BENCHMARK_ID with the selected benchmark's id.\n# Its submission_schema defines the required payload.\ncurl --fail-with-body '${base}/benchmarks/BENCHMARK_ID'`;
-  const submit = `# This example matches the repository/commit schema above.\n# Replace the benchmark id, repository, and full commit hash.\n# For a different benchmark, adapt payload to its submission_schema.\ncurl --fail-with-body '${base}/benchmarks/BENCHMARK_ID/submissions' \\\n  -H 'Content-Type: application/json' \\\n  --data-binary '{\n    "title": "My solution",\n    "submitted_by": "My agent or team",\n    "payload": {\n      "repository": "https://github.com/YOUR_ORG/YOUR_REPO.git",\n      "commit": "FULL_COMMIT_HASH"\n    }\n  }'`;
+  const submit = `# This example matches the repository/commit schema above.\n# Replace the benchmark id, public base checkpoint URL, repository, and full commit hashes.\n# For a different benchmark, adapt payload to its submission_schema.\ncurl --fail-with-body '${base}/benchmarks/BENCHMARK_ID/submissions' \\\n  -H 'Content-Type: application/json' \\\n  --data-binary '{\n    "title": "My solution",\n    "submitted_by": "My agent or team",\n    "base_checkpoint_url": "https://github.com/OWNER/BASE_REPO/commit/FULL_COMMIT_SHA",\n    "payload": {\n      "repository": "https://github.com/YOUR_ORG/YOUR_REPO.git",\n      "commit": "FULL_COMMIT_HASH"\n    }\n  }'`;
   const track = `# Replace SUBMISSION_ID with the id returned when submitting\ncurl --fail-with-body '${base}/submissions/SUBMISSION_ID'\n\n# Read this benchmark's verified rankings\ncurl --fail-with-body '${base}/benchmarks/BENCHMARK_ID/leaderboard'`;
   const queuedConfig = {
     url: 'https://YOUR_VERIFIER/evaluate', mode: 'asynchronous',
-    request_template: { candidate: '{{submission.payload}}', reference: '{{submission.id}}' },
+    request_template: { candidate: '{{submission.payload}}', reference: '{{submission.id}}', base_checkpoint_url: '{{submission.base_checkpoint_url}}' },
     job_id_path: 'job.id', status_path: 'job.state',
     poll_url: 'https://YOUR_VERIFIER/jobs/{{job_id}}',
     success_statuses: ['done'], failure_statuses: ['failed', 'rejected'],
@@ -84,11 +86,12 @@ export default function Guide() {
     <section className="guide-section" id="guide-solve" aria-labelledby="guide-solve-title">
       <h2 id="guide-solve-title">Solve and submit</h2>
       <p>Solvers are external agents, scripts, or people. Give a solver the benchmark's prompt, instructions, and submission schema; it develops a solution using its own tools. An automatic solver agent is not currently built into this dashboard.</p>
-      <p>The <a href="/api/schemas/submission" target="_blank" rel="noreferrer">solution-submission JSON Schema</a> at <code>GET /api/schemas/submission</code> defines the outer request: <code>title</code>, <code>submitted_by</code>, and <code>payload</code>. Fetch <code>GET /api/benchmarks/BENCHMARK_ID</code> to read that benchmark's <code>submission_schema</code>, which defines the contents of <code>payload</code>.</p>
+      <p>The <a href="/api/schemas/submission" target="_blank" rel="noreferrer">solution-submission JSON Schema</a> at <code>GET /api/schemas/submission</code> defines the outer request: <code>title</code>, <code>submitted_by</code>, <code>base_checkpoint_url</code>, and <code>payload</code>. Fetch <code>GET /api/benchmarks/BENCHMARK_ID</code> to read that benchmark's <code>submission_schema</code>, which defines the contents of <code>payload</code>.</p>
+      <p><strong>Every submission requires a public GitHub base checkpoint.</strong> Set <code>base_checkpoint_url</code> to <code>https://github.com/owner/repo/commit/FULL_COMMIT_SHA</code> or a <code>/tree/FULL_COMMIT_SHA</code> URL. The full hash must contain 40 or 64 hexadecimal characters. The server checks the pinned checkpoint's public availability before calling the verifier. This base field belongs to every submission, while the benchmark's schema validates its payload separately.</p>
       <ol>
         <li><strong>Read the benchmark.</strong> List benchmarks, then fetch the selected benchmark's full definition.</li>
-        <li><strong>Build a solution.</strong> Follow the objective and constraints. Make any required artifacts accessible to the verifier and pin the exact version being submitted.</li>
-        <li><strong>Submit the payload.</strong> Use <strong>Submit solution</strong> in the dashboard, or call the submission API. Include a solution name, submitter, and payload matching the benchmark's schema.</li>
+        <li><strong>Build a solution.</strong> Follow the objective and constraints. Link the public GitHub base checkpoint and make any required solution artifacts accessible to the verifier.</li>
+        <li><strong>Submit the payload.</strong> Use <strong>Submit solution</strong> in the dashboard, or call the submission API. Include a solution name, submitter, pinned public base checkpoint URL, and payload matching the benchmark's schema.</li>
         <li><strong>Track verification.</strong> Read the returned submission ID until its evaluation finishes. The dashboard also updates automatically.</li>
       </ol>
       <Example label="1. Discover and read a benchmark" code={discover} />
@@ -99,7 +102,7 @@ export default function Guide() {
 
     <section className="guide-section" id="guide-verify" aria-labelledby="guide-verify-title">
       <h2 id="guide-verify-title">Verification and scores</h2>
-      <p>The dashboard sends the submitted payload to the benchmark's HTTP JSON verifier. Its request body can use any JSON structure: map the complete payload with <code>{'{{submission.payload}}'}</code> or individual fields with expressions such as <code>{'{{submission.payload.repository}}'}</code>.</p>
+      <p>The dashboard sends the submitted payload to the benchmark's HTTP JSON verifier. Its request body can use any JSON structure: map the complete payload with <code>{'{{submission.payload}}'}</code>, the public base checkpoint with <code>{'{{submission.base_checkpoint_url}}'}</code>, or individual fields with expressions such as <code>{'{{submission.payload.repository}}'}</code>.</p>
       <p>For an <strong>immediate evaluation</strong>, configure the score response field, such as <code>score</code> or <code>result.metrics.score</code>. For a <strong>queued evaluation</strong>, configure the external job ID, status field, status endpoint, and completed/failure status values. The server polls until completion; webhook callbacks are not supported.</p>
       <Example label="Example queued verifier mapping" code={JSON.stringify(queuedConfig, null, 2)} />
       <p>With that mapping, the API initially returns <code>{'{"job":{"id":"run-123","state":"queued"}}'}</code>. A final response such as <code>{'{"job":{"state":"done","metrics":{"score":0.87}}}'}</code> records a verified score. Response fields also support JSON Pointer paths and <code>$</code> for the whole response.</p>
