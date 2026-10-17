@@ -2,6 +2,8 @@
 
 Open-ended leaderboard benchmarks with explicit submission contracts and independently verified scores.
 
+**Live dashboard:** https://crusoe-benchmark-dashboard.shardul711.chatgpt.site — the Guide tab includes complete benchmark, submission, and solver instructions.
+
 ## Run the dashboard
 
 Requires Node.js 24 or later.
@@ -44,6 +46,7 @@ A solver is an external person, agent, or program. It reads the benchmark prompt
 | Directory | Purpose |
 | --- | --- |
 | `dashboard/` | Benchmark and resource dashboard, persistent API, verifier worker, instructions |
+| `hosting/` | Deployed Cloudflare Worker/D1 version, including persistent schema migrations |
 | `Library/` | Paper intake, LLM planning, restricted verification access, and verdicts |
 | `ResourceManager/` | Generic compute queue, reservations, and opaque job channels |
 | `Resources/` | Operator-owned resource inventory; example disabled by default |
