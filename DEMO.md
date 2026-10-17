@@ -85,10 +85,10 @@ Both outcomes are reportable:
 
 ## Layer 3, GPU kernels: KernelBench mini
 
-- **Task:** 12 Level-1 CUDA problems (`benchmarks/kernelbench_mini/`).
+- **Task:** 12 Level-1 problems (`benchmarks/kernelbench_mini/`). Written for CUDA; the live run targets the Mac's Apple GPU (PyTorch MPS), where the team writes PyTorch ops or Metal kernels.
 - **Verifier:** correctness and speed against the PyTorch reference, with static reward-hack guards.
-- **Status:** built and tested offline. **Not run:** our Crusoe project has zero GPU quota, so the L40S VM (`scripts/crusoe_gpu_vm.sh`) cannot be created.
-- **Result:** [KB_RESULT]. If none: "built and tested offline with reward-hack guards; the live run is next, on a Crusoe GPU."
+- **Hardware:** our Crusoe project has zero GPU quota, so the L40S VM (`scripts/crusoe_gpu_vm.sh`) could not be created. Nemotron runs on Crusoe; the kernels are timed on a laptop GPU, with the noise band measured in `reports/kernelbench_mps/noise_band.json`.
+- **Result (`kernelbench-mps-1`):** v0 cold → v0 + final brain on 5 unseen problems: correct kernels 20% → 40% (1 → 2 of 5), mean score 0.091 → 0.284, mean speedup of correct kernels 0.46x → 0.71x, faster than PyTorch eager 0 → 0. The gain came from the Shared Brain alone; the gate accepted no version change. Say it plainly: the team wrote more correct kernels, but none beat PyTorch eager yet. One extra correct kernel out of 5 is a small sample. `kernelbench-mps-2` is running.
 
 ## Layer 4, inference: data-center operations questions (live)
 
@@ -145,7 +145,7 @@ Cost, tokens and calls per verified point are also reported on layers 1 to 3.
 
 ## Honesty
 
-- **Generality is limited:** it is claimed only for problems with a programmatic verifier. It is shown on [N_LIVE] of 4 layers with live results.
+- **Generality is limited:** it is claimed only for problems with a programmatic verifier. All 4 layers have live results; the self-improvement shows on 3 (inference cost, rack placement, kernels via memory), is small on QAPLIB (gap 4.3% → 3.6%) and absent on hall layout.
 - **Run 1 found no gain:** on 15 held-out halls the final version scored 71.0, equal to v0 cold, and the gate rejected 9 of 9 changes. We report that as the result so far.
 - **Small sample:** 15 held-out halls and one seed. The settings experiment used 4 halls with about ±1.3 points of noise, so +2.66 is a small effect. We report the mean with the per-task spread and make no significance claim.
 - **The hall has a floor by construction:** the team keeps its best layout, so it cannot score below its starting layout. The claim is the gain of the final version over v0 cold.
@@ -175,12 +175,11 @@ Rebuild the data once after the last run lands (`scripts/build_datacenter_view.p
 | 1:00 to 1:30 | AI Data Center tab: the four layer cards, v0 cold → final | "Four layers, one harness. Each card is the same team before and after it edits itself, on unseen tasks." | `docs/demo/datacenter-1548.png` (15:48 snapshot from before the v0-cold reframe; re-shoot after the final runs) |
 | 1:30 to 2:10 | Hill climb: best run (currently `qaplib-dc-research-1`), press Replay, then click one green dot | "Each dot is a change the team proposed to itself. Red, the gate refused it. Green, kept. This one: turn reasoning on for the solver. It claimed +0.03. The verifier measured +0.146, but cost went up 93%. The gate shows what it read: You.com sources." | `docs/demo/hillclimb.png`, then `docs/demo/hillclimb-detail.png` |
 | 2:10 to 2:30 | Library tab: the same change written up as a paper, with the gate's verdict attached | "Every change is a paper with a falsifiable claim. The verifier is the reviewer. A claim enters memory only if it reproduces." | Read the claim and verdict from `hillclimb-detail.png` |
-| 2:30 to 3:00 | Back to DoneTwin for 5 s: the live run ends at about 2:40 with "Verified. 1.1 MW online", 70.97 (the starting layout's score), about $0.02. Then the AI Data Center tab | If it finished: "That run just checked itself for two cents." Caveats: "On QAPLIB and rack placement a 10 s classical search still scores higher. KernelBench: [KB_STATUS]." Ask: "Bring a verifier, get a team that keeps only what it measures. We want problems from Crusoe's own build-out to run it on." | If DoneTwin has not finished, skip it and do not mention it. Same slide, spoken |
+| 2:30 to 3:00 | Back to DoneTwin for 5 s: the live run ends at about 2:40 with "Verified. 1.1 MW online", 70.97 (the starting layout's score), about $0.02. Then the AI Data Center tab | If it finished: "That run just checked itself for two cents." Caveats: "On QAPLIB and rack placement a 10 s classical search still scores higher. Kernels, timed on a laptop GPU because our Crusoe GPU quota was zero: the team doubled its correct kernels, 1 to 2 of 5, but none beat PyTorch yet." Ask: "Bring a verifier, get a team that keeps only what it measures. We want problems from Crusoe's own build-out to run it on." | If DoneTwin has not finished, skip it and do not mention it. Same slide, spoken |
 
 **Live run cost and risk.** The DoneTwin hand-off calls Crusoe live (Nemotron Super, about $0.02). A 429 or a slow reasoning call can stall it; the Replay fallback covers that. Do not also start a terminal run: it competes for the same concurrency cap.
 
 **Placeholders to fill at about 5:00 PM** from `reports/RESULTS.md`:
-- [KB_STATUS]: if an Apple MPS run finished, use "measured on a laptop GPU (Apple MPS), because our Crusoe GPU quota was zero". Otherwise: "built with reward-hack guards, not run: our Crusoe GPU quota was zero".
 - Hill climb: `qaplib-dc-research-1` matches the screenshots and the narrated dot. The rack headline is now `qaplib-dc-research-2` (0.597 → 0.845); switch the replay to it only if it has a comparable green dot, and update the narrated numbers.
 
 ## 60-second demo script

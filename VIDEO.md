@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1. Hall layout | GPU data-hall layout (DoneTwin) | Rikin's scorer, 0 to 100 | **Hero**, 20 s |
 | 2. Equipment placement | QAPLIB facility layout (quadratic assignment) | Exact assignment cost vs the best-known answer | 8 s |
-| 3. GPU kernels | KernelBench mini, 12 Level-1 CUDA problems on a Crusoe L40S | Correctness and speed vs PyTorch, with reward-hack guards | 7 s |
+| 3. GPU kernels | KernelBench mini, 12 Level-1 problems, timed on a laptop GPU (Crusoe GPU quota was zero) | Correctness and speed vs PyTorch, with reward-hack guards | 7 s |
 | 4. Inference | Data-center operations questions with code-checked exact answers (`benchmarks/inference_opt/`) | Exact-answer check plus measured Crusoe cost | 10 s |
 
 The hall is the hero for three reasons:
@@ -24,7 +24,7 @@ The hall is the hero for three reasons:
 | 0:07 to 0:15 | Harness | "Our harness turns each into a Nemotron team on Crusoe that proposes changes to itself and keeps only what a verifier measures." |
 | 0:15 to 0:35 | 1. Hall layout | "Hall layout. Our cold team starts at 71 out of 100. In run one, it proposed 9 changes to itself, and the gate rejected all 9. Then we tested settings. The only one that beat the cold start was the small model allowed to think." **Outcome A:** "In run two the team turned reasoning on by itself, and [N_HALLS] unseen halls went from 71 to [RUN2_SCORE]." **Outcome B:** "In run two, the gate still found nothing worth keeping on unseen halls." |
 | 0:35 to 0:43 | 2. Equipment | "Equipment placement, same harness: on unseen QAPLIB instances, the gap to the best-known solutions fell from 4.3% to 3.6%." |
-| 0:43 to 0:50 | 3. Kernels | "GPU kernels: 12 CUDA problems with reward-hack guards, built and ready for a Crusoe GPU." (Not run: our project has zero GPU quota.) |
+| 0:43 to 0:50 | 3. Kernels | "GPU kernels: with its memory, the team doubled its correct kernels on unseen problems. None beats PyTorch yet." |
 | 0:50 to 1:00 | 4. Inference | "And serving: the team re-routes its own Nemotron calls, cutting the cost per correct answer by 31% on unseen halls. Bring a verifier. Get a team that keeps only what it measures." |
 
 **Placeholders to fill from `reports/RESULTS.md` before recording:**
