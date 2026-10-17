@@ -53,7 +53,77 @@ function pickBaseline(entries: LeaderboardEntry[]) {
 }
 // Team rows are titled "<config>, <run>: <delta> [digest]"; a "(cold)" config is the same run before shared notes.
 const runOf = (title: string) => title.replace(/\s*\[[0-9a-f]+\]$/, '').replace(/:[^:]*$/, '').split(', ').slice(1).join(', ');
-function summarize(entries: LeaderboardEntry[], direction: 'higher' | 'lower' = 'higher') {
+// v0 is the baseline: "Baseline: v0 cold (<run>)" is a run's starting team with an empty brain and "<run> final" its
+// last version. Classical programs ("Reference (no LLM): ...", older "Baseline: greedy (no LLM)" rows) stay on the
+// server, since rows cannot be deleted, but are hidden here: v0 cold to final is the only comparison shown.
+const stripDigest = (title: string) => title.replace(/\s*\[[0-9a-f]+\]$/, '');
+const coldRun = (title: string) => /^baseline:\s*v0 cold \((.+)\)$/i.exec(stripDigest(title))?.[1] ?? null;
+const finalRun = (title: string) => /^(\S+) final$/.exec(stripDigest(title))?.[1] ?? null;
+const coldFor = (entries: LeaderboardEntry[], run: string | null) => run ? entries.find((entry) => coldRun(entry.title) === run) ?? null : null;
+// On a board that has v0-baseline rows, the older team rows (titled "... vs 2-swap") repeat them with the classical
+// comparison, so only the v0 rows are shown; elsewhere every row without "no LLM" is shown.
+function visibleEntries(entries: LeaderboardEntry[]) {
+  const team = entries.filter((entry) => !isReference(entry.title) && !/^reference\b/i.test(entry.title));
+  const v0Rows = team.filter((entry) => coldRun(entry.title) || finalRun(entry.title));
+  return v0Rows.length ? v0Rows : team;
+}
+// Run facts a score cannot carry: cost and latency come from the run's usage.json, not from the submitted answers.
+const RUN_NOTES: Record<string, { summary: string; row: string }> = {
+  'inference-opt-2': {
+    summary: 'v0 cold to final on inference-opt-2: 31% less per correct answer (v0 $0.001092 to final $0.000753 on 48 '
+      + 'held-out questions). 47/48 to 48/48 is one question, so no accuracy gain is claimed. Median call latency doubled '
+      + '(9.7 s to 19.0 s); time per hall halved (163 s to 77 s).',
+    row: 'Final costs 31% less per correct answer than v0 cold ($0.000753 vs $0.001092 on 48 held-out questions). '
+      + '47/48 to 48/48 is one question, so no accuracy gain is claimed. Median call latency doubled (9.7 s to 19.0 s); '
+      + 'time per hall halved (163 s to 77 s).',
+  },
+};
+const runNote = (title: string) => RUN_NOTES[finalRun(title) ?? runOf(title)] ?? null;
+// A "<run> final" row explains itself against its own run's v0 cold row, then the reference.
+function finalExplanation(entry: LeaderboardEntry, entries: LeaderboardEntry[]) {
+  const cold = coldFor(entries, finalRun(entry.title));
+  // An older "v1 + final brain, <run>" row is that run's final version too, so it carries the run's note.
+  const note = finalRun(entry.title) || /^v[1-9]\d* \+ final brain, /.test(entry.title) ? runNote(entry.title) : null;
+  if (note) return note.row;
+  if (coldRun(entry.title)) return 'The starting team (v0) with an empty shared brain.';
+  if (!finalRun(entry.title) || entry.score === null) return '';
+  return cold && cold.score !== null
+    ? `Final scores ${brief(entry.score)} vs v0 cold ${brief(cold.score)} (${delta(entry.score, cold.score)}).`
+    : `Final scores ${brief(entry.score)}; this run has no v0 cold row on this board.`;
+}
+function summarizeV0(entries: LeaderboardEntry[]) {
+  const finals = entries.filter((entry) => finalRun(entry.title) && entry.score !== null);
+  if (!finals.length) return null;
+  const top = finals[0];  // entries arrive ranked
+  const paired = finals.find((entry) => coldFor(entries, finalRun(entry.title))?.score != null);
+  if (!paired) return { baseline: null, best: top, text: `Final scores ${brief(top.score!)} on ${finalRun(top.title)}; no v0 cold row yet.` };
+  const cold = coldFor(entries, finalRun(paired.title))!;
+  const others = top !== paired ? `; best final ${brief(top.score!)} (${finalRun(top.title)})` : '';
+  return { baseline: cold, best: paired,
+    text: `v0 cold ${brief(cold.score!)} to final ${brief(paired.score!)} (${delta(paired.score!, cold.score!)}) on ${finalRun(paired.title)}${others}.` };
+}
+// Board facts from the verifier's feedback or the run files, keyed by benchmark id. QAPLIB is the one board where a
+// state-of-the-art comparison is meaningful (best-known solutions), so its summary leads with the gap to them.
+const BOARD_NOTES: Record<string, { lead?: string; note?: string }> = {
+  '721ba51c-b868-405a-8c34-b9ed4e8beb39': {
+    lead: 'Final is 3.6% from best-known solutions (SOTA) on 6 unseen instances, vs 4.3% for v0 cold (qaplib-research-1).',
+  },
+  'f3b46e60-0b04-463f-a9b0-c16b23aec2da': {
+    note: 'On qaplib-dc-research-1, v0 cold produced an invalid placement on 1 of 6 instances; on the other 5 the gain is '
+      + '0.573 to 0.802 (+0.229).',
+  },
+};
+function summarize(allEntries: LeaderboardEntry[], direction: 'higher' | 'lower' = 'higher', boardId = '') {
+  const entries = visibleEntries(allEntries);
+  const result = summarizeScores(entries, direction);
+  const note = result.best ? runNote(result.best.title) : null;
+  const text = note ? note.summary : result.text;
+  const board = result.best ? BOARD_NOTES[boardId] : undefined;
+  return { ...result, text: [board?.lead, text, board?.note].filter(Boolean).join(' ') };
+}
+function summarizeScores(entries: LeaderboardEntry[], direction: 'higher' | 'lower') {
+  const v0 = summarizeV0(entries);
+  if (v0) return v0;
   const baseline = pickBaseline(entries);
   const best = entries.find((entry) => !isBaseline(entry.title) && !isReference(entry.title)) ?? null;
   const base = baseline && baseline.score !== null ? `${baselineName(baseline.title)} ${brief(baseline.score)}` : '';
@@ -75,13 +145,18 @@ function summarize(entries: LeaderboardEntry[], direction: 'higher' | 'lower' = 
       text = `Shared notes lifted the team from ${brief(cold.score)} to ${brief(best.score)}, ${where} ${baselineName(baseline.title)} at ${brief(baseline.score)}.`;
     }
     const note = best.feedback?.includes('\n\n') ? lastSentence(feedbackSummary(best.feedback)) : '';
-    if (note) text += ` ${note}`;
+    // A verifier sentence that compares against a classical program is left out: v0 is the only baseline shown.
+    if (note && !/\b(greedy|2-swap|eager|no LLM|baseline)\b/i.test(note)) text += ` ${note}`;
   }
   return { baseline, best, text };
 }
+// A definition's lead names its classical baseline ("Baseline: greedy ...; a higher score means ..."); boards are
+// immutable, so the clause is cut here and only what a higher score means is kept.
 const measures = (benchmark: Benchmark) => {
   const lead = benchmark.prompt.split('\n\n')[0];
-  return /^baseline:/i.test(lead) ? lead : `${benchmark.score_name} · ${benchmark.score_direction === 'higher' ? 'Higher' : 'Lower'} is better`;
+  const meaning = /^baseline:/i.test(lead) ? lead.replace(/^baseline:[^;]*;\s*/i, '') : '';
+  return meaning && meaning !== lead ? meaning.charAt(0).toUpperCase() + meaning.slice(1)
+    : `${benchmark.score_name} · ${benchmark.score_direction === 'higher' ? 'Higher' : 'Lower'} is better`;
 };
 
 function parseJSON(value: string, label: string) {
@@ -299,7 +374,11 @@ export default function Benchmarks({ active }: { active: boolean }) {
   }
 
   const benchmark = detail?.benchmark;
-  const baselineRows = detail?.entries.filter((entry) => isBaseline(entry.title)) ?? [];
+  const shown = detail ? visibleEntries(detail.entries) : [];
+  // Verifier feedback that compares against a classical program is not shown: v0 is the only baseline.
+  const rowNote = (entry: LeaderboardEntry) => finalExplanation(entry, shown)
+    || (/\b(greedy|2-swap|eager|no LLM|baseline)\b/i.test(feedbackSummary(entry.feedback)) ? '' : feedbackSummary(entry.feedback));
+  const baselineRows = shown.filter((entry) => isBaseline(entry.title));
   const baselineEntry = baselineRows.length === 1 ? baselineRows[0] : null;
   return <div className="benchmarks">
     {selectedId && <nav className="benchmark-breadcrumb" aria-label="Benchmark navigation"><button onClick={() => {
@@ -319,7 +398,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
     {loading ? <p className="benchmark-loading" role="status">Loading benchmarks…</p>
       : selectedId ? !detail ? <p className="benchmark-loading" role="status">{error ? 'Benchmark could not be loaded.' : 'Loading benchmark…'}</p> : <>
         <section className="benchmark-summary" aria-label="Result summary"><h2>Summary</h2>
-          <p>{summarize(detail.entries, detail.benchmark.score_direction).text}</p><p className="benchmark-summary-measures">{measures(detail.benchmark)}</p></section>
+          <p>{summarize(detail.entries, detail.benchmark.score_direction, detail.benchmark.id).text}</p><p className="benchmark-summary-measures">{measures(detail.benchmark)}</p></section>
         <div className="benchmark-description">
           <div><h2>Objective</h2><p className="benchmark-prompt">{detail.benchmark.prompt}</p>
             <div className="benchmark-instructions"><h2>Submission requirements</h2><p>{detail.benchmark.submission_instructions}</p>
@@ -337,12 +416,15 @@ export default function Benchmarks({ active }: { active: boolean }) {
           <div className="section-heading"><div><h2 id="leaderboard-title">Leaderboard</h2><p className="muted">Verified results, ranked by {detail.benchmark.score_name.toLowerCase()}.</p></div></div>
           <div className="nodes-table-container"><table className="nodes-table benchmark-data-table" aria-label="Benchmark leaderboard"><thead><tr>
             <th scope="col">Rank</th><th scope="col">Solution</th><th scope="col">Submitted by</th><th scope="col">{detail.benchmark.score_name}</th><th scope="col">Verified</th>
-          </tr></thead><tbody>{detail.entries.length === 0 ? <tr><td className="nodes-empty" colSpan={5}>No verified scores yet. Submit a solution to start the leaderboard.</td></tr>
-            : detail.entries.map((entry) => <tr key={entry.id}><td className="benchmark-rank">{entry.rank}</td><th scope="row">{entry.title}
+          </tr></thead><tbody>{shown.length === 0 ? <tr><td className="nodes-empty" colSpan={5}>No verified scores yet. Submit a solution to start the leaderboard.</td></tr>
+            : shown.map((entry, index) => <tr key={entry.id}><td className="benchmark-rank">{index + 1}</td><th scope="row">{entry.title}
               {entry.base_checkpoint_url && <a className="cell-secondary" href={entry.base_checkpoint_url} target="_blank" rel="noreferrer">Base checkpoint ↗</a>}
-              {entry.feedback && <span className="benchmark-submission-note benchmark-leaderboard-note">{feedbackSummary(entry.feedback)}</span>}
+              {rowNote(entry) && <span className="benchmark-submission-note benchmark-leaderboard-note">{rowNote(entry)}</span>}
             </th><td>{entry.submitted_by}</td><td className="benchmark-score">{score(entry.score)}
-              {baselineEntry && entry.score !== null && baselineEntry.score !== null && <span className="cell-secondary">
+              {coldRun(entry.title) ? <span className="cell-secondary">Baseline (v0 cold)</span>
+                : finalRun(entry.title) ? (() => { const cold = coldFor(shown, finalRun(entry.title));
+                  return cold && cold.score !== null && entry.score !== null && <span className="cell-secondary">{delta(entry.score, cold.score)} vs v0 cold</span>; })()
+                : baselineEntry && entry.score !== null && baselineEntry.score !== null && <span className="cell-secondary">
                 {entry.id === baselineEntry.id ? 'Baseline' : `${delta(entry.score, baselineEntry.score)} vs baseline`}</span>}</td><td className="muted">{entry.completed_at ? date(entry.completed_at) : '—'}</td></tr>)}</tbody></table></div>
         </section>
         <section className="benchmark-section" aria-labelledby="submissions-title">
@@ -370,7 +452,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
         <button className="button button-primary" onClick={() => setCreating(true)}>Create benchmark</button>
       </div> : <div className="nodes-table-container"><table className="benchmark-list" aria-label="Benchmarks"><thead><tr>
         <th scope="col">Benchmark</th><th scope="col">Submissions</th><th scope="col">Baseline</th><th scope="col">Best team result</th><th scope="col">Best verified score</th><th scope="col">Created</th>
-      </tr></thead><tbody>{benchmarks.map((item) => { const summary = summarize(boards[item.id] ?? [], item.score_direction); return <tr key={item.id}>
+      </tr></thead><tbody>{benchmarks.map((item) => { const summary = summarize(boards[item.id] ?? [], item.score_direction, item.id); return <tr key={item.id}>
         <td><button className="benchmark-name" onClick={() => openBenchmark(item.id)}>{item.title}</button>
           {boards[item.id] && <p className="benchmark-list-summary">{summary.text}</p>}<p className="benchmark-list-prompt">{item.prompt}</p></td>
         <td>{item.submission_count}<span className="cell-secondary">{item.verified_count} verified</span></td>

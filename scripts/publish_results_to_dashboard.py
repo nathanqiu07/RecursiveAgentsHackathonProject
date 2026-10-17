@@ -157,7 +157,7 @@ def entry_title(e: dict[str, Any], entries: list[dict[str, Any]], definition: di
     """'Baseline: <title>' for the baseline, else '<title>: +1.4 vs greedy' from the verifier's own score."""
     if e.get("baseline"):
         return BASELINE_PREFIX + e["title"]
-    if not baseline_label:  # a case study without a BASELINE_LABELS entry: plain title
+    if e.get("plain") or not baseline_label:  # a reframed row, or a case study without a BASELINE_LABELS entry
         return e["title"]
     label, fmt = baseline_label
     try:
@@ -203,6 +203,11 @@ def submit_all(bid: str | None, entries: list[dict[str, Any]], base: str, args: 
         title = f"{name[:189]} [{dg}]"
         if args.dry_run or bid is None:
             print(f"  [dry-run] would submit: {title}")
+            continue
+        # Re-read the board right before posting: another publisher may have posted this exact title since.
+        latest = existing_submissions(bid).get(title)
+        if latest and not (args.retry_failed and str(latest.get("status", "")).lower() in FAILED_STATES):
+            print(f"  skip (title already on the board, {latest.get('status')}): {title}")
             continue
         sub = api("POST", f"/api/benchmarks/{bid}/submissions",
                   {"title": title, "submitted_by": e["submitted_by"], "base_checkpoint_url": base, "payload": e["payload"]})
@@ -572,8 +577,25 @@ def qaplib_unseen_definition() -> dict[str, Any] | None:
     }
 
 
-def qaplib_unseen_entries() -> list[dict[str, Any]]:
-    names = qaplib_unseen_names()
+QAP_SIX_BOARD = "721ba51c-b868-405a-8c34-b9ed4e8beb39"  # created when qaplib-evolve-3 had 6 held-out instances
+
+
+def qaplib_six_definition() -> dict[str, Any] | None:
+    """The existing 6-instance board, read back from the dashboard (its runs have since filled 18 instances)."""
+    try:
+        return api("GET", f"/api/benchmarks/{QAP_SIX_BOARD}")
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        print(f"  could not read board {QAP_SIX_BOARD} ({exc}); skipped")
+        return None
+
+
+def qaplib_six_entries() -> list[dict[str, Any]]:
+    schema = qaplib_six_definition()["submission_schema"]
+    return qaplib_unseen_entries(schema["properties"]["solutions"]["items"]["properties"]["instance"]["enum"])
+
+
+def qaplib_unseen_entries(names: list[str] | None = None) -> list[dict[str, Any]]:
+    names = names or qaplib_unseen_names()
     cached = json.loads(QAP_TWO_SWAP_CACHE.read_text()) if QAP_TWO_SWAP_CACHE.is_file() else {}
     if not all(n in cached for n in names):
         qaplib_entries()  # computes and caches the 2-swap baseline for the whole held-out split
@@ -587,8 +609,8 @@ def qaplib_unseen_entries() -> list[dict[str, Any]]:
         if d.get("split") == "heldout" and isinstance(s.get("instance"), str):
             by_config.setdefault((run_name(f), d.get("config", "run")), {})[s["instance"]] = s.get("permutation")
     for (run, config), perms in sorted(by_config.items()):
-        if sorted(perms) != names:
-            continue  # another held-out set (the full split, or the data-center instances)
+        if not set(names) <= set(perms):
+            continue  # another held-out set (the data-center instances); a full-split run covers these 6 too
         entries.append({"title": f"{config}, {run}", "submitted_by": run,
                         "payload": {"solutions": [{"instance": n, "permutation": perms[n]} for n in names]}})
     return entries
@@ -791,10 +813,42 @@ BASELINE_LABELS = {  # (name in titles, format of the score delta)
     "inference_opt": ("v0", "+.3f"),
 }
 
+# v0 is the baseline: each run's v0 cold row (the starting team, empty brain) is titled "Baseline: v0 cold (<run>)"
+# and its last version "<run> final". Classical programs are no longer submitted; the "Reference (no LLM): ..." and
+# older "Baseline: greedy" rows already on the boards cannot be deleted, so the dashboard hides them.
+V0_BOARDS = {"datahall_heldout", "qaplib", "qaplib_unseen6", "qaplib_six", "qaplib_dc", "kernelbench", "inference_opt"}
+FINAL_CONFIG = re.compile(r"^v(\d+) \+ final brain$")
+UNFINISHED_RUNS = {"qaplib-evolve-5"}  # stopped by hand; only its cold arm reached the held-out set
+
+
+def reframed(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The v0-baseline rows for one board, built from the entries the case study already produces."""
+    out: list[dict[str, Any]] = []
+    finals: dict[str, tuple[int, dict[str, Any]]] = {}
+    for e in entries:
+        config, _, run = e["title"].rpartition(", ")
+        run = e.get("group") or run or e["submitted_by"]
+        if run in UNFINISHED_RUNS:
+            continue
+        if "(cold)" in config:
+            out.append({**e, "title": f"v0 cold ({run})", "baseline": True})
+        elif (m := FINAL_CONFIG.match(config)) and int(m[1]) >= finals.get(run, (-1, None))[0]:
+            finals[run] = (int(m[1]), e)
+    out += [{**e, "title": f"{run} final", "baseline": False, "plain": True} for run, (_, e) in sorted(finals.items())]
+    unique, seen = [], set()
+    for e in out:  # one row per title even when several run groups carry the same payload
+        key = (e["title"], digest(e["payload"]))
+        if key not in seen:
+            seen.add(key)
+            unique.append(e)
+    return unique
+
+
 CASE_STUDIES = {
     "datahall": (datahall_definition, datahall_entries, "http://127.0.0.1:9000/health"),
     "qaplib": (qaplib_definition, qaplib_entries, "http://127.0.0.1:9001/health"),
     "qaplib_unseen6": (qaplib_unseen_definition, qaplib_unseen_entries, "http://127.0.0.1:9001/health"),
+    "qaplib_six": (qaplib_six_definition, qaplib_six_entries, "http://127.0.0.1:9001/health"),
     "qaplib_dc": (dc_qap_definition, dc_qap_entries, "http://127.0.0.1:9001/health"),
     "alebench": (alebench_definition, alebench_entries, "http://127.0.0.1:9002/health"),
     "datahall_heldout": (datahall_heldout_definition, datahall_heldout_entries, "http://127.0.0.1:9003/health"),
@@ -836,7 +890,10 @@ def main() -> None:
             print(f"  verifier not reachable at {health}; skipped (start it, then rerun)")
             continue
         bid = find_or_create(definition, args.dry_run)
-        new_ids = submit_all(bid, entries_fn(), base, args, definition, BASELINE_LABELS.get(name))
+        entries = entries_fn()
+        if name in V0_BOARDS:
+            entries = reframed(entries)
+        new_ids = submit_all(bid, entries, base, args, definition, BASELINE_LABELS.get(name))
         if new_ids and not args.no_wait:
             wait_for(new_ids)
         if bid:
