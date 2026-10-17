@@ -1,0 +1,2248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DoneTwin · Control room</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='17' height='17' rx='3' fill='%230B0B0C'/%3E%3Crect x='12' y='12' width='17' height='17' rx='3' fill='white' stroke='%230B0B0C' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e6e8eb; --ink:#0B0B0C; --ink2:#2a2e35; --muted:#6B7079; --faint:#9aa0a8;
+  --line:#E7E7E9; --hair:rgba(11,11,12,.08); --glass:rgba(255,255,255,.86);
+  --red:#e0352b; --green:#2fb35a; --amber:#f2a516; --yellow:#f2c230; --accent:#2E5BFF;
+  --mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:'Geist',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --panelW:372px; --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;outline:none}
+button{font-family:inherit}
+a{color:inherit}
+.glass{background:var(--glass);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);border:1px solid var(--line);box-shadow:0 4px 16px rgba(11,11,12,.06);border-radius:10px}
+
+#topScrim{position:fixed;left:0;right:0;top:0;height:96px;z-index:5;pointer-events:none;background:linear-gradient(to bottom,rgba(243,244,246,.92),rgba(243,244,246,0))}
+#scrim{position:fixed;left:0;bottom:0;width:820px;height:420px;z-index:5;pointer-events:none;
+  background:radial-gradient(120% 100% at 0% 100%,rgba(243,244,246,.95),rgba(243,244,246,.82) 45%,rgba(243,244,246,0) 75%)}
+
+/* ---------- header */
+#top{position:fixed;left:0;right:0;top:0;height:56px;display:flex;align-items:center;gap:14px;padding:0 28px;z-index:8;pointer-events:none}
+#top>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:-.01em}
+.mark{width:18px;height:18px;position:relative;display:inline-block}
+.mark:before,.mark:after{content:"";position:absolute;width:11px;height:11px;border-radius:2.5px}
+.mark:before{left:0;top:0;background:var(--ink)}
+.mark:after{right:0;bottom:0;border:1.8px solid var(--ink);background:#fff}
+.crumb{font:500 12px/1 var(--mono);color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:8px}
+.crumb .sep{color:#c4c8cd}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;flex:0 0 auto;animation:breathe 2.4s ease-in-out infinite}
+.spacer{flex:1}
+#models{display:flex;gap:8px;min-width:0}
+.chip{font:500 11px/1 var(--mono);color:var(--ink2);padding:7px 9px;border:1px solid var(--line);border-radius:4px;background:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
+.chip b{color:var(--muted);font-weight:500;margin-right:6px;text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+.btnchip{cursor:pointer}.btnchip:hover{background:#fff}
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:rgba(255,255,255,.8)}
+.seg button{font:500 11px/1 var(--mono);padding:7px 9px;border:0;background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--ink);color:#fff}
+.seg button kbd{font:inherit;opacity:.55;margin-left:5px}
+.runs{position:relative}
+.menu{position:absolute;right:0;top:34px;width:420px;max-height:360px;overflow:auto;background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 40px rgba(11,11,12,.12);padding:6px;z-index:9}
+.runs.down-left .menu{left:0;right:auto}
+.menu .ri{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:6px;cursor:pointer}
+.menu .ri:hover{background:rgba(0,0,0,.05)}
+.menu .ri b{display:block;font:500 13px/1.35 var(--sans);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu .ri span{font:500 10.5px/1.6 var(--mono);color:var(--muted)}
+.menu .ri span.ok{color:var(--green)}.menu .ri span.warn{color:#b7791f}.menu .ri span.bad{color:var(--red)}
+.menu .empty{font:400 12px var(--mono);color:var(--muted);padding:8px 10px}
+
+/* ---------- work order card */
+#wo{position:fixed;left:28px;top:68px;width:384px;z-index:7;padding:16px 18px 16px}
+.wo-k{font:500 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.wo-title{font:600 19px/1.2 var(--sans);letter-spacing:-.015em;margin:10px 0 3px}
+.wo-sub{font:400 11.5px/1.45 var(--mono);color:var(--muted)}
+#woIdle{margin-top:14px}
+#goal{width:100%;min-height:62px;resize:none;font:400 14px/1.45 var(--sans);padding:10px 12px;border-radius:6px;border:1px solid #dcdee2;background:#fff;color:var(--ink);outline:none}
+#goal:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,91,255,.14)}
+.wo-actions{display:flex;gap:8px;margin-top:10px;align-items:center}
+.btn{font:500 14px/1 var(--sans);padding:12px 15px;border-radius:6px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer;transition:transform .15s var(--ease),background .2s}
+.btn:hover{transform:translateY(-1px)}
+.btn.press{transform:scale(.95)}
+.btn.primary{background:var(--accent);border-color:var(--accent);flex:1}
+.btn.ghost{background:rgba(255,255,255,.9);color:var(--ink);border-color:#dcdee2}
+.btn.small{padding:9px 12px;font-size:12.5px}
+#woRun{display:none;margin-top:14px}
+body.run #woIdle,body.done #woIdle{display:none}
+body.run #woRun,body.done #woRun{display:block}
+.wa{display:flex;align-items:center;gap:9px;font:500 14px/1.3 var(--sans)}
+.wa .sdot{background:var(--accent);animation:breatheA 1.6s ease-in-out infinite}
+body.done .wa .sdot{background:var(--green);animation:breathe 2.4s ease-in-out infinite}
+.wa-req{font:400 12px/1.45 var(--sans);color:var(--muted);margin:6px 0 12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wa-grid{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:8px}
+.wa-grid div{border:1px solid var(--hair);border-radius:6px;padding:8px 9px;background:rgba(255,255,255,.6)}
+.wa-grid b{display:block;font:600 18px/1.1 var(--mono);color:var(--ink)}
+.wa-grid i{display:block;font:500 9.5px/1.3 var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-style:normal;margin-top:4px}
+#againBtn{display:none;margin-top:12px}
+body.done #againBtn{display:inline-block}
+
+/* ---------- headline */
+#hero{position:fixed;left:32px;bottom:132px;z-index:6;pointer-events:none;width:min(640px,calc(100vw - var(--panelW) - 90px))}
+body.idle #hero{bottom:40px}
+#kick{font:500 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;display:flex;gap:10px;align-items:center}
+#kick b{color:var(--ink);font-weight:600}
+#headline{font-weight:500;font-size:clamp(38px,2.6vw,52px);line-height:1.02;letter-spacing:-.03em;margin:0;color:var(--ink);max-width:620px}
+#headline.in{animation:rise .6s var(--ease) both}
+#caption{font-size:15px;line-height:1.5;color:var(--muted);max-width:480px;margin:14px 0 0}
+#caption.in{animation:fade .5s ease both}
+
+/* ---------- agent crew strip */
+#crew{position:fixed;left:28px;right:calc(var(--panelW) + 44px);bottom:18px;z-index:7;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;
+  transition:transform .7s var(--ease),opacity .5s}
+body.idle #crew{transform:translateY(130%);opacity:0}
+.ag{position:relative;overflow:hidden;padding:9px 11px 10px;border-radius:8px;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line);
+  box-shadow:0 4px 16px rgba(11,11,12,.05);transition:border-color .3s,box-shadow .3s,opacity .3s;opacity:.62}
+.ag.done,.ag.active,.ag.fail{opacity:1}
+.ag .h{display:flex;align-items:center;gap:7px;font:600 12.5px/1.2 var(--sans);color:var(--ink)}
+.ag .h i{width:6px;height:6px;border-radius:50%;background:#c9cdd2;flex:0 0 auto}
+.ag.done .h i{background:var(--ink2)} .ag.fail .h i{background:var(--red)}
+.ag.active .h i{background:var(--accent);animation:breatheA 1.4s ease-in-out infinite}
+.ag .bd{display:inline-block;margin-top:5px;font:500 9.5px/1 var(--mono);letter-spacing:.04em;color:var(--muted);border:1px solid var(--hair);border-radius:3px;padding:3px 5px;background:rgba(255,255,255,.7);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag .bd.det{color:#5b6470;background:rgba(11,11,12,.03)}
+.ag .bd.you{color:#7c3aed}
+.ag .tx{margin-top:6px;font:400 10.5px/1.35 var(--mono);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:14px}
+.ag.active{border-color:rgba(46,91,255,.55);box-shadow:0 0 0 1px rgba(46,91,255,.25),0 8px 26px rgba(46,91,255,.18)}
+.ag.active:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(46,91,255,.10) 50%,transparent 70%);background-size:220% 100%;animation:shimmer 1.6s linear infinite;pointer-events:none}
+.ag.fail{border-color:rgba(224,53,43,.45)}
+
+/* ---------- right panel */
+#panel{position:fixed;right:16px;top:64px;bottom:16px;width:var(--panelW);z-index:6;display:flex;flex-direction:column;overflow:hidden;transition:transform .8s var(--ease),opacity .6s var(--ease)}
+#panel.off{transform:translateX(calc(100% + 40px));opacity:0}
+#kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-bottom:1px solid var(--hair)}
+.kpi{padding:12px 6px 10px 12px;border-right:1px solid var(--hair);min-width:0}
+.kpi:last-child{border-right:0}
+.kpi b{display:block;font:600 17px/1.1 var(--mono);color:var(--ink);white-space:nowrap;letter-spacing:-.02em}
+.kpi i{display:block;font:500 9px/1.3 var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-style:normal;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi.ok b{color:var(--green)} .kpi.bad b{color:var(--red)}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 6px}
+.ph h3{font:600 11px/1 var(--mono);letter-spacing:.14em;margin:0;text-transform:uppercase}
+.count{font:600 11px/1 var(--mono);padding:5px 7px;border-radius:4px;background:rgba(11,11,12,.05);color:var(--muted)}
+.count.ok{background:var(--green);color:#fff}.count.bad{background:var(--red);color:#fff}
+#interp{padding:0 18px 8px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+#checks{flex:1 1 auto;overflow:auto;padding:0 10px 6px;min-height:100px}
+.grp{display:flex;justify-content:space-between;font:600 9.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--muted);padding:10px 8px 4px}
+.grp span.ok{color:var(--green)}.grp span.bad{color:var(--red)}
+.ck{display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:center;padding:6px 8px;border-radius:6px;animation:fade .4s both}
+.ck:hover{background:rgba(11,11,12,.04)}
+.ck .d{width:7px;height:7px;border-radius:50%;background:#c9cdd2;transition:background .3s}
+.ck.pass .d{background:var(--green)}
+.ck.fail .d{background:var(--red);box-shadow:0 0 0 3px rgba(224,53,43,.16)}
+.ck.stale{opacity:.45}
+.ck .t{font:500 11.5px/1.25 var(--mono);color:var(--ink);display:flex;align-items:center;gap:6px}
+.ck .p{font:400 10.5px/1.4 var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}
+.ck .m{font:500 10.5px/1 var(--mono);color:var(--red);white-space:nowrap}
+.ck.pass .m{color:var(--green)}
+.ck.hasfix{cursor:pointer}
+.cite{font:500 9px/1 var(--mono);letter-spacing:.06em;color:var(--accent);text-decoration:none;border:1px solid rgba(46,91,255,.35);border-radius:3px;padding:2px 4px;background:rgba(46,91,255,.06)}
+.cite:hover{background:rgba(46,91,255,.14)}
+.sec{border-top:1px solid var(--hair);padding:10px 18px 12px;flex:0 0 auto}
+.sec h4{font:600 10px/1 var(--mono);letter-spacing:.14em;color:var(--muted);margin:0 0 8px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+#sources{display:flex;flex-direction:column;gap:5px;max-height:86px;overflow:auto}
+#sources a{font:400 11.5px/1.35 var(--sans);color:var(--ink2);text-decoration:none;display:flex;gap:7px;align-items:baseline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sources a:hover{color:var(--accent)}
+#sources a i{font:500 9.5px var(--mono);color:var(--muted);font-style:normal;flex:0 0 auto}
+#iters{display:flex;gap:6px;flex-wrap:wrap}
+.it{font:500 10.5px/1 var(--mono);padding:6px 8px;border-radius:4px;border:1px solid var(--line);background:rgba(255,255,255,.85);cursor:pointer;display:flex;gap:6px;align-items:center;color:var(--ink2)}
+.it i{width:6px;height:6px;border-radius:50%;background:#c9cdd2}
+.it.pass i{background:var(--green)} .it.fail i{background:var(--red)}
+.it.sel{background:var(--ink);color:#fff;border-color:var(--ink)}
+.it.live{color:var(--accent);border-color:rgba(46,91,255,.4)}
+.muted{color:var(--faint);font:400 11px var(--mono)}
+#vision{font-size:12.5px;line-height:1.45;color:var(--ink2)}
+.vp{display:inline-block;font:600 10px/1 var(--mono);letter-spacing:.08em;padding:4px 6px;border-radius:3px;margin-right:6px;text-transform:uppercase;vertical-align:1px}
+.vp.pass{background:var(--green);color:#fff}.vp.fail{background:var(--red);color:#fff}.vp.skipped{background:#dfe1e5;color:var(--ink2)}
+.adj{font:400 10.5px/1.45 var(--mono);color:var(--muted);margin-top:5px}
+.adj b{font-weight:600}.adj .confirmed{color:var(--red)}.adj .rejected{color:var(--green)}
+#log{font:400 10.5px/1.6 var(--mono);height:86px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.ln{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink2);animation:fade .35s both}
+.ln .tt{color:#b3b8be;margin-right:6px}
+.ln .a{display:inline-block;width:74px;font-weight:600;text-transform:uppercase;font-size:9.5px;letter-spacing:.08em}
+details.sec summary{cursor:pointer;list-style:none}
+details.sec summary::-webkit-details-marker{display:none}
+details.sec summary h4{margin:0}
+details.sec[open] summary h4{margin-bottom:8px}
+details.sec .tw{transition:transform .2s}
+details.sec[open] .tw{transform:rotate(90deg)}
+pre.code{max-height:220px;overflow:auto;margin:0;padding:10px 12px;background:#0f1114;color:#d4d8de;border-radius:6px;font:400 10.5px/1.55 var(--mono);white-space:pre}
+pre.code i{font-style:normal}
+pre.code .c{color:#7d8590}pre.code .s{color:#9fd4a3}pre.code .k{color:#9db4ff}pre.code .n{color:#f2c230}
+#note{font-size:11.5px;line-height:1.45;color:var(--muted);margin:0 0 8px}
+
+/* ---------- banner, toast, viewfinder, legend */
+#banner{position:fixed;top:68px;left:calc((100vw - var(--panelW) - 32px)/2 + 200px);transform:translateX(-50%) translateY(-10px);z-index:7;display:flex;align-items:center;gap:10px;
+  font:600 12px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:12px 16px;border-radius:999px;opacity:0;pointer-events:none;
+  transition:opacity .45s var(--ease),transform .45s var(--ease);box-shadow:0 10px 30px rgba(11,11,12,.14);max-width:min(760px,calc(100vw - var(--panelW) - 520px))}
+#banner span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#banner.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#banner.ok{background:var(--green);color:#fff}
+#banner.warn{background:var(--amber);color:#1d1400}
+#banner.bad{background:var(--red);color:#fff}
+#banner svg{flex:0 0 auto}
+#toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%) translateY(20px);z-index:9;font:500 12px/1.3 var(--mono);background:var(--ink);color:#fff;padding:11px 15px;border-radius:6px;opacity:0;transition:all .35s var(--ease);pointer-events:none;max-width:80vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#finder{position:fixed;left:440px;top:100px;right:calc(var(--panelW) + 64px);bottom:300px;z-index:3;pointer-events:none;opacity:0;transition:opacity .25s}
+#finder.on{opacity:1}
+#finder i{position:absolute;width:28px;height:28px;border-color:rgba(11,11,12,.7);border-style:solid;border-width:0}
+#finder i:nth-child(1){left:0;top:0;border-left-width:2px;border-top-width:2px}
+#finder i:nth-child(2){right:0;top:0;border-right-width:2px;border-top-width:2px}
+#finder i:nth-child(3){left:0;bottom:0;border-left-width:2px;border-bottom-width:2px}
+#finder i:nth-child(4){right:0;bottom:0;border-right-width:2px;border-bottom-width:2px}
+#finder span{position:absolute;left:38px;top:8px;font:500 11px/1 var(--mono);letter-spacing:.12em;color:var(--ink2);text-transform:uppercase}
+#finder span:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);margin-right:8px;vertical-align:1px}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:2;transition:opacity .5s}
+#flash.on{opacity:.5;transition:none}
+#legend{position:fixed;left:440px;top:124px;z-index:7;display:none;align-items:center;gap:10px;padding:8px 12px;font:500 10.5px/1 var(--mono);color:var(--ink2);letter-spacing:.08em;text-transform:uppercase}
+body.thermal #legend{display:flex}
+#legend .ramp{width:180px;height:8px;border-radius:4px;background:linear-gradient(90deg,#0b3d91,#3b2a6b 38%,#932667 55%,#dd513a 72%,#fca50a 88%,#fcffa4)}
+
+/* ---------- 3D labels */
+.anno{display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.pill{font:500 11px/1 var(--mono);color:var(--muted);background:rgba(255,255,255,.92);padding:5px 9px;border-radius:4px;border:1px solid #E7E7E9;
+  box-shadow:0 4px 16px rgba(11,11,12,.06);white-space:nowrap;display:flex;gap:7px;align-items:center;transition:border-color .25s}
+.pill .dt{width:6px;height:6px;border-radius:50%;background:var(--ink);flex:0 0 auto}
+.pill b{color:var(--ink);font-weight:600}
+.pill .bar{display:inline-block;width:42px;height:5px;border-radius:3px;background:rgba(11,11,12,.08);overflow:hidden;margin-left:2px}
+.pill .bar i{display:block;height:100%;width:0;background:var(--green);transition:width 1.2s var(--ease),background .3s}
+.pill .bar i.a{background:var(--amber)} .pill .bar i.r{background:var(--red)}
+.stem{width:1px;height:18px;background:rgba(11,11,12,.3)}
+.anno.small .pill{font-size:10px;padding:3px 6px;background:rgba(255,255,255,.78);box-shadow:none}
+.anno.small .pill .dt{display:none}
+.anno.small .pill b{font-weight:500;color:var(--muted)}
+.anno.ko .pill{border-color:rgba(224,53,43,.6);background:rgba(255,255,255,.9)}
+.anno.ko .pill .dt{background:var(--red);display:block}
+.anno.ko .pill b{color:var(--red)}
+.anno.row .pill{background:rgba(255,255,255,.88)}
+.anno.quiet:not(.hover):not(.lines) .pill,.anno.quiet:not(.hover):not(.lines) .stem{display:none}
+.anno.alert .pill{border-color:var(--red)}
+.anno.alert .pill .dt{background:var(--red);display:block}
+.anno.alert .pill b{color:var(--red)}
+.anno.alert .stem{background:var(--red)}
+.anno.ok .pill .dt{background:var(--green);animation:breathe 2s ease-in-out infinite}
+.alerts{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:5px}
+.al{font:500 11px/1 var(--mono);color:var(--ink2);background:rgba(255,255,255,.96);border:1px solid var(--red);padding:6px 9px;border-radius:4px;white-space:nowrap;
+  box-shadow:0 6px 18px rgba(224,53,43,.16);display:flex;align-items:center;gap:7px;animation:pop .4s var(--ease) both}
+.al:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--red)}
+.al b{color:var(--red);font-weight:600}
+.al:nth-child(2){animation-delay:.08s}.al:nth-child(3){animation-delay:.16s}.al:nth-child(4){animation-delay:.24s}
+.dim{font:500 10px/1 var(--mono);color:#8b919a;letter-spacing:.1em;white-space:nowrap}
+
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(47,179,90,.45)}50%{box-shadow:0 0 0 5px rgba(47,179,90,0)}}
+@keyframes breatheA{0%,100%{box-shadow:0 0 0 0 rgba(46,91,255,.45)}50%{box-shadow:0 0 0 5px rgba(46,91,255,0)}}
+@keyframes shimmer{from{background-position:120% 0}to{background-position:-120% 0}}
+
+@media (max-width:1440px){:root{--panelW:340px} #models{display:none} #wo{width:340px}}
+@media (max-height:820px){
+  #log{height:66px} .ck{padding:4px 8px} .sec{padding:8px 16px 10px} #interp{display:none} .kpi{padding:9px 4px 8px 10px} .kpi b{font-size:15px}
+  #caption{font-size:13.5px;margin-top:10px} #hero{bottom:116px} #wo{top:62px;padding:12px 14px} .wo-title{font-size:16px;margin-top:8px} #goal{min-height:48px}
+  .ag .tx{display:none} #finder{bottom:260px}
+}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body class="idle">
+<div id="stage"></div>
+<div id="flash"></div>
+<div id="finder"><i></i><i></i><i></i><i></i><span>Vision inspector · rendering plan + iso views</span></div>
+<div id="topScrim"></div>
+<div id="scrim"></div>
+
+<header id="top">
+  <div class="brand"><span class="mark"></span>DoneTwin</div>
+  <div class="crumb"><span class="sdot"></span><span id="crumbTxt">Control room</span></div>
+  <div class="seg" id="scen" title="Scenario"></div>
+  <div class="spacer"></div>
+  <div id="models"></div>
+  <div class="runs" id="runsWrap" hidden><button id="runsBtn" class="chip btnchip" type="button">Replay ▾</button><div id="runsMenu" class="menu" hidden></div></div>
+  <div class="seg" id="views"><button data-v="thermal" type="button" title="Thermal view">Thermal<kbd>T</kbd></button><button data-v="xray" type="button" title="X-ray: hide overhead services">X-ray<kbd>X</kbd></button><button data-v="quality" type="button" title="Post-processing quality">HQ<kbd>Q</kbd></button></div>
+  <div class="seg" id="speed" title="Playback pacing (keys 1 / 2 / 4)"><button data-s="1" class="on" type="button">1×</button><button data-s="2" type="button">2×</button><button data-s="4" type="button">4×</button></div>
+</header>
+
+<section id="wo" class="glass">
+  <div class="wo-k"><span>Work order</span><span id="woId">WO-1017</span></div>
+  <div class="wo-title" id="woTitle">—</div>
+  <div class="wo-sub" id="woSub"></div>
+  <div id="woIdle">
+    <textarea id="goal" spellcheck="false" aria-label="Request" rows="2"></textarea>
+    <div class="wo-actions">
+      <button class="btn primary" id="runBtn" type="button">Hand off to agents →</button>
+      <div class="runs down-left" id="replayWrap" hidden><button class="btn ghost small" id="replayBtn" type="button">Replay ▾</button><div id="replayMenu" class="menu" hidden></div></div>
+    </div>
+  </div>
+  <div id="woRun">
+    <div class="wa"><span class="sdot"></span><b id="waHead">Agents working. You can walk away.</b></div>
+    <div class="wa-req" id="waReq"></div>
+    <div class="wa-grid"><div><b id="waT">0:00</b><i>Elapsed</i></div><div><b id="waH">0</b><i>Human interventions</i></div><div><b id="waIt">—</b><i>Iteration</i></div></div>
+    <button class="btn ghost small" id="againBtn" type="button">New work order</button>
+  </div>
+</section>
+
+<div id="legend" class="glass"><span>Cold</span><span class="ramp"></span><span>Hot</span><span id="legendNote" style="color:var(--muted)">IR · rack exhaust</span></div>
+<div id="banner"></div>
+
+<section id="hero">
+  <div id="kick"></div>
+  <h1 id="headline">Describe the change.</h1>
+  <p id="caption"></p>
+</section>
+
+<div id="crew"></div>
+
+<aside id="panel" class="glass off">
+  <div id="kpis">
+    <div class="kpi" id="kpi0"><b id="k0">0.0</b><i id="k0l">MW online</i></div>
+    <div class="kpi" id="kpi1"><b id="k1">—</b><i>Checks</i></div>
+    <div class="kpi"><b id="k2">0</b><i>Iters</i></div>
+    <div class="kpi"><b id="k3">—</b><i>Inference</i></div>
+    <div class="kpi"><b id="k4">0:00</b><i>Agent time</i></div>
+  </div>
+  <div class="ph"><h3>Definition of done</h3><span id="count" class="count">—</span></div>
+  <div id="interp">Waiting for the spec agent.</div>
+  <div id="checks"></div>
+  <div class="sec" id="srcSec" hidden><h4><span>Sources</span><span id="srcN"></span></h4><div id="sources"></div></div>
+  <div class="sec"><h4><span>Iterations</span><span id="viewing"></span></h4><div id="iters"><span class="muted">—</span></div></div>
+  <div class="sec"><h4><span>Vision inspector</span></h4><div id="vision"><span class="muted">—</span></div></div>
+  <div class="sec"><h4><span>Agent log</span></h4><div id="log"></div></div>
+  <details class="sec" id="codeBox"><summary><h4><span id="codeTitle">Layout program</span><span class="tw">▸</span></h4></summary><p id="note"></p><pre class="code" id="code"># waiting for the layout agent</pre></details>
+</aside>
+
+<div id="toast"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* =========================================================== utilities */
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+const DEG = Math.PI / 180, TAU = Math.PI * 2;
+const mod = (a, n) => ((a % n) + n) % n;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (v) => typeof v === 'number' && isFinite(v);
+const fmt = (v, n = 2) => (num(v) ? v.toFixed(n) : '–');
+const fmtPower = (kw) => (kw >= 1000 ? `${(kw / 1000).toFixed(1)} MW` : `${Math.round(kw)} kW`);
+const fmtTime = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const Q = new URLSearchParams(location.search);
+const RED = 0xe0352b, GREEN = 0x2fb35a, TEAL = 0x13a8bd, AMBER = 0xf2c230, INK = 0x15171a;
+const HDR = (r, g, b) => new THREE.Color(r, g, b);
+
+const EMBEDDED = {
+  sorting_cell: {"name":"sorting_cell","title":"Line A sorting cell retrofit","goal":"Insert a heavy-duty robotic arm between conveyor line A and sorting bin B.","floor":{"w":16,"d":10},"objects":[
+{"id":"walkway_main","kind":"walkway","x":8,"y":0.75,"w":16,"d":1.5,"h":0,"rot":0,"fixed":true},
+{"id":"pillar_P1","kind":"pillar","x":3,"y":4.5,"w":0.6,"d":0.6,"h":6,"rot":0,"fixed":true},
+{"id":"pillar_P2","kind":"pillar","x":9,"y":4.5,"w":0.6,"d":0.6,"h":6,"rot":0,"fixed":true},
+{"id":"pillar_P3","kind":"pillar","x":15,"y":4.5,"w":0.6,"d":0.6,"h":6,"rot":0,"fixed":true},
+{"id":"pillar_P4","kind":"pillar","x":3,"y":7.2,"w":0.6,"d":0.6,"h":6,"rot":0,"fixed":true},
+{"id":"pillar_P5","kind":"pillar","x":9.3,"y":7.2,"w":0.6,"d":0.6,"h":6,"rot":0,"fixed":true},
+{"id":"pillar_P6","kind":"pillar","x":15,"y":7.2,"w":0.6,"d":0.6,"h":6,"rot":0,"fixed":true},
+{"id":"conveyor_A","kind":"conveyor","x":4,"y":8.6,"w":7,"d":0.8,"h":0.9,"rot":0,"fixed":true,"points":{"pick":[3.2,0]}},
+{"id":"sensor_S","kind":"sensor","x":10.4,"y":6.6,"w":0.2,"d":0.2,"h":0.1,"z":2.8,"rot":0,"fixed":true,"points":{"target":[0,0]}},
+{"id":"bin_B","kind":"bin","x":10.5,"y":6.6,"w":1.2,"d":1,"h":1.1,"rot":0,"fixed":false,"points":{"drop":[0,0]}}]},
+};
+
+/* =========================================================== renderer, lights, camera, post */
+const stageEl = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+stageEl.appendChild(renderer.domElement);
+
+const labels = new CSS2DRenderer();
+labels.setSize(innerWidth, innerHeight);
+Object.assign(labels.domElement.style, { position: 'absolute', left: '0', top: '0', pointerEvents: 'none' });
+stageEl.appendChild(labels.domElement);
+
+const BG = 0xe6e8eb;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(BG);
+scene.fog = new THREE.Fog(BG, 26, 80);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const ENV_I = 0.6;
+
+const camera = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 0.5, 220);
+camera.position.set(12, 30, 30);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.07;
+controls.maxPolarAngle = 0.48 * Math.PI; controls.minDistance = 3.5; controls.maxDistance = 70;
+let dragging = false, lastInput = -10;
+controls.addEventListener('start', () => { dragging = true; fly = null; lastInput = now; });
+controls.addEventListener('end', () => { dragging = false; lastInput = now; });
+renderer.domElement.addEventListener('wheel', () => { lastInput = now; fly = null; }, { passive: true });
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xe3e6ea, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+sun.position.set(-6, 12, 7);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 45 });
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02;
+scene.add(sun, sun.target);
+
+// post-processing: render -> subtle SSAO -> bloom (only HDR emitters exceed the threshold) -> output (tone map + sRGB)
+const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(renderer, rt);
+composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+const ssao = new SSAOPass(scene, camera, innerWidth, innerHeight);
+ssao.kernelRadius = 0.5; ssao.minDistance = 0.0004; ssao.maxDistance = 0.008;
+composer.addPass(ssao);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.42, 0.4, 1.75);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const QUAL = { hq: Q.get('q') !== 'low', auto: !Q.get('q') };
+
+const envRoot = new THREE.Group(); scene.add(envRoot);
+const world = new THREE.Group(); scene.add(world);
+const fxRoot = new THREE.Group(); scene.add(fxRoot);
+const hallRoot = new THREE.Group(); scene.add(hallRoot);     // links, taps, rows, containment
+const thermalRoot = new THREE.Group(); scene.add(thermalRoot);
+
+let FW = 16, FD = 10;
+const W = (x, y, h = 0) => new THREE.Vector3(x - FW / 2, h, FD / 2 - y);
+
+/* =========================================================== textures & materials */
+const MAXANI = renderer.capabilities.getMaxAnisotropy();
+function canvasTex(w, h, draw, repeat = [1, 1]) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAXANI;
+  return t;
+}
+const HAZ = canvasTex(576, 48, (g) => {
+  g.fillStyle = '#f2c230'; g.fillRect(0, 0, 576, 48); g.fillStyle = '#15171a';
+  for (let x = -48; x < 576 + 48; x += 48) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 24, 0); g.lineTo(x - 24, 48); g.lineTo(x - 48, 48); g.closePath(); g.fill(); }
+});
+function hazardTex(len) { const t = HAZ.clone(); t.repeat.set(Math.max(1, len / 1.2), 1); t.needsUpdate = true; return t; }
+const KOHATCH = canvasTex(128, 128, (g) => {
+  g.clearRect(0, 0, 128, 128); g.fillStyle = 'rgba(224,53,43,.10)'; g.fillRect(0, 0, 128, 128);
+  g.strokeStyle = 'rgba(224,53,43,.55)'; g.lineWidth = 10;
+  for (let x = -128; x <= 256; x += 42) { g.beginPath(); g.moveTo(x, 128); g.lineTo(x + 128, 0); g.stroke(); }
+});
+const FLOOR = canvasTex(512, 512, (g) => {
+  g.fillStyle = '#f5f6f8'; g.fillRect(0, 0, 512, 512); g.fillStyle = '#e1e4e8';
+  for (let i = 0; i < 512; i += 64) { g.fillRect(i, 0, 3, 512); g.fillRect(0, i, 512, 3); }
+});
+const BELT = canvasTex(384, 32, (g) => {
+  g.fillStyle = '#2a2d31'; g.fillRect(0, 0, 384, 32);
+  for (let x = 0; x < 384; x += 64) { g.fillStyle = '#1e2023'; g.fillRect(x, 0, 10, 32); g.fillStyle = '#34383d'; g.fillRect(x + 10, 0, 2, 32); }
+});
+const PICTO = canvasTex(256, 256, (g) => {
+  g.strokeStyle = g.fillStyle = '#2f343b'; g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = 17;
+  g.beginPath(); g.arc(142, 48, 21, 0, TAU); g.fill();
+  const P = (pts) => { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.stroke(); };
+  P([134, 84, 120, 150]); P([120, 150, 152, 188, 160, 232]); P([120, 150, 100, 192, 70, 220]); P([132, 98, 162, 124, 180, 152]); P([132, 98, 106, 124, 92, 152]);
+});
+PICTO.wrapS = PICTO.wrapT = THREE.ClampToEdgeWrapping;
+const LABELTEX = canvasTex(128, 80, (g) => {
+  g.fillStyle = '#fbfbfa'; g.fillRect(0, 0, 128, 80); g.fillStyle = '#15171a';
+  for (let i = 0; i < 22; i++) g.fillRect(10 + i * 4.6, 12, (i % 3) + 1, 30);
+  g.fillRect(10, 52, 70, 5); g.fillRect(10, 62, 46, 5);
+});
+const DOOR = canvasTex(96, 256, (g) => {
+  g.fillStyle = '#17191c'; g.fillRect(0, 0, 96, 256); g.fillStyle = '#30343a';
+  for (let y = 10; y < 246; y += 6) for (let x = 8 + ((y / 6) % 2) * 3; x < 88; x += 6) g.fillRect(x, y, 2.2, 2.2);
+  g.fillStyle = '#0d0e10'; g.fillRect(0, 0, 96, 5); g.fillRect(0, 251, 96, 5); g.fillRect(0, 0, 5, 256); g.fillRect(91, 0, 5, 256);
+  g.fillStyle = '#4a4f57'; g.fillRect(80, 110, 4, 36);
+});
+DOOR.wrapS = DOOR.wrapT = THREE.ClampToEdgeWrapping;
+const SIGN = canvasTex(128, 128, (g) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 128, 128);
+  g.fillStyle = '#f2c230'; g.strokeStyle = '#15171a'; g.lineWidth = 7; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(64, 14); g.lineTo(116, 108); g.lineTo(12, 108); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#15171a'; g.beginPath(); g.moveTo(70, 40); g.lineTo(50, 74); g.lineTo(64, 74); g.lineTo(56, 98); g.lineTo(80, 62); g.lineTo(66, 62); g.closePath(); g.fill();
+});
+SIGN.wrapS = SIGN.wrapT = THREE.ClampToEdgeWrapping;
+
+const std = (color, roughness = .6, metalness = 0, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, envMapIntensity: ENV_I, ...extra });
+const basic = (c, extra = {}) => new THREE.MeshBasicMaterial({ color: c, ...extra });
+const poly = (m, f = -2) => Object.assign(m, { polygonOffset: true, polygonOffsetFactor: f, polygonOffsetUnits: f });
+const MAT = {
+  floor: new THREE.MeshPhysicalMaterial({ color: 0xf4f5f7, map: FLOOR, roughness: .38, clearcoat: .55, clearcoatRoughness: .3, envMapIntensity: .4 }),
+  column: std(0xb4b9bf, .45, .55), guard: std(AMBER, .55), ink: std(INK, .6),
+  steel: std(0xb7bdc4, .35, .8), rail: std(0xb9c0c7, .28, .9), railDark: std(0x8c939b, .35, .85), steelDark: std(0x3f444b, .55, .45),
+  leg: std(0x9ca3ab, .4, .7), rubber: std(0x1d1f22, .9), belt: std(0xffffff, .75, 0, { map: BELT }),
+  robot: std(0xe8b21a, .38, .05), joint: std(0x2d3136, .45, .55), orange: std(0xe9762b, .5), orangeDark: std(0xc65a18, .55),
+  card: [std(0xc9a273, .85), std(0xb8915f, .85)], cardTape: std(0xe8d9bf, .6), cardLabel: std(0xffffff, .6, 0, { map: LABELTEX }),
+  pallet: std(0xc9a77c, .8), rackBlue: std(0x2d5f9a, .45, .35), rackBeam: std(0xe46f2a, .5, .2),
+  walk: poly(std(0xdde5df, .92), -1), tape: std(AMBER, .55), sensor: std(0x23272c, .4, .5),
+  wrap: std(0xffffff, .25, 0, { transparent: true, opacity: .32 }),
+  lens: std(0x0e3d44, .2, .2, { emissive: new THREE.Color(TEAL), emissiveIntensity: 1.6 }),
+  fork: std(0x4a5058, .5, .3), cable: std(0x26292d, .7),
+  // data hall
+  rack: std(0x15171a, .42, .35), door: std(0xffffff, .5, .35, { map: DOOR }),
+  rackWarm: std(0x15171a, .42, .35, { emissive: new THREE.Color(0x8a3a10), emissiveIntensity: .55 }),
+  rackHot: std(0x15171a, .42, .35, { emissive: new THREE.Color(0xc2410c), emissiveIntensity: .9 }),
+  rackOver: std(0x15171a, .42, .35, { emissive: new THREE.Color(0xe0352b), emissiveIntensity: 1.3 }),
+  ledOff: std(0x0c2c31, .4), ledOn: basic(HDR(.22, 2.4, 2.9)), statOff: std(0x24272b, .5), statOn: basic(HDR(.35, 2.8, .7)), statBad: basic(HDR(3.2, .25, .2)),
+  actOn: basic(HDR(.4, 2.2, 3.2)),
+  cdu: std(0xe9ecef, .42, .15), cduPanel: std(0xc8cdd3, .45, .3), cduScreen: basic(HDR(.1, .9, 1.2)),
+  pipeBlue: std(0x2f6fe0, .35, .3), pipeRed: std(0xd9342b, .35, .3),
+  busway: std(0xe0912a, .42, .4), buswayDark: std(0xa8651a, .5, .4), tap: std(0x3a3f46, .5, .45),
+  panel: std(0xb9bec4, .45, .5), sign: std(0xffffff, .6, 0, { map: SIGN }),
+  wall: std(0xffffff, .9, 0, { emissive: new THREE.Color(0xffffff), emissiveIntensity: .3 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: 0xdbe6f3, roughness: .08, metalness: 0, transparent: true, opacity: .16, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: .8 }),
+  glassFrame: std(0x2b2f35, .4, .6),
+};
+
+const GEO = new Map();
+const geo = (key, make) => { let g = GEO.get(key); if (!g) { g = make(); g.userData.shared = true; GEO.set(key, g); } return g; };
+const box = (w, h, d) => geo(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d));
+const rbox = (w, h, d, r = .03) => geo(`r${w},${h},${d},${r}`, () => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2.2, h / 2.2, d / 2.2)));
+const cyl = (rt, rb, h, s = 32) => geo(`c${rt},${rb},${h},${s}`, () => new THREE.CylinderGeometry(rt, rb, h, s));
+const plane = (w, h) => geo(`p${w},${h}`, () => new THREE.PlaneGeometry(w, h));
+function mesh(g, m, x = 0, y = 0, z = 0, parent = null, shadow = true) {
+  const o = new THREE.Mesh(g, m); o.position.set(x, y, z);
+  o.castShadow = shadow; o.receiveShadow = true;
+  if (parent) parent.add(o);
+  return o;
+}
+function flat(g, m, x, y, z, parent) { const o = new THREE.Mesh(g, m); o.rotation.x = -Math.PI / 2; o.position.set(x, y, z); o.receiveShadow = true; if (parent) parent.add(o); return o; }
+function clearGroup(g) { for (const c of [...g.children]) { c.traverse((o) => { if (o.isCSS2DObject && o.element) o.element.remove(); }); g.remove(c); } }
+function disposeGroup(g) {
+  for (const c of [...g.children]) {
+    c.traverse((o) => {
+      if (o.isCSS2DObject && o.element) o.element.remove();
+      if (o.geometry && !o.geometry.userData?.shared) o.geometry.dispose();
+      if (o.material && !o.userData.sharedMat && o.material.dispose && !Object.values(MAT).includes(o.material) && !Object.values(LM).includes(o.material)) o.material.dispose();
+    });
+    g.remove(c);
+  }
+}
+function dashedRing(R, w, n, duty = .55) {
+  const parts = [];
+  for (let i = 0; i < n; i++) parts.push(new THREE.RingGeometry(R - w / 2, R + w / 2, 3, 1, (i / n) * TAU, (TAU / n) * duty));
+  return mergeGeometries(parts);
+}
+// fat lines for coolant and power runs
+const LINE_MATS = [];
+function lmat(color, width, opts = {}) {
+  const m = new LineMaterial({ color, linewidth: width, transparent: true, opacity: opts.opacity ?? 1, dashed: !!opts.dashed, dashSize: opts.dash ?? .35, gapSize: opts.gap ?? .25, depthWrite: false });
+  m.resolution.set(innerWidth, innerHeight); LINE_MATS.push(m); return m;
+}
+const LM = {
+  cool: lmat(0x3b82f6, 1.6, { opacity: .8 }),
+  coolBad: lmat(RED, 2.6),
+  coolOn: lmat(0xffffff, 2.4, { dashed: true, dash: .45, gap: .3 }),
+  power: lmat(0xe39a2b, 1.4, { opacity: .85 }),
+  powerBad: lmat(RED, 2.4),
+};
+LM.coolOn.color.copy(HDR(.25, 1.25, 3.4));
+function makeLine(pts, mat, parent) {
+  const g = new LineGeometry(); g.setPositions(pts.flatMap((p) => [p.x, p.y, p.z]));
+  const l = new Line2(g, mat); l.computeLineDistances(); l.renderOrder = 2; parent.add(l); return l;
+}
+
+/* =========================================================== cartons (robot cell) */
+const CW = .5, CH = .32, CD = .42;
+let cartonN = 0;
+function carton(parent, x, y, z) {
+  const g = new THREE.Group();
+  const b = mesh(rbox(CW, CH, CD, .035), MAT.card[cartonN++ % 2], 0, 0, 0, g);
+  const t = mesh(box(CW + .012, .006, .17), MAT.cardTape, 0, CH / 2 + .002, 0, g, false);
+  const l = new THREE.Mesh(plane(.14, .09), MAT.cardLabel); l.position.set(.1, 0, CD / 2 + .002); g.add(l);
+  for (const m of [b, t, l]) m.userData.carton = true;
+  g.position.set(x, y, z); if (parent) parent.add(g);
+  return g;
+}
+const propSlots = [];
+function propCarton(parent, x, y, z, ry = 0) { const d = new THREE.Object3D(); d.position.set(x, y, z); d.rotation.y = ry; parent.add(d); propSlots.push(d); }
+function bakeProps() {
+  if (!propSlots.length) return;
+  envRoot.updateMatrixWorld(true);
+  const n = propSlots.length;
+  const body = new THREE.InstancedMesh(rbox(CW, CH, CD, .035), std(0xffffff, .85), n);
+  const tape = new THREE.InstancedMesh(box(CW + .012, .006, .17), MAT.cardTape, n);
+  const off = new THREE.Matrix4().makeTranslation(0, CH / 2 + .002, 0), m = new THREE.Matrix4();
+  const c1 = new THREE.Color(0xc9a273), c2 = new THREE.Color(0xb8915f);
+  propSlots.forEach((d, i) => { body.setMatrixAt(i, d.matrixWorld); tape.setMatrixAt(i, m.multiplyMatrices(d.matrixWorld, off)); body.setColorAt(i, (i * 7) % 3 ? c1 : c2); d.removeFromParent(); });
+  body.castShadow = true; body.receiveShadow = true; tape.receiveShadow = true; body.frustumCulled = tape.frustumCulled = false;
+  envRoot.add(body, tape); propSlots.length = 0;
+}
+
+/* =========================================================== environment */
+function addDim(text, pos, parent) { const el = document.createElement('div'); el.className = 'dim'; el.textContent = text; const o = new CSS2DObject(el); o.position.copy(pos); parent.add(o); return o; }
+const isHallScene = (sc) => (sc?.objects || []).some((o) => ['cdu', 'busway', 'rack'].includes(o?.kind));
+function buildEnvironment(base) {
+  clearGroup(envRoot);
+  FW = base?.floor?.w ?? 16; FD = base?.floor?.d ?? 10;
+  const objs = base?.objects || [];
+  const hall = isHallScene(base);
+  const fl = MAT.floor.clone(); fl.map = FLOOR.clone(); fl.map.repeat.set(23, 23); fl.map.needsUpdate = true;
+  flat(new THREE.PlaneGeometry(184, 184), fl, (FW % 2) / 2, 0, (FD % 2) / 2, envRoot);
+  const tw = .06;
+  for (const s of [-1, 1]) { mesh(box(FW + tw, .004, tw), MAT.tape, 0, .002, s * FD / 2, envRoot, false); mesh(box(tw, .004, FD), MAT.tape, s * FW / 2, .002, 0, envRoot, false); }
+  addDim(`${FW.toFixed(1)} M`, new THREE.Vector3(0, .02, FD / 2 + .5), envRoot);
+  addDim(`${FD.toFixed(1)} M`, new THREE.Vector3(FW / 2 + .6, .02, 0), envRoot);
+  // light/shadow/fog scaled to the floor
+  const half = Math.max(FW, FD) / 2 + 3, k = Math.max(1, half / 13);
+  Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, far: 45 * k });
+  sun.shadow.camera.updateProjectionMatrix();
+  sun.position.set(-6 * k, 12 * k, 7 * k);
+  scene.fog.near = (hall ? 46 : 26) * k; scene.fog.far = (hall ? 130 : 80) * k;
+  if (hall) {
+    // white backdrop walls (single-sided, so they vanish when the camera swings behind them)
+    const wh = 5.2;
+    const n = mesh(new THREE.PlaneGeometry(FW + 2, wh), MAT.wall, 0, wh / 2, -FD / 2 - .25, envRoot, false);
+    const w = mesh(new THREE.PlaneGeometry(FD + .5, wh), MAT.wall, -FW / 2 - .25, wh / 2, 0, envRoot, false); w.rotation.y = Math.PI / 2;
+    // exit doors on the west wall (egress) and a door frame accent
+    for (const p of objs.filter((o) => o.kind === 'walkway')) {
+      const vert = p.d > p.w;
+      if (vert) { const d = mesh(box(.06, 2.3, 1.2), MAT.steel, -FW / 2 - .22, 1.15, FD / 2 - Math.min(FD - 1.5, p.y + p.d / 2 - 1.5), envRoot, false); d.userData.door = true; }
+    }
+  } else {
+    const pillars = objs.filter((o) => o.kind === 'pillar');
+    const rows = [...new Set(pillars.map((p) => +p.y.toFixed(2)))].sort((a, b) => a - b);
+    rows.forEach((y, i) => {
+      if (rows.length > 1 && i === 0) return;
+      const xs = pillars.filter((p) => Math.abs(p.y - y) < .01).map((p) => p.x).sort((a, b) => a - b);
+      if (xs.length < 2) return;
+      const x1 = rows.length > 1 ? Math.min(xs[xs.length - 1], xs[1]) : xs[xs.length - 1];
+      cableLadder(xs[0] - .6, y + .6, x1 - .2, y + .6, 3.0);
+    });
+    pallet(-1.4, 2.3, 0, 3); pallet(-1.4, 3.75, 0, 2); pallet(-1.4, 6.3, 90, 1);
+    pallet(FW + 1.45, 2.4, 0, 2); pallet(FW + 1.45, 3.85, 0, 3);
+    rack(.6, FD + .95, 2);
+    forklift(FW + 2.3, 7.4, 180);
+    bakeProps();
+  }
+}
+function pallet(x, y, rot, layers) {
+  const g = new THREE.Group(); g.position.copy(W(x, y)); g.rotation.y = rot * DEG; envRoot.add(g);
+  for (const z of [-.45, 0, .45]) mesh(box(1.2, .1, .1), MAT.pallet, 0, .05, z, g);
+  mesh(box(1.2, .03, 1.0), MAT.pallet, 0, .115, 0, g);
+  for (let l = 0; l < layers; l++) for (const i of [-.27, .27]) for (const j of [-.23, .23]) propCarton(g, i, .13 + CH / 2 + l * CH, j);
+  if (layers > 1) mesh(box(1.12, layers * CH + .02, .94), MAT.wrap, 0, .13 + layers * CH / 2, 0, g, false);
+}
+function rack(x0, y, bays) {
+  const g = new THREE.Group(); g.position.copy(W(x0, y)); envRoot.add(g);
+  const bw = 2.5, dep = 1.0, levels = [.12, 1.25, 2.4];
+  for (let b = 0; b <= bays; b++) for (const z of [-dep / 2, dep / 2]) mesh(box(.08, 3.2, .08), MAT.rackBlue, b * bw, 1.6, z, g);
+  for (let b = 0; b < bays; b++) for (const ly of levels) {
+    for (const z of [-dep / 2, dep / 2]) mesh(box(bw, .1, .05), MAT.rackBeam, b * bw + bw / 2, ly, z, g);
+    for (const px of [.66, 1.84]) {
+      const pg = new THREE.Group(); pg.position.set(b * bw + px, ly + .05, 0); g.add(pg);
+      mesh(box(1.1, .12, .9), MAT.pallet, 0, .06, 0, pg);
+      const n = (b * 2 + Math.round(px) + levels.indexOf(ly)) % 3 === 0 ? 1 : 2;
+      for (let l = 0; l < n; l++) for (const i of [-.26, .26]) for (const j of [-.22, .22]) propCarton(pg, i, .12 + CH / 2 + l * CH, j);
+    }
+  }
+}
+function forklift(x, y, rot) {
+  const g = new THREE.Group(); g.position.copy(W(x, y)); g.rotation.y = rot * DEG; envRoot.add(g);
+  mesh(rbox(1.5, .55, 1.0, .06), MAT.fork, -.05, .48, 0, g);
+  mesh(rbox(.42, .7, 1.0, .06), MAT.steelDark, -.7, .6, 0, g);
+  for (const sx of [-.45, .45]) for (const sz of [-1, 1]) { const w = mesh(cyl(.24, .24, .2, 20), MAT.rubber, sx, .24, sz * .5, g); w.rotation.x = Math.PI / 2; }
+  for (const sx of [-.35, .5]) for (const sz of [-1, 1]) mesh(box(.05, 1.35, .05), MAT.ink, sx, 1.4, sz * .44, g);
+  mesh(box(.95, .05, .95), MAT.ink, .07, 2.08, 0, g);
+  mesh(rbox(.4, .45, .5, .05), MAT.ink, -.15, .95, 0, g);
+  for (const sz of [-1, 1]) mesh(box(.08, 2.3, .08), MAT.steel, .78, 1.15, sz * .3, g);
+  mesh(box(.06, .5, .8), MAT.steelDark, .84, .4, 0, g);
+  for (const sz of [-1, 1]) mesh(box(1.0, .04, .1), MAT.steel, 1.35, .08, sz * .25, g);
+}
+function cableLadder(x0, y0, x1, y1, h) {
+  const a = W(x0, y0, h), b = W(x1, y1, h), len = a.distanceTo(b);
+  if (len < .5) return;
+  const g = new THREE.Group(); g.position.copy(a).add(b).multiplyScalar(.5); g.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x); envRoot.add(g);
+  for (const s of [-1, 1]) mesh(box(len, .06, .03), MAT.steel, 0, 0, s * .2, g, false);
+  const n = Math.floor(len / .4);
+  const rungs = new THREE.InstancedMesh(box(.03, .02, .4), MAT.steel, n), m = new THREE.Matrix4();
+  for (let i = 0; i < n; i++) rungs.setMatrixAt(i, m.makeTranslation(-len / 2 + .2 + i * .4, -.02, 0));
+  rungs.frustumCulled = false; g.add(rungs);
+  for (let i = 0; i < 5; i++) { const c = mesh(cyl(.017, .017, len, 6), MAT.cable, 0, .01, -.12 + i * .06, g, false); c.rotation.z = Math.PI / 2; }
+  for (let x = -len / 2 + .3; x <= len / 2; x += 2.2) for (const s of [-1, 1]) mesh(box(.02, .5, .02), MAT.steel, x, .25, s * .2, g, false);
+}
+const MOTES = 230, moteGeo = new THREE.BufferGeometry(), moteBase = new Float32Array(MOTES * 3), moteSeed = new Float32Array(MOTES);
+for (let i = 0; i < MOTES; i++) { moteBase[i * 3] = (Math.random() - .5) * 26; moteBase[i * 3 + 1] = .3 + Math.random() * 4.5; moteBase[i * 3 + 2] = (Math.random() - .5) * 17; moteSeed[i] = Math.random() * 100; }
+moteGeo.setAttribute('position', new THREE.BufferAttribute(moteBase.slice(), 3));
+const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ color: 0xffffff, size: .045, transparent: true, opacity: .55, depthWrite: false }));
+motes.frustumCulled = false; scene.add(motes);
+function motesTick() {
+  const p = moteGeo.attributes.position.array;
+  for (let i = 0; i < MOTES; i++) {
+    const s = moteSeed[i];
+    p[i * 3] = moteBase[i * 3] + Math.sin(now * .08 + s) * .6;
+    p[i * 3 + 1] = moteBase[i * 3 + 1] + Math.sin(now * .05 + s * 1.7) * .35;
+    p[i * 3 + 2] = moteBase[i * 3 + 2] + Math.cos(now * .07 + s * .6) * .5;
+  }
+  moteGeo.attributes.position.needsUpdate = true;
+}
+
+/* =========================================================== object visuals */
+const visuals = new Map();
+const exiting = [];
+const DESC = { conveyor: 'Infeed conveyor', bin: 'Sorting bin', sensor: 'Fill-level sensor', walkway: 'Pedestrian walkway', fence: 'Fence', pallet: 'Pallet', keepout: 'Keep-out', panel: 'Switchboard' };
+const DOT = { conveyor: '#15171a', bin: '#e9762b', sensor: '#13a8bd', robot: '#e8b21a', walkway: '#2fb35a', rack: '#34d3e8', cdu: '#2f6fe0', busway: '#e0912a', panel: '#6b7079' };
+const BOX_H = CH;
+
+function createVisual(o) {
+  const g = new THREE.Group(); g.name = o.id;
+  const v = { id: o.id, kind: o.kind, o: { ...o }, group: g, mats: [], alert: false, phase: Math.random() * 6 };
+  world.add(g);
+  switch (o.kind) {
+    case 'pillar': buildPillar(v); break;
+    case 'conveyor': buildConveyor(v); break;
+    case 'bin': buildBin(v); break;
+    case 'sensor': buildSensor(v); break;
+    case 'robot': buildRobot(v); break;
+    case 'walkway': buildZone(v); break;
+    case 'keepout': buildKeepout(v); break;
+    case 'rack': buildRack(v); break;
+    case 'cdu': buildCDU(v); break;
+    case 'busway': buildBusway(v); break;
+    case 'panel': buildPanel(v); break;
+    default: buildGeneric(v);
+  }
+  g.position.copy(W(o.x, o.y, 0)); g.rotation.y = (o.rot || 0) * DEG;
+  return v;
+}
+function makeAnno(v, title, sub, { y = 1, small = false, stem = true, dot = null, cls = '' } = {}) {
+  const el = document.createElement('div'); el.className = 'anno' + (small ? ' small' : '') + (cls ? ` ${cls}` : '');
+  el.innerHTML = `<div class="alerts"></div><div class="pill"><i class="dt" style="background:${dot || '#15171a'}"></i><b>${esc(title)}</b><span>${sub ? `· ${esc(sub)}` : ''}</span></div>${stem ? '<div class="stem"></div>' : ''}`;
+  const obj = new CSS2DObject(el); obj.center.set(0.5, stem ? 1 : 0.5); obj.position.set(0, y, 0);
+  v.group.add(obj);
+  v.anno = { obj, el, alerts: el.querySelector('.alerts'), sub: el.querySelector('.pill span'), baseSub: sub };
+}
+function setSub(v, text) { if (v.anno) v.anno.sub.textContent = text ? `· ${text}` : ''; }
+const upId = (id) => String(id).toUpperCase();
+
+function buildPillar(v) {
+  const o = v.o, g = v.group, h = o.h || 6, w = o.w, d = o.d, ft = .05;
+  for (const s of [-1, 1]) mesh(box(w, h, ft), MAT.column, 0, h / 2, s * (d / 2 - ft / 2), g);
+  mesh(box(.04, h, d - 2 * ft), MAT.column, 0, h / 2, 0, g);
+  mesh(box(w + .2, .03, d + .2), MAT.steelDark, 0, .015, 0, g);
+  mesh(box(w + .06, .05, d + .06), MAT.column, 0, h - .025, 0, g);
+  mesh(rbox(w + .06, 1.1, d + .06, .02), MAT.guard, 0, .55, 0, g);
+  for (const y of [.35, .75]) mesh(box(w + .07, .1, d + .07), MAT.ink, 0, y, 0, g, false);
+  makeAnno(v, o.id.replace(/^pillar_|^col_/i, ''), '', { y: 1.45, small: true, stem: false });
+}
+function buildZone(v) {
+  const o = v.o, g = v.group, long = o.w >= o.d, L = long ? o.w : o.d, Wd = long ? o.d : o.w;
+  const inner = new THREE.Group(); if (!long) inner.rotation.y = Math.PI / 2; g.add(inner);
+  flat(new THREE.PlaneGeometry(L, Wd), MAT.walk, 0, .001, 0, inner);
+  const tm = poly(std(0xffffff, .55, 0, { map: hazardTex(L) }));
+  for (const s of [-1, 1]) flat(new THREE.PlaneGeometry(L, .1), tm, 0, .002, s * (Wd / 2 - .05), inner);
+  const pm = poly(new THREE.MeshBasicMaterial({ map: PICTO, transparent: true, opacity: .5, depthWrite: false }), -3);
+  const n = Math.max(1, Math.floor(L / 4));
+  for (let i = 0; i < n; i++) { const s = Math.min(.85, Wd * .55); const p = flat(new THREE.PlaneGeometry(s, s), pm, -L / 2 + 2 + i * 4, .003, 0, inner); if (i % 2) p.rotation.z = Math.PI; }
+  const egress = /egress/i.test(o.id);
+  makeAnno(v, egress ? 'EGRESS' : upId(o.id), egress ? (o.note ? 'Exit corridor' : 'Exit corridor') : DESC.walkway, { y: .05, small: true, stem: false });
+  v.anno.obj.position.set(long ? -L / 2 + 1.6 : 0, .05, long ? 0 : L / 2 - 1.6);
+}
+function buildKeepout(v) {
+  const o = v.o, g = v.group;
+  const t = KOHATCH.clone(); t.repeat.set(o.w / 1.0, o.d / 1.0); t.needsUpdate = true;
+  flat(new THREE.PlaneGeometry(o.w, o.d), poly(new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }), -2), 0, .002, 0, g).receiveShadow = false;
+  const bm = std(RED, .5), lw = .045;
+  for (const s of [-1, 1]) { mesh(box(o.w, .006, lw), bm, 0, .003, s * (o.d / 2 - lw / 2), g, false); mesh(box(lw, .006, o.d), bm, s * (o.w / 2 - lw / 2), .003, 0, g, false); }
+  const reason = String(o.reason || 'Keep clear');
+  makeAnno(v, 'KEEP-OUT', reason.length > 48 ? reason.slice(0, 46) + '…' : reason, { y: .06, stem: false, cls: 'ko', dot: '#e0352b' });
+  v.anno.el.title = reason;
+}
+function buildConveyor(v) {
+  const o = v.o, g = v.group, L = o.w, D = o.d, H = o.h || .9;
+  const bm = MAT.belt.clone(); bm.map = BELT.clone(); bm.map.repeat.set(L / 1.2, 1); bm.map.needsUpdate = true; v.beltMat = bm;
+  mesh(box(L - .04, .06, D - .18), bm, 0, H - .03, 0, g);
+  for (const s of [-1, 1]) {
+    mesh(rbox(L, .22, .08, .01), MAT.rail, 0, H - .07, s * (D / 2 - .04), g);
+    mesh(box(L, .04, .14), MAT.railDark, 0, H + .06, s * (D / 2 - .04), g);
+    const dr = mesh(cyl(.1, .1, D - .14, 24), MAT.rail, s * (L / 2 - .1), H - .1, 0, g); dr.rotation.x = Math.PI / 2;
+  }
+  mesh(box(L, .03, .03), MAT.tape, 0, H + .095, -(D / 2 - .04), g, false);
+  mesh(box(L - .3, .1, D - .22), MAT.steelDark, 0, H - .2, 0, g);
+  const n = Math.max(2, Math.round(L / 2.2) + 1);
+  for (let i = 0; i < n; i++) {
+    const x = -L / 2 + .25 + (L - .5) * i / (n - 1);
+    for (const s of [-1, 1]) { mesh(box(.08, H - .12, .08), MAT.leg, x, (H - .12) / 2, s * (D / 2 - .08), g); mesh(cyl(.07, .09, .04, 16), MAT.rubber, x, .02, s * (D / 2 - .08), g, false); }
+    mesh(box(.05, .05, D - .16), MAT.leg, x, .25, 0, g, false);
+  }
+  const pk = o.points?.pick; const pickS = Array.isArray(pk) ? pk[0] : L / 2 - .4;
+  for (const s of [-1, 1]) mesh(box(.04, .012, .15), MAT.ink, pickS, H + .085, s * (D / 2 - .04), g, false);
+  const root = new THREE.Group(); g.add(root);
+  v.conv = { L, H, startS: -L / 2 + .35, pickS: clamp(pickS, -L / 2 + .35, L / 2 - .25), boxes: [], spacing: .74, speed: .62, lastSpawn: -10, root };
+  makeAnno(v, upId(o.id), DESC.conveyor, { y: H + .45, dot: DOT.conveyor });
+  v.anno.obj.position.x = -L / 2 + .9;
+}
+function buildBin(v) {
+  const o = v.o, g = v.group, w = o.w, d = o.d, h = o.h || 1, t = .05, f = .06, wh = h - f;
+  mesh(box(w - .02, t, d - .02), MAT.orange, 0, f + t / 2, 0, g);
+  for (const s of [-1, 1]) mesh(rbox(w, wh, t, .02), MAT.orange, 0, f + wh / 2, s * (d / 2 - t / 2), g);
+  for (const s of [-1, 1]) mesh(rbox(t, wh, d - 2 * t, .02), MAT.orange, s * (w / 2 - t / 2), f + wh / 2, 0, g);
+  for (const s of [-1, 1]) mesh(rbox(w + .04, .05, .08, .015), MAT.orangeDark, 0, h - .02, s * (d / 2 - .02), g);
+  for (const s of [-1, 1]) mesh(rbox(.08, .05, d + .04, .015), MAT.orangeDark, s * (w / 2 - .02), h - .02, 0, g);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) mesh(box(.12, f, .12), MAT.rubber, sx * (w / 2 - .1), f / 2, sz * (d / 2 - .1), g);
+  const name = o.id.replace(/_/g, ' ').toUpperCase();
+  const lt = canvasTex(256, 112, (c) => { c.fillStyle = '#fbfbfa'; c.fillRect(0, 0, 256, 112); c.fillStyle = '#15171a'; c.font = '600 44px "Geist Mono", monospace'; c.fillText(name.slice(0, 9), 16, 58); c.font = '500 18px "Geist Mono", monospace'; c.fillStyle = '#5c626b'; c.fillText('SORT · LINE A', 18, 92); });
+  lt.wrapS = lt.wrapT = THREE.ClampToEdgeWrapping;
+  const lab = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(.56, w * .5), Math.min(.245, w * .22)), std(0xffffff, .6, 0, { map: lt })); lab.position.set(0, h * .62, d / 2 + .004); g.add(lab);
+  flat(plane(.3, .02), MAT.ink, 0, f + t + .003, 0, g); flat(plane(.02, .3), MAT.ink, 0, f + t + .003, 0, g);
+  v.parts = []; v.count = 0; v.floorY = f + t;
+  makeAnno(v, upId(o.id), DESC.bin, { y: h + .4, dot: DOT.bin });
+}
+function buildSensor(v) {
+  const o = v.o, g = v.group, z = num(o.z) ? o.z : 2.8;
+  mesh(rbox(.3, .14, .3, .03), MAT.sensor, 0, z + .07, 0, g);
+  mesh(cyl(.06, .06, .035, 24), MAT.lens, 0, z - .012, 0, g, false);
+  const pillars = (S.base?.objects || []).filter((p) => p.kind === 'pillar');
+  const near = pillars.map((p) => ({ p, d: Math.hypot(p.x - o.x, p.y - o.y) })).sort((a, b) => a.d - b.d)[0];
+  const by = z + .3;
+  mesh(cyl(.025, .025, by - z - .14, 10), MAT.steel, 0, z + .14 + (by - z - .14) / 2, 0, g);
+  if (near && near.d < 4) {
+    const dx = near.p.x - o.x, dy = near.p.y - o.y, L = near.d;
+    const arm = mesh(box(L, .08, .08), MAT.steel, dx / 2, by, -dy / 2, g); arm.rotation.y = Math.atan2(dy, dx);
+    const pl = mesh(box(.2, .3, .2), MAT.steelDark, dx, by, -dy, g, false); pl.rotation.y = arm.rotation.y;
+  } else mesh(cyl(.025, .025, 1.6, 10), MAT.steel, 0, by + .8, 0, g, false);
+  const tg = o.points?.target || [0, 0];
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(.22, z, 40, 1, true), basic(TEAL, { transparent: true, opacity: .1, depthWrite: false, side: THREE.DoubleSide })); cone.position.set(tg[0], z / 2, -tg[1]); g.add(cone);
+  const laser = new THREE.Mesh(cyl(.006, .006, z, 6), basic(HDR(.2, 1.6, 2), { transparent: true, opacity: .85 })); laser.position.set(tg[0], z / 2, -tg[1]); g.add(laser);
+  flat(new THREE.RingGeometry(.13, .165, 40), poly(basic(TEAL, { transparent: true, opacity: .8, depthWrite: false }), -3), tg[0], .004, -tg[1], g).receiveShadow = false;
+  v.cone = cone; v.flashT = -10;
+  makeAnno(v, upId(o.id), DESC.sensor, { y: z + .5, dot: DOT.sensor });
+}
+function buildGeneric(v) {
+  const o = v.o, h = Math.max(o.h || .5, .02);
+  mesh(rbox(o.w, h, o.d, .02), o.kind === 'pallet' ? MAT.pallet : MAT.steel, 0, (o.z || 0) + h / 2, 0, v.group);
+  makeAnno(v, upId(o.id), DESC[o.kind] || o.kind, { y: (o.z || 0) + h + .35 });
+}
+
+/* ---------- data hall equipment */
+function buildRack(v) {
+  const o = v.o, g = v.group, w = o.w || .6, d = o.d || 1.2, h = o.h || 2.3;
+  const cab = mesh(rbox(w, h, d, .012), MAT.rack, 0, h / 2, 0, g); cab.userData.rackOf = v.id; v.cab = cab;
+  for (const s of [-1, 1]) { const dr = new THREE.Mesh(plane(w - .04, h - .1), MAT.door); dr.position.set(0, h / 2, s * (d / 2 + .003)); if (s < 0) dr.rotation.y = Math.PI; dr.userData.door = true; g.add(dr); }
+  const led = mesh(box(.016, h * .8, .01), MAT.ledOff, w / 2 - .05, h / 2, d / 2 + .009, g, false); led.userData.lamp = true; v.led = led;
+  const stat = mesh(box(.03, .03, .01), MAT.statOff, -w / 2 + .07, h - .12, d / 2 + .009, g, false); stat.userData.lamp = true; v.stat = stat;
+  const act = mesh(box(.022, .022, .01), MAT.statOff, -w / 2 + .12, h - .12, d / 2 + .009, g, false); act.userData.lamp = true; v.act = act;
+  mesh(box(w - .08, .05, d - .2), MAT.steelDark, 0, h + .025, 0, g, false);
+  makeAnno(v, upId(o.id), `${num(o.kw) ? o.kw : '?'} kW`, { y: h + .35, dot: DOT.rack, cls: 'quiet' });
+}
+function buildCDU(v) {
+  const o = v.o, g = v.group, w = o.w || 1.2, d = o.d || .8, h = o.h || 2;
+  mesh(rbox(w, h, d, .03), MAT.cdu, 0, h / 2, 0, g);
+  mesh(box(w * .86, h * .46, .012), MAT.cduPanel, 0, h * .55, d / 2 + .004, g, false);
+  mesh(box(.22, .12, .012), MAT.cduScreen, -w * .25, h * .8, d / 2 + .009, g, false).userData.lamp = true;
+  for (let i = 0; i < 6; i++) mesh(box(w * .7, .012, .012), MAT.steelDark, 0, h * .14 + i * .045, d / 2 + .006, g, false);
+  const pb = mesh(cyl(.07, .07, .45, 20), MAT.pipeBlue, -w / 4, h + .225, 0, g); const pr = mesh(cyl(.07, .07, .45, 20), MAT.pipeRed, w / 4, h + .225, 0, g);
+  for (const p of [pb, pr]) mesh(cyl(.085, .085, .05, 20), MAT.steelDark, p.position.x, h + .47, 0, g, false);
+  v.pipeTop = h + .47;
+  makeAnno(v, upId(o.id), '', { y: h + .9, dot: DOT.cdu });
+}
+function buildBusway(v) {
+  const o = v.o, g = v.group, z = num(o.z) ? o.z : 3.0, L = o.w, D = o.d || .25, H = o.h || .15;
+  mesh(rbox(L, H, D, .02), MAT.busway, 0, z + H / 2, 0, g);
+  for (let x = -L / 2 + .6; x < L / 2; x += 1.5) mesh(box(.05, H + .02, D + .02), MAT.buswayDark, x, z + H / 2, 0, g, false);
+  for (const s of [-1, 1]) mesh(box(.06, H + .04, D + .04), MAT.ink, s * (L / 2 + .02), z + H / 2, 0, g, false);
+  const ceil = z + 1.5;
+  for (let x = -L / 2 + 1; x < L / 2; x += 2.5) { mesh(box(.02, ceil - z - H, .02), MAT.steel, x, z + H + (ceil - z - H) / 2, 0, g, false); mesh(box(.04, .02, D + .12), MAT.steel, x, z + H + .01, 0, g, false); }
+  v.z = z;
+  makeAnno(v, upId(o.id), '', { y: z + .55, dot: DOT.busway });
+  v.anno.obj.position.x = -L / 2 + 1.1;
+}
+function buildPanel(v) {
+  const o = v.o, g = v.group, w = o.w || .6, d = o.d || 1.6, h = o.h || 2.2;
+  mesh(rbox(w, h, d, .02), MAT.panel, 0, h / 2, 0, g);
+  // the face toward the hall (smaller extent axis): put seams and the hazard sign on the -x face if deep, else on +z
+  const faceX = d > w;
+  const n = 3;
+  for (let i = 1; i < n; i++) { const s = mesh(box(faceX ? .01 : .01, h - .1, faceX ? .01 : .01), MAT.steelDark, faceX ? -w / 2 - .004 : -w / 2 + i * w / n, h / 2, faceX ? -d / 2 + i * d / n : d / 2 + .004, g, false); }
+  const sign = new THREE.Mesh(plane(.24, .24), MAT.sign);
+  if (faceX) { sign.position.set(-w / 2 - .006, h * .78, 0); sign.rotation.y = -Math.PI / 2; } else sign.position.set(0, h * .78, d / 2 + .006);
+  g.add(sign);
+  makeAnno(v, upId(o.id), o.note ? 'Main switchboard' : DESC.panel, { y: h + .4, dot: DOT.panel });
+}
+
+/* ---------- robot arm */
+const LAMP_ON = { green: basic(HDR(.4, 2.6, .8)), amber: basic(HDR(2.8, 1.9, .3)), red: basic(HDR(3.0, .3, .25)) };
+const LAMP_OFF = { green: std(0x1f5a35, .3, 0, { transparent: true, opacity: .85 }), amber: std(0x6b5a1c, .3, 0, { transparent: true, opacity: .85 }), red: std(0x6a221d, .3, 0, { transparent: true, opacity: .85 }) };
+function buildRobot(v) {
+  const o = v.o, g = v.group, reach = o.reach || 2.6, k = reach / 3.1;
+  const P = { SH: Math.max(.6, (o.h || 2.6) * .4), L1: reach * .48, L2: reach * .46, TOOL: .23, OFF: .12 * k, T0: Math.max(.3, .5 * k) };
+  mesh(rbox(o.w, .08, o.d, .02), MAT.steelDark, 0, .04, 0, g);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) mesh(cyl(.035, .035, .03, 12), MAT.steel, sx * (o.w / 2 - .1), .095, sz * (o.d / 2 - .1), g, false);
+  mesh(cyl(.35 * k, .43 * k, P.T0 - .08, 40), MAT.robot, 0, .08 + (P.T0 - .08) / 2, 0, g);
+  mesh(cyl(.45 * k, .45 * k, .04, 40), MAT.joint, 0, .1, 0, g);
+  const lx = -(o.w / 2 - .09), lz = o.d / 2 - .09;
+  mesh(cyl(.018, .018, 1.0, 10), MAT.steelDark, lx, .58, lz, g, false);
+  v.lamps = {};
+  ['green', 'amber', 'red'].forEach((c, i) => { const m = mesh(cyl(.035, .035, .07, 18), LAMP_OFF[c], lx, 1.12 + i * .075, lz, g, false); m.userData.lamp = true; v.lamps[c] = m; });
+  mesh(cyl(.037, .037, .02, 18), MAT.ink, lx, 1.12 + 3 * .075 - .02, lz, g, false).userData.lamp = true;
+  const turn = new THREE.Group(); turn.position.y = P.T0; g.add(turn);
+  mesh(cyl(.41 * k, .41 * k, .2 * k, 40), MAT.robot, 0, .1 * k, 0, turn);
+  const shY = P.SH - P.T0;
+  mesh(rbox(.58 * k, shY + .18 * k, .52 * k, .06 * k), MAT.robot, P.OFF * .4, (shY + .18 * k) / 2, 0, turn);
+  const mot = mesh(cyl(.15 * k, .15 * k, .2 * k, 24), MAT.joint, P.OFF * .4 - .05, shY - .02, .34 * k, turn); mot.rotation.x = Math.PI / 2;
+  const shoulder = new THREE.Group(); shoulder.position.set(P.OFF, shY, 0); turn.add(shoulder);
+  const j1 = mesh(cyl(.2 * k, .2 * k, .6 * k, 32), MAT.joint, 0, 0, 0, shoulder); j1.rotation.x = Math.PI / 2;
+  mesh(rbox(P.L1 + .12 * k, .3 * k, .3 * k, .07 * k), MAT.robot, P.L1 / 2, 0, 0, shoulder);
+  const elbow = new THREE.Group(); elbow.position.set(P.L1, 0, 0); shoulder.add(elbow);
+  const j2 = mesh(cyl(.17 * k, .17 * k, .44 * k, 32), MAT.joint, 0, 0, 0, elbow); j2.rotation.x = Math.PI / 2;
+  mesh(rbox(.4 * k, .34 * k, .36 * k, .07 * k), MAT.robot, -.14 * k, 0, 0, elbow);
+  mesh(rbox(P.L2, .22 * k, .24 * k, .06 * k), MAT.robot, P.L2 / 2, 0, 0, elbow);
+  const wrist = new THREE.Group(); wrist.position.set(P.L2, 0, 0); elbow.add(wrist);
+  const j3 = mesh(cyl(.12 * k, .12 * k, .3 * k, 24), MAT.joint, 0, 0, 0, wrist); j3.rotation.x = Math.PI / 2;
+  const tool = new THREE.Group(); wrist.add(tool);
+  mesh(cyl(.085, .085, .12, 24), MAT.steel, 0, -.08, 0, tool);
+  mesh(rbox(.22, .09, .68, .02), MAT.joint, 0, -.185, 0, tool);
+  const fL = mesh(box(.07, .26, .035), MAT.steel, 0, -.34, .3, tool), fR = mesh(box(.07, .26, .035), MAT.steel, 0, -.34, -.3, tool);
+  v.arm = { turn, shoulder, elbow, wrist, tool, fL, fR, P };
+  v.pose = { yaw: 0, r: 1.1 * k, h: P.SH + 1.25 * k, grip: 0 };
+  const ov = new THREE.Group(); world.add(ov); v.overlay = ov;
+  v.reachMat = poly(basic(0x4a515b, { transparent: true, opacity: .6, depthWrite: false }), -4);
+  flat(dashedRing(reach, .04, 88), v.reachMat, 0, .006, 0, ov).receiveShadow = false;
+  v.discMat = poly(basic(0x1b1f24, { transparent: true, opacity: .035, depthWrite: false }), -3);
+  flat(new THREE.CircleGeometry(reach, 96), v.discMat, 0, .005, 0, ov).receiveShadow = false;
+  const mr = o.min_reach || .5;
+  flat(new THREE.RingGeometry(mr - .012, mr + .012, 64), poly(basic(0x4a515b, { transparent: true, opacity: .35, depthWrite: false }), -4), 0, .006, 0, ov).receiveShadow = false;
+  v.wedge = new THREE.Group(); ov.add(v.wedge);
+  makeAnno(v, upId(o.id), `${o.model || 'Robot'} · ${fmt(reach, 1)} m reach`, { y: (o.h || 2.6) + .75, dot: DOT.robot });
+  setLamp(v, 'amber');
+  applyIK(v);
+}
+function setLamp(v, which) { if (!v?.lamps) return; for (const c of ['green', 'amber', 'red']) v.lamps[c].material = c === which ? LAMP_ON[c] : LAMP_OFF[c]; v.lamp = which; }
+function applyIK(v) {
+  const A = v.arm, P = A.P, p = v.pose;
+  A.turn.rotation.y = p.yaw - v.group.rotation.y;
+  const x = Math.max(.05, p.r - P.OFF), y = p.h + P.TOOL - P.SH;
+  const d = clamp(Math.hypot(x, y), Math.abs(P.L1 - P.L2) + .05, P.L1 + P.L2 - 1e-3);
+  const phi = Math.acos(clamp((d * d - P.L1 * P.L1 - P.L2 * P.L2) / (2 * P.L1 * P.L2), -1, 1));
+  const th1 = Math.atan2(y, x) + Math.atan2(P.L2 * Math.sin(phi), P.L1 + P.L2 * Math.cos(phi));
+  A.shoulder.rotation.z = th1; A.elbow.rotation.z = -phi; A.wrist.rotation.z = -(th1 - phi);
+  const fz = lerp(.31, CD / 2 + .025, p.grip); A.fL.position.z = fz; A.fR.position.z = -fz;
+}
+function homePose(v, yaw) { const k = (v.o.reach || 2.6) / 3.1; return { yaw: yaw ?? v.pose.yaw, r: 1.1 * k, h: v.arm.P.SH + 1.25 * k, grip: 0 }; }
+function armPlay(v, segs, { loop = false, loopFrom = 0 } = {}) { if (!v || !v.arm) return; v.seq = { segs, i: -1, loop, loopFrom, seg: null }; nextSeg(v); }
+function armStop(v, goHome = true) { if (!v || !v.arm) return; if (v.carry) { v.carry.removeFromParent(); v.carry = null; } v.seq = null; if (goHome) armPlay(v, [() => ({ to: homePose(v), dur: .9 })]); }
+function nextSeg(v) {
+  const q = v.seq; if (!q) return;
+  q.i++;
+  if (q.i >= q.segs.length) { if (q.loop) q.i = q.loopFrom; else { v.seq = null; return; } }
+  const def = (typeof q.segs[q.i] === 'function' ? q.segs[q.i]() : q.segs[q.i]) || { to: {}, dur: .01 };
+  const to = def.to || {};
+  let dy = 0;
+  if (def.dYaw != null) dy = def.dYaw;
+  else if (to.yaw != null) { const d = to.yaw - v.pose.yaw; dy = def.dir === 'ccw' ? mod(d, TAU) : def.dir === 'cw' ? -mod(-d, TAU) : mod(d + Math.PI, TAU) - Math.PI; }
+  q.seg = { ...def, to, t0: now, from: { ...v.pose }, dy, started: !def.waitFor };
+  if (q.seg.started && def.onStart) def.onStart();
+}
+function armTick(v) {
+  const q = v.seq; if (!q || !q.seg) { applyIK(v); return; }
+  const s = q.seg;
+  if (!s.started) { if (s.waitFor()) { s.started = true; s.t0 = now; s.from = { ...v.pose }; s.onStart?.(); } else { applyIK(v); return; } }
+  const k = clamp((now - s.t0) / Math.max(.001, s.dur), 0, 1), e = s.linear ? k : ease(k);
+  v.pose.yaw = s.from.yaw + s.dy * e;
+  if (s.to.r != null) v.pose.r = lerp(s.from.r, s.to.r, e);
+  if (s.to.h != null) v.pose.h = lerp(s.from.h, s.to.h, e);
+  if (s.to.grip != null) v.pose.grip = lerp(s.from.grip, s.to.grip, e);
+  applyIK(v);
+  if (k >= 1) { s.onEnd?.(); if (v.seq === q) nextSeg(v); }
+}
+function spawnBox(v) { const c = v.conv; const m = carton(c.root, c.startS, c.H + BOX_H / 2, (Math.random() - .5) * .04); m.rotation.y = (Math.random() - .5) * .05; m.scale.setScalar(.01); c.boxes.push({ mesh: m, s: c.startS, pop: 0 }); c.lastSpawn = now; }
+function convTick(v, dt) {
+  const c = v.conv; let moving = false;
+  for (let i = 0; i < c.boxes.length; i++) {
+    const b = c.boxes[i], lim = i === 0 ? c.pickS : c.boxes[i - 1].s - c.spacing;
+    const ns = Math.min(lim, b.s + c.speed * dt);
+    if (ns > b.s + 1e-5) { moving = true; b.s = ns; }
+    b.mesh.position.x = b.s;
+    if (b.pop < 1) { b.pop = Math.min(1, b.pop + dt * 4); b.mesh.scale.setScalar(Math.max(.01, easeOutBack(b.pop))); }
+  }
+  const last = c.boxes[c.boxes.length - 1];
+  if (c.boxes.length < 7 && now - c.lastSpawn > 2.3 && (!last || last.s > c.startS + c.spacing)) spawnBox(v);
+  if (moving) v.beltMat.map.offset.x -= (c.speed * dt) / 1.2;
+}
+const convReady = (cv) => !cv || (cv.conv.boxes[0] && Math.abs(cv.conv.boxes[0].s - cv.conv.pickS) < .02);
+function grabBox(v, cv) { if (!cv || !cv.conv.boxes.length) return; const b = cv.conv.boxes.shift(); b.mesh.scale.setScalar(1); v.arm.tool.attach(b.mesh); v.carry = b.mesh; }
+const drops = [];
+function releaseBox(v, bv) {
+  const m = v.carry; if (!m) return; v.carry = null;
+  world.attach(m);
+  if (!bv) { drops.push({ m, from: m.position.clone(), to: m.position.clone().setY(BOX_H / 2), t0: now, dur: .4 }); return; }
+  if (bv.parts.length >= 8) { const old = bv.parts.shift(); drops.push({ m: old, fade: true, t0: now, dur: .45 }); }
+  const SL = [[-.27, -.2], [.27, .2], [.27, -.2], [-.27, .2]];
+  const n = bv.count, layer = Math.floor((n % 8) / 4), sl = SL[n % 4];
+  const sx = clamp(sl[0], -(bv.o.w / 2 - CW / 2 - .05), bv.o.w / 2 - CW / 2 - .05), sz = clamp(sl[1], -(bv.o.d / 2 - CD / 2 - .05), bv.o.d / 2 - CD / 2 - .05);
+  bv.group.updateMatrixWorld(true);
+  const to = bv.group.localToWorld(new THREE.Vector3(sx, bv.floorY + BOX_H / 2 + layer * BOX_H + .002, sz));
+  const yaw = bv.group.rotation.y + (Math.random() - .5) * .12;
+  drops.push({ m, from: m.position.clone(), to, t0: now, dur: .42, q0: m.quaternion.clone(), q1: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0)), bin: bv });
+  bv.count++; bv.parts.push(m);
+  setSub(bv, `${DESC.bin} · ${bv.count} part${bv.count === 1 ? '' : 's'}`);
+  const sens = [...visuals.values()].find((x) => x.kind === 'sensor'); if (sens) sens.flashT = now + .35;
+}
+function dropsTick() {
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i], k = clamp((now - d.t0) / d.dur, 0, 1);
+    if (d.fade) { d.m.scale.setScalar(Math.max(.01, 1 - k)); if (k >= 1) { d.m.removeFromParent(); drops.splice(i, 1); } continue; }
+    d.m.position.lerpVectors(d.from, d.to, k * k);
+    if (d.q0) d.m.quaternion.slerpQuaternions(d.q0, d.q1, k);
+    if (k >= 1) { if (d.bin && d.bin.group.parent) d.bin.group.attach(d.m); drops.splice(i, 1); }
+  }
+}
+function clearParts() { for (const v of visuals.values()) if (v.parts) { v.parts.forEach((m) => m.removeFromParent()); v.parts = []; v.count = 0; setSub(v, v.anno?.baseSub); } }
+
+/* ---------- violation highlighting */
+function ensureHL(v) {
+  if (v.hl) return;
+  const o = v.o, hh = Math.max(o.h || .05, .05), z0 = o.z || 0;
+  const g = new THREE.BoxGeometry(o.w + .08, hh + .08, o.d + .08);
+  const shell = new THREE.Mesh(g, basic(RED, { transparent: true, opacity: .12, depthWrite: false }));
+  shell.position.y = z0 + hh / 2;
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: RED, transparent: true, opacity: .95 }));
+  edges.position.copy(shell.position);
+  const foot = new THREE.Mesh(new THREE.PlaneGeometry(o.w + .1, o.d + .1), poly(basic(RED, { transparent: true, opacity: .25, depthWrite: false }), -5));
+  foot.rotation.x = -Math.PI / 2; foot.position.y = .008; foot.visible = !z0 && v.kind !== 'keepout' && v.kind !== 'walkway';
+  const grp = new THREE.Group(); grp.add(shell, edges, foot); grp.visible = false;
+  if (v.kind === 'keepout' || v.kind === 'walkway') { shell.visible = false; }
+  v.group.add(grp); v.hl = grp; v.hlParts = { shell, foot };
+}
+function setAlert(v, on) {
+  if (!v) return;
+  if (on) {
+    ensureHL(v);
+    if (!v.ownMats) {
+      v.group.traverse((m) => { if (m.isMesh && m.material && m.material.isMeshStandardMaterial && !m.userData.carton && !m.userData.lamp && !m.isInstancedMesh) { m.material = m.material.clone(); v.mats.push(m.material); } });
+      v.ownMats = true;
+    }
+  }
+  v.alert = on;
+  if (v.hl) v.hl.visible = on;
+  if (!on) v.mats.forEach((m) => m.emissive.setRGB(0, 0, 0));
+}
+function clearAlerts() {
+  for (const v of visuals.values()) {
+    setAlert(v, false);
+    if (v.anno) { v.anno.alerts.innerHTML = ''; v.anno.el.classList.remove('alert', 'lines'); }
+    if (v.reachMat) { v.reachMat.color.setHex(0x4a515b); v.discMat.color.setHex(0x1b1f24); v.discMat.opacity = .035; }
+    if (v.stat && !v.powered) v.stat.material = MAT.statOff;
+  }
+  for (const l of S.linkLines.values()) if (l.material === LM.coolBad) l.material = S.powered ? LM.coolOn : LM.cool;
+  for (const l of S.powerLines.values()) if (l.material === LM.powerBad) l.material = LM.power;
+}
+function clearWedges() { for (const v of visuals.values()) if (v.wedge) disposeGroup(v.wedge); }
+
+/* ---------- scene diff and animation */
+const sameShape = (a, b) => a.kind === b.kind && a.w === b.w && a.d === b.d && a.h === b.h && (a.z || 0) === (b.z || 0) && (a.reach || 0) === (b.reach || 0) && JSON.stringify(a.points || {}) === JSON.stringify(b.points || {});
+function disposeVisual(v) {
+  if (v.arm) armStop(v, false);
+  v.anno?.obj.removeFromParent(); v.anno?.el.remove();
+  v.overlay?.removeFromParent();
+  v.group.removeFromParent();
+  v.group.traverse((o) => { if (o.isCSS2DObject && o.element) o.element.remove(); });
+  v.mats.forEach((m) => m.dispose());
+}
+function applyScene(sc, { animate = true } = {}) {
+  if (!sc || !Array.isArray(sc.objects)) return [];
+  const seen = new Set(), added = [];
+  let racksAdded = 0;
+  for (const o of sc.objects) {
+    if (!o || o.id == null || !num(o.x) || !num(o.y)) continue;
+    const ob = { w: 1, d: 1, h: 1, rot: 0, ...o };
+    seen.add(ob.id);
+    let v = visuals.get(ob.id);
+    if (v && !sameShape(v.o, ob)) { disposeVisual(v); visuals.delete(ob.id); v = null; }
+    if (!v) {
+      v = createVisual(ob); visuals.set(ob.id, v); added.push(v);
+      if (animate) {
+        const delay = v.kind === 'rack' ? racksAdded++ * .045 : 0;
+        v.enter = { t0: now + delay, dur: v.kind === 'robot' ? .85 : .7, h: v.kind === 'robot' ? 4.5 : v.kind === 'rack' ? 1.6 : 2.5 };
+        v.group.position.y = v.enter.h; if (delay) v.group.visible = false; if (v.overlay) v.overlay.visible = false;
+      }
+    } else {
+      const t = W(ob.x, ob.y), tr = (ob.rot || 0) * DEG, g = v.group;
+      const moved = Math.hypot(t.x - g.position.x, t.z - g.position.z) > 1e-3 || Math.abs(tr - g.rotation.y) > 1e-4;
+      if (moved && animate) v.tween = { t0: now, dur: v.kind === 'robot' ? 1.5 : 1.25, x0: g.position.x, z0: g.position.z, r0: g.rotation.y, x1: t.x, z1: t.z, r1: tr };
+      else if (moved) { g.position.set(t.x, 0, t.z); g.rotation.y = tr; v.tween = null; }
+      v.o = { ...ob };
+    }
+  }
+  for (const [id, v] of [...visuals]) if (!seen.has(id)) {
+    visuals.delete(id);
+    if (animate) { v.exit = { t0: now, dur: .5 }; if (v.overlay) v.overlay.visible = false; v.anno?.obj.removeFromParent(); v.anno?.el.remove(); exiting.push(v); }
+    else disposeVisual(v);
+  }
+  S.sceneNow = sc;
+  return added;
+}
+const dusts = [];
+function dust(pos, color = 0x2a2e34, r = .55) {
+  const m = flat(new THREE.RingGeometry(r, r + .15, 48), poly(basic(color, { transparent: true, opacity: .3, depthWrite: false }), -6), pos.x, .01, pos.z, fxRoot);
+  dusts.push({ m, t0: now });
+}
+function updateVisual(v, dt) {
+  const g = v.group;
+  if (v.rise) {
+    const k = clamp((now - v.rise.t0) / v.rise.dur, 0, 1);
+    g.position.y = -4 * (1 - easeOutCubic(k));
+    if (k >= 1) { v.rise = null; g.position.y = 0; if (v.anno) v.anno.obj.visible = true; }
+  }
+  if (v.tween) {
+    const tw = v.tween, k = clamp((now - tw.t0) / tw.dur, 0, 1), e = ease(k);
+    g.position.x = lerp(tw.x0, tw.x1, e); g.position.z = lerp(tw.z0, tw.z1, e); g.rotation.y = lerp(tw.r0, tw.r1, e);
+    if (k >= 1) v.tween = null;
+  }
+  if (v.enter) {
+    if (now < v.enter.t0) g.visible = false;
+    else {
+      g.visible = true;
+      const k = clamp((now - v.enter.t0) / v.enter.dur, 0, 1);
+      g.position.y = (1 - k * k) * v.enter.h;
+      if (k >= 1) { g.position.y = 0; v.enter = null; if (v.overlay) v.overlay.visible = true; dust(g.position, 0x2a2e34, v.kind === 'rack' ? .3 : .55); }
+    }
+  }
+  if (v.settle) { const k = clamp((now - v.settle) / .45, 0, 1); g.position.y = Math.sin(k * Math.PI) * .045 * (1 - k); if (k >= 1) { v.settle = null; g.position.y = 0; } }
+  if (v.overlay) v.overlay.position.set(g.position.x, 0, g.position.z);
+  if (v.conv) convTick(v, dt);
+  if (v.arm) armTick(v);
+  if (v.powerAt != null && now >= v.powerAt) { v.powerAt = null; v.powered = true; v.led.material = MAT.ledOn; v.stat.material = v.alert ? MAT.statBad : MAT.statOn; v.settle = now; }
+  if (v.powered && v.act && Math.random() < dt * 7) v.act.material = v.act.material === MAT.actOn ? MAT.statOff : MAT.actOn;
+  if (v.alert) {
+    const k = .5 + .5 * Math.sin(now * 6.5 + v.phase), boost = v.impact ? Math.max(0, 1 - (now - v.impact) / .8) : 0;
+    for (const m of v.mats) m.emissive.setRGB(.5 * k + .7 * boost, .03 * k, .02 * k);
+    if (v.hlParts) { v.hlParts.shell.material.opacity = .06 + .1 * k + .3 * boost; v.hlParts.foot.material.opacity = .16 + .14 * k; }
+  }
+  if (v.cone) { const f = Math.max(0, 1 - Math.abs(now - v.flashT) / .3); v.cone.material.opacity = .1 + .25 * f; }
+}
+
+/* =========================================================== geometry helpers (mirror of scene.py / checks.py) */
+function findObj(sc, id) { return (sc?.objects || []).find((o) => o && o.id === id) || null; }
+function scenePoint(sc, ref, pointsMap) {
+  if (!ref) return null;
+  if (pointsMap && Array.isArray(pointsMap[ref])) return pointsMap[ref];
+  const [id, name] = String(ref).split('.');
+  const o = findObj(sc, id); if (!o) return null;
+  if (!name || !o.points || !o.points[name]) return [o.x, o.y];
+  const [dx, dy] = o.points[name], a = (o.rot || 0) * DEG;
+  return [o.x + dx * Math.cos(a) - dy * Math.sin(a), o.y + dx * Math.sin(a) + dy * Math.cos(a)];
+}
+function inRect(px, py, o, pad) {
+  const a = -(o.rot || 0) * DEG, dx = px - o.x, dy = py - o.y;
+  const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
+  return Math.abs(lx) <= o.w / 2 + pad && Math.abs(ly) <= o.d / 2 + pad;
+}
+function sweepHit(rb, a0, sign, span, radius, obstacles, armW) {
+  for (let s = 0; s <= span + 1e-6; s += DEG) {
+    const a = a0 + sign * s;
+    for (let rr = .3; rr <= radius; rr += .06) { const px = rb.x + rr * Math.cos(a), py = rb.y + rr * Math.sin(a); for (const ob of obstacles) if (inRect(px, py, ob, armW / 2)) return { s, id: ob.id }; }
+  }
+  return null;
+}
+function robotRefs(robotId) {
+  const no = (S.spec?.new_objects || []).find((n) => n && n.id === robotId);
+  const sw = (S.spec?.checks || []).find((c) => c && c.type === 'swing_clear' && c.params?.robot === robotId);
+  const sc = S.sceneNow || S.base;
+  const conv = (sc?.objects || []).find((o) => o.kind === 'conveyor' && o.points?.pick);
+  const bin = (sc?.objects || []).find((o) => o.kind === 'bin');
+  return {
+    pick: no?.pick || sw?.params?.from || (conv ? `${conv.id}.pick` : null),
+    place: no?.place || sw?.params?.to || (bin ? (bin.points?.drop ? `${bin.id}.drop` : bin.id) : null),
+    kinds: Array.isArray(sw?.params?.against_kinds) ? sw.params.against_kinds : ['pillar', 'fence'],
+    armW: +(sw?.params?.arm_width ?? .4) || .4,
+  };
+}
+function robotGeo(rec, robotId) {
+  const g = (rec?.geometry?.robots || []).find((r) => r && r.id === robotId);
+  const sc = rec?.scene || S.sceneNow;
+  const ro = findObj(sc, robotId); if (!ro) return null;
+  const refs = robotRefs(robotId);
+  const pick = (g && Array.isArray(g.pick)) ? g.pick : scenePoint(sc, refs.pick, rec?.points);
+  const place = (g && Array.isArray(g.place)) ? g.place : scenePoint(sc, refs.place, rec?.points);
+  const out = { id: robotId, x: ro.x, y: ro.y, reach: g?.reach ?? ro.reach, pick, place, refs, sweep: g?.sweep ? { ...g.sweep } : null };
+  if (!out.sweep && pick && place) {
+    const a0 = Math.atan2(pick[1] - ro.y, pick[0] - ro.x), a1 = Math.atan2(place[1] - ro.y, place[0] - ro.x);
+    const radius = Math.max(Math.hypot(pick[0] - ro.x, pick[1] - ro.y), Math.hypot(place[0] - ro.x, place[1] - ro.y)) + refs.armW / 2;
+    const obs = (sc?.objects || []).filter((o) => refs.kinds.includes(o.kind) && o.id !== robotId);
+    const hc = sweepHit(ro, a0, 1, mod(a1 - a0, TAU), radius, obs, refs.armW), hw = sweepHit(ro, a0, -1, mod(a0 - a1, TAU), radius, obs, refs.armW);
+    out.sweep = { a0: a0 / DEG, a1: a1 / DEG, radius, dir: !hc ? 'ccw' : !hw ? 'cw' : null, hits: { ccw: hc ? [hc.id] : [], cw: hw ? [hw.id] : [] }, computed: true };
+  }
+  return out;
+}
+function addSector(parent, rIn, rOut, start, len, color, op, edge) {
+  if (len < 1e-3) return;
+  flat(new THREE.RingGeometry(rIn, rOut, Math.max(8, Math.ceil(len / (3 * DEG))), 1, start, len), poly(basic(color, { transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide }), -4), 0, .007, 0, parent).receiveShadow = false;
+  flat(new THREE.RingGeometry(rOut - .03, rOut, Math.max(8, Math.ceil(len / (2 * DEG))), 1, start, len), poly(basic(color, { transparent: true, opacity: edge, depthWrite: false, side: THREE.DoubleSide }), -5), 0, .008, 0, parent).receiveShadow = false;
+}
+function showWedge(v, rg, finalOnly = false) {
+  disposeGroup(v.wedge);
+  const sw = rg?.sweep; if (!sw || !num(sw.a0) || !num(sw.a1)) return;
+  const a0 = sw.a0 * DEG, a1 = sw.a1 * DEG, R = num(sw.radius) ? sw.radius : (v.o.reach || 2.5);
+  const ccwB = (sw.hits?.ccw || []).length > 0, cwB = (sw.hits?.cw || []).length > 0;
+  const anyClear = !ccwB || !cwB, rIn = Math.max(.62, (v.o.w || 1) * .55);
+  if (!finalOnly || sw.dir === 'ccw') addSector(v.wedge, rIn, R, a0, mod(a1 - a0, TAU), ccwB ? RED : GREEN, ccwB ? (anyClear ? .1 : .17) : .2, ccwB ? .55 : .85);
+  if (!finalOnly || sw.dir === 'cw') addSector(v.wedge, rIn, R, a1, mod(a0 - a1, TAU), cwB ? RED : GREEN, cwB ? (anyClear ? .1 : .17) : .2, cwB ? .55 : .85);
+  for (const p of [rg.pick, rg.place]) {
+    if (!p) continue;
+    const dx = p[0] - v.o.x, dy = p[1] - v.o.y, L = Math.hypot(dx, dy); if (L < .05) continue;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(L, .025), poly(basic(0x2c3036, { transparent: true, opacity: .55, depthWrite: false }), -6));
+    m.rotation.order = 'YXZ'; m.rotation.y = Math.atan2(dy, dx); m.rotation.x = -Math.PI / 2; m.position.set(dx / 2, .009, -dy / 2); v.wedge.add(m);
+    flat(new THREE.RingGeometry(.09, .13, 32), poly(basic(0x2c3036, { transparent: true, opacity: .8, depthWrite: false }), -6), dx, .01, -dy, v.wedge).receiveShadow = false;
+  }
+}
+
+/* =========================================================== data hall: links, loads, rows, containment, thermal */
+function linkMap(sc, links) {
+  const m = {};
+  for (const o of sc?.objects || []) if (o && o.kind === 'rack') m[o.id] = { cdu: o.cdu, busway: o.busway };
+  if (Array.isArray(links)) for (const l of links) if (l && l.rack) m[l.rack] = { cdu: l.cdu ?? m[l.rack]?.cdu, busway: l.busway ?? m[l.rack]?.busway };
+  return m;
+}
+function computeLoads(sc, links) {
+  const out = {}, objs = sc?.objects || [];
+  for (const o of objs) {
+    if (o?.kind === 'cdu') out[o.id] = { load_kw: 0, cap_kw: num(o.capacity_kw) ? o.capacity_kw : null };
+    else if (o?.kind === 'busway') out[o.id] = { load_kw: 0, cap_kw: num(o.capacity_kw) ? o.capacity_kw * (num(o.derate) ? o.derate : 1) : null };
+  }
+  const lk = linkMap(sc, links);
+  for (const o of objs) if (o?.kind === 'rack') { const kw = num(o.kw) ? o.kw : 0, L = lk[o.id] || {}; if (L.cdu && out[L.cdu]) out[L.cdu].load_kw += kw; if (L.busway && out[L.busway]) out[L.busway].load_kw += kw; }
+  return out;
+}
+function recLoads(rec) { const g = rec?.geometry?.loads; return g && typeof g === 'object' && Object.keys(g).length ? g : computeLoads(rec?.scene || S.sceneNow, rec?.geometry?.links); }
+function setLoad(v, load, cap, animate) {
+  if (!v?.anno) return;
+  load = num(load) ? load : 0;
+  const p = num(cap) && cap > 0 ? load / cap : 0;
+  v.anno.sub.textContent = `· ${Math.round(load)}${num(cap) ? ` / ${Math.round(cap)}` : ''} kW`;
+  let bar = v.anno.el.querySelector('.bar');
+  if (!bar) { bar = document.createElement('span'); bar.className = 'bar'; bar.innerHTML = '<i></i>'; v.anno.el.querySelector('.pill').appendChild(bar); }
+  const i = bar.firstChild; i.className = p >= 1 ? 'r' : p >= .85 ? 'a' : '';
+  const wpct = `${Math.min(100, p * 100).toFixed(0)}%`;
+  if (animate) { i.style.transition = 'none'; i.style.width = '0%'; void i.offsetWidth; i.style.transition = ''; requestAnimationFrame(() => (i.style.width = wpct)); } else i.style.width = wpct;
+  v.util = p;
+}
+function applyLoads(loads, animate = false) { for (const [id, L] of Object.entries(loads || {})) { const v = visuals.get(id); if (v && L) setLoad(v, L.load_kw, L.cap_kw, animate); } }
+let hallTimer = 0;
+function scheduleHall(sc, rec, delayMs = 0) {
+  clearTimeout(hallTimer);
+  if (!S.hall) return;
+  const tok = S.runToken;
+  hallTimer = setTimeout(() => { if (tok === S.runToken) rebuildHall(sc, rec); }, delayMs);
+}
+function rebuildHall(sc, rec) {
+  disposeGroup(hallRoot);
+  S.linkLines = new Map(); S.powerLines = new Map();
+  if (!S.hall || !sc) return;
+  const objs = sc.objects || [], byId = new Map(objs.map((o) => [o?.id, o]));
+  const lk = linkMap(sc, rec?.geometry?.links);
+  const cduIdx = new Map(objs.filter((o) => o?.kind === 'cdu').map((o, i) => [o.id, i]));
+  const taps = [];
+  for (const r of objs) {
+    if (!r || r.kind !== 'rack' || !num(r.x)) continue;
+    const L = lk[r.id] || {}, rh = r.h || 2.3, back = r.y + (r.d || 1.2) / 2 - .2;
+    const c = L.cdu && byId.get(L.cdu);
+    if (c && c.kind === 'cdu') {
+      const zc = 2.62 + (cduIdx.get(c.id) || 0) * .06, sx = c.x - (c.w || 1.2) / 4, sy = c.y, top = (c.h || 2) + .47;
+      S.linkLines.set(r.id, makeLine([W(r.x, back, rh), W(r.x, back, zc), W(sx, back, zc), W(sx, sy, zc), W(sx, sy, top)], LM.cool, hallRoot));
+    }
+    const b = L.busway && byId.get(L.busway);
+    if (b && b.kind === 'busway') {
+      const bz = num(b.z) ? b.z : 3, tx = clamp(r.x, b.x - b.w / 2 + .15, b.x + b.w / 2 - .15), front = r.y - (r.d || 1.2) / 2 + .2;
+      taps.push(W(tx, b.y, bz - .1));
+      const pts = Math.abs(b.y - r.y) < .7 ? [W(tx, b.y, bz - .2), W(tx, b.y, 2.75), W(r.x, front, 2.75), W(r.x, front, rh)] : [W(tx, b.y, bz - .2), W(tx, b.y, 2.75), W(r.x, b.y, 2.75), W(r.x, front, 2.75), W(r.x, front, rh)];
+      S.powerLines.set(r.id, makeLine(pts, LM.power, hallRoot));
+    }
+  }
+  if (taps.length) {
+    const im = new THREE.InstancedMesh(box(.22, .18, .3), MAT.tap, taps.length), m = new THREE.Matrix4();
+    taps.forEach((p, i) => im.setMatrixAt(i, m.makeTranslation(p.x, p.y, p.z))); im.frustumCulled = false; im.castShadow = true; im.userData.overhead = true; hallRoot.add(im);
+  }
+  // rows: one label per row plus hot-aisle containment
+  const racks = objs.filter((o) => o?.kind === 'rack' && num(o.x) && num(o.y));
+  const groups = new Map();
+  for (const r of racks) { const key = Math.round(r.y * 5); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(r); }
+  const rows = [...groups.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1].sort((a, b) => a.x - b.x));
+  rows.forEach((row, i) => {
+    const x0 = row[0].x - (row[0].w || .6) / 2, x1 = row[row.length - 1].x + (row[row.length - 1].w || .6) / 2, y = row[0].y, d = row[0].d || 1.2, h = row[0].h || 2.3;
+    const kw = row.reduce((a, r) => a + (num(r.kw) ? r.kw : 0), 0);
+    const el = document.createElement('div'); el.className = 'anno row';
+    el.innerHTML = `<div class="pill"><i class="dt" style="background:${DOT.rack}"></i><b>ROW ${String.fromCharCode(65 + i)}</b><span>· ${row.length} × ${esc(String(row[0].model || 'rack').replace('-NVL72', ''))} · ${fmtPower(kw)}</span></div><div class="stem"></div>`;
+    const lo = new CSS2DObject(el); lo.center.set(.5, 1); lo.position.copy(W(x0 + .3, y, h + .55)); hallRoot.add(lo);
+    // containment: glass roof + far wall + end doors over the hot aisle behind the row
+    const g = new THREE.Group(); g.userData.overhead = true; hallRoot.add(g);
+    const ha = .95, yb = y + d / 2, len = x1 - x0, cx = (x0 + x1) / 2;
+    const roof = new THREE.Mesh(plane(len, ha), MAT.glass); roof.rotation.x = -Math.PI / 2; roof.position.copy(W(cx, yb + ha / 2, h + .01)); g.add(roof);
+    const wall = new THREE.Mesh(plane(len, h), MAT.glass); wall.position.copy(W(cx, yb + ha, h / 2)); g.add(wall);
+    for (const ex of [x0, x1]) { const door = new THREE.Mesh(plane(ha, h), MAT.glass); door.rotation.y = Math.PI / 2; door.position.copy(W(ex, yb + ha / 2, h / 2)); g.add(door); }
+    for (const [a, b2] of [[W(x0, yb + ha, h), W(x1, yb + ha, h)], [W(x0, yb + ha, 0), W(x0, yb + ha, h)], [W(x1, yb + ha, 0), W(x1, yb + ha, h)], [W(x0, yb, h), W(x0, yb + ha, h)], [W(x1, yb, h), W(x1, yb + ha, h)]]) {
+      const L = a.distanceTo(b2), m = mesh(box(.03, .03, .03), MAT.glassFrame, 0, 0, 0, g, false);
+      m.position.copy(a).add(b2).multiplyScalar(.5); m.lookAt(b2); m.scale.set(1, 1, L / .03);
+    }
+  });
+  applyXray();
+  if (S.thermal) buildThermal(sc, rec);
+}
+function powerOn(rec) {
+  const racks = [...visuals.values()].filter((v) => v.kind === 'rack');
+  racks.sort((a, b) => (Math.round(a.o.y * 5) - Math.round(b.o.y * 5)) || (a.o.x - b.o.x));
+  let key = null, row = -1, idx = 0;
+  for (const v of racks) { const k = Math.round(v.o.y * 5); if (k !== key) { key = k; row++; idx = 0; } v.powerAt = now + .5 + row * .55 + idx++ * .08; }
+  for (const l of S.linkLines.values()) l.material = LM.coolOn;
+  S.powered = true;
+  applyLoads(recLoads(rec), true);
+}
+function powerOff() {
+  S.powered = false;
+  for (const v of visuals.values()) if (v.kind === 'rack') { v.powerAt = null; v.powered = false; v.led.material = MAT.ledOff; v.stat.material = MAT.statOff; v.act.material = MAT.statOff; }
+  for (const l of S.linkLines.values()) l.material = LM.cool;
+}
+// thermal IR overlay
+const THERM_STOPS = [[0, [11, 61, 145]], [.38, [59, 42, 107]], [.55, [147, 38, 103]], [.72, [221, 81, 58]], [.88, [252, 165, 10]], [1, [252, 255, 164]]];
+function ramp(t) {
+  t = clamp(t, 0, 1);
+  for (let i = 1; i < THERM_STOPS.length; i++) {
+    const [t1, c1] = THERM_STOPS[i]; if (t > t1) continue;
+    const [t0, c0] = THERM_STOPS[i - 1], k = (t - t0) / (t1 - t0);
+    return [lerp(c0[0], c1[0], k), lerp(c0[1], c1[1], k), lerp(c0[2], c1[2], k)];
+  }
+  return THERM_STOPS[THERM_STOPS.length - 1][1];
+}
+function buildThermal(sc, rec) {
+  disposeGroup(thermalRoot);
+  if (!S.thermal) return;
+  sc = sc || S.sceneNow;
+  const PX = 10, cw = Math.round(FW * PX), ch = Math.round(FD * PX);
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const g = c.getContext('2d'), img = g.createImageData(cw, ch);
+  const loads = recLoads(rec), lk = linkMap(sc, rec?.geometry?.links);
+  const src = [];
+  for (const r of (sc?.objects || [])) {
+    if (r?.kind !== 'rack') continue;
+    const L = lk[r.id] || {}, u = Math.max(num(loads[L.cdu]?.load_kw) && num(loads[L.cdu]?.cap_kw) ? loads[L.cdu].load_kw / loads[L.cdu].cap_kw : 1, num(loads[L.busway]?.load_kw) && num(loads[L.busway]?.cap_kw) ? loads[L.busway].load_kw / loads[L.busway].cap_kw : 0);
+    const kw = (num(r.kw) ? r.kw : 100) * (u > 1 ? u * u : 1), d = (r.d || 1.2) / 2;
+    src.push([r.x, r.y + d + .5, kw / 132], [r.x, r.y - d - .55, -.55 * kw / 132]);
+  }
+  for (const o of (sc?.objects || [])) if (o?.kind === 'cdu') src.push([o.x, o.y - .7, -.5]);
+  for (let py = 0; py < ch; py++) for (let px = 0; px < cw; px++) {
+    const x = (px + .5) / PX, y = FD - (py + .5) / PX;
+    let v = 0;
+    for (const [sx, sy, w] of src) { const dd = (x - sx) ** 2 + (y - sy) ** 2; if (dd < 12) v += w * Math.exp(-dd / 1.5); }
+    const t = v < 0 ? .38 + Math.max(-1, v) * .38 : .38 + Math.min(1, v / 2.6) * .62;
+    const [R, G, B] = ramp(t), i = (py * cw + px) * 4;
+    img.data[i] = R; img.data[i + 1] = G; img.data[i + 2] = B; img.data[i + 3] = 235;
+  }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(FW, FD), poly(basic(0xffffff, { map: tex, transparent: true, opacity: .92, depthWrite: false }), -8));
+  m.rotation.x = -Math.PI / 2; m.position.y = .02; m.renderOrder = 1; thermalRoot.add(m);
+  // tint racks by feeder utilisation
+  for (const v of visuals.values()) if (v.kind === 'rack' && v.cab && !v.ownMats) {
+    const L = lk[v.id] || {}, u = Math.max(loads[L.cdu]?.cap_kw ? loads[L.cdu].load_kw / loads[L.cdu].cap_kw : 0, loads[L.busway]?.cap_kw ? loads[L.busway].load_kw / loads[L.busway].cap_kw : 0);
+    v.cab.material = u >= 1 ? MAT.rackOver : u >= .85 ? MAT.rackHot : MAT.rackWarm;
+  }
+}
+function setThermal(on) {
+  S.thermal = !!on && S.hall;
+  document.body.classList.toggle('thermal', S.thermal);
+  $('#views [data-v="thermal"]').classList.toggle('on', S.thermal);
+  if (S.thermal) buildThermal(S.sceneNow, viewRec());
+  else { disposeGroup(thermalRoot); for (const v of visuals.values()) if (v.kind === 'rack' && v.cab && !v.ownMats) v.cab.material = MAT.rack; }
+}
+function applyXray() {
+  const hide = !!S.xray;
+  for (const v of visuals.values()) if (v.kind === 'busway') v.group.visible = !hide;
+  for (const c of hallRoot.children) if (c.userData.overhead || c.isLine2) c.visible = !hide;
+  $('#views [data-v="xray"]').classList.toggle('on', hide);
+}
+
+/* =========================================================== camera */
+let fly = null, orbitBoostUntil = 0;
+function flyTo(tgt, pos, dur = 1.6, lift = .9) { fly = { t0: now, dur, lift, p0: camera.position.clone(), p1: pos.clone(), q0: controls.target.clone(), q1: tgt.clone() }; }
+function homeView() {
+  if (!S.hall) return { tgt: new THREE.Vector3(0.9, 0.2, -0.6), pos: new THREE.Vector3(5.6, 13.2, 13.6) };
+  const k = Math.max(FW / 24, FD / 16);
+  return { tgt: new THREE.Vector3(.6 * k, 0, .4 * k), pos: new THREE.Vector3(9 * k, 21.5 * k, 21 * k) };
+}
+function frameRobot(v, rg, close = false) {
+  const pts = [W(v.o.x, v.o.y)];
+  if (rg?.pick) pts.push(W(rg.pick[0], rg.pick[1])); if (rg?.place) pts.push(W(rg.place[0], rg.place[1]));
+  const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length); c.y = .6;
+  const off = close ? new THREE.Vector3(2.4, 14.0, 9.6) : new THREE.Vector3(2.8, 15.5, 11.2);
+  flyTo(c, c.clone().add(off), close ? 2.0 : 1.7);
+}
+function frameObjs(objs, close = false) {
+  if (!objs.length) return;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const o of objs) { x0 = Math.min(x0, o.x); x1 = Math.max(x1, o.x); y0 = Math.min(y0, o.y); y1 = Math.max(y1, o.y); }
+  const c = W((x0 + x1) / 2, (y0 + y1) / 2, .8), size = Math.max(x1 - x0, y1 - y0, 6);
+  const dist = clamp(size * (close ? 1.7 : 1.95), 16, 50);
+  flyTo(c, c.clone().add(new THREE.Vector3(.34, .86, .5).normalize().multiplyScalar(dist)), 2.2, .8);
+}
+function focusObj(id) {
+  const v = visuals.get(id); if (!v) return;
+  const t = v.group.position.clone(); t.y = Math.min(1.2, (v.o.h || 1) / 2);
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  flyTo(t, t.clone().add(dir.multiplyScalar(S.hall ? 13 : 10)), 1.3, .5);
+}
+let viewOff = 0, viewOffTarget = 0;
+function layoutView() { camera.aspect = innerWidth / innerHeight; camera.setViewOffset(innerWidth, innerHeight, Math.round(viewOff), 0, innerWidth, innerHeight); }
+function onResize() {
+  renderer.setSize(innerWidth, innerHeight); labels.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+  for (const m of LINE_MATS) m.resolution.set(innerWidth, innerHeight);
+  viewOffTarget = ui.panel.classList.contains('off') ? 0 : (ui.panel.offsetWidth + 16) / 2 - 120;
+  layoutView();
+}
+addEventListener('resize', () => onResize());
+
+/* =========================================================== app state & UI */
+const S = { base: null, baseKey: '', sceneNow: null, spec: null, iters: new Map(), cur: 0, view: null, done: null, models: {}, goal: '',
+  logs: [], stage: {}, speed: 1, runToken: 0, firstFrame: true, scenarioName: Q.get('scenario') || 'data_hall', hall: false,
+  linkLines: new Map(), powerLines: new Map(), powered: false, thermal: false, xray: false, agentTxt: {}, research: [], t: 0, scenarios: ['data_hall', 'sorting_cell'] };
+window.__donetwin = { S, visuals };
+const ui = { head: $('#headline'), cap: $('#caption'), kick: $('#kick'), goal: $('#goal'), checks: $('#checks'), count: $('#count'),
+  interp: $('#interp'), iters: $('#iters'), viewing: $('#viewing'), log: $('#log'), vision: $('#vision'), code: $('#code'), codeTitle: $('#codeTitle'), note: $('#note'),
+  banner: $('#banner'), toast: $('#toast'), models: $('#models'), panel: $('#panel'), finder: $('#finder'), flash: $('#flash'), crew: $('#crew') };
+
+let lastHead = '', lastCap = '';
+function setHead(h, c) {
+  if (h != null && h !== lastHead) { lastHead = h; ui.head.classList.remove('in'); void ui.head.offsetWidth; ui.head.textContent = h; ui.head.classList.add('in'); }
+  if (c != null && c !== lastCap) { lastCap = c; ui.cap.classList.remove('in'); void ui.cap.offsetWidth; ui.cap.textContent = c; ui.cap.classList.add('in'); }
+}
+let toastT = 0;
+function toast(msg, ms = 3800) { ui.toast.textContent = msg; ui.toast.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => ui.toast.classList.remove('show'), ms); }
+function heroMode(m) { document.body.classList.remove('idle', 'run', 'done'); document.body.classList.add(m); }
+function panelOpen(open) { ui.panel.classList.toggle('off', !open); viewOffTarget = open ? (ui.panel.offsetWidth + 16) / 2 - 120 : 0; }
+function banner(kind, text) {
+  if (!kind) { ui.banner.className = ''; return; }
+  const icon = kind === 'ok' ? '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#fff" opacity=".22"/><path d="M4.5 8.2l2.3 2.3 4.7-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    : '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1.5l7 12.5H1z" fill="currentColor" opacity=".9"/><path d="M8 6v4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="12" r="1" fill="#fff"/></svg>';
+  ui.banner.innerHTML = `${icon}<span>${esc(text)}</span>`;
+  ui.banner.className = kind; void ui.banner.offsetWidth; ui.banner.classList.add('show');
+}
+// ---------- agent crew
+const shortModel = (s) => { s = String(s || ''); return /super/i.test(s) ? 'Nemotron 3 Super' : /omni/i.test(s) ? 'Nemotron Omni' : /nano/i.test(s) ? 'Nemotron Nano' : s.replace(/^nvidia\//i, '') || 'Nemotron'; };
+const CREW = [
+  { k: 'research', n: 'Research', badge: () => 'You.com Search', cls: 'you' },
+  { k: 'spec', n: 'Spec', badge: () => shortModel(S.models.planner || 'super') },
+  { k: 'layout', n: 'Layout', badge: () => shortModel(S.models.planner || 'super') },
+  { k: 'sandbox', n: 'Sandbox', badge: () => 'deterministic', cls: 'det' },
+  { k: 'verify', n: 'Verifier', badge: () => 'deterministic', cls: 'det' },
+  { k: 'vision', n: 'Inspector', badge: () => shortModel(S.models.vision || 'omni') },
+  { k: 'supervisor', n: 'Supervisor', badge: () => 'deterministic policy' },
+];
+const AGENT_KEY = { verifier: 'verify', inspector: 'vision' };
+function renderCrew() {
+  ui.crew.innerHTML = CREW.map((c) => `<div class="ag ${S.stage[c.k] || ''}" data-k="${c.k}"><div class="h"><i></i>${c.n}</div><span class="bd ${c.cls || ''}">${esc(c.badge())}</span><div class="tx" title="${esc(S.agentTxt[c.k] || '')}">${esc(S.agentTxt[c.k] || (c.k === 'research' && !S.research.length ? 'standing by' : '—'))}</div></div>`).join('');
+}
+function agentSay(k, txt) { S.agentTxt[k] = txt; const el = ui.crew.querySelector(`.ag[data-k="${k}"] .tx`); if (el) { el.textContent = txt; el.title = txt; } else renderCrew(); }
+const STAGES = CREW.map((c) => c.k);
+const STAGE_NAME = Object.fromEntries(CREW.map((c) => [c.k, c.n]));
+function stage(k, st = 'active') {
+  if (st === 'active') { for (const kk of STAGES) { if (kk === k) break; if (S.stage[kk] === 'active') S.stage[kk] = 'done'; } }
+  S.stage[k] = st;
+  renderCrew(); renderKick();
+}
+function renderKick() {
+  const act = STAGES.find((k) => S.stage[k] === 'active');
+  ui.kick.innerHTML = document.body.classList.contains('idle') ? esc(S.base?.title || '') : `<b>${S.cur ? `Iter ${S.cur}` : 'Run'}</b><span>·</span><span>${esc(act ? STAGE_NAME[act] : (S.done ? 'Complete' : 'Working'))}</span>`;
+}
+// ---------- work order and KPIs
+function renderWO() {
+  const b = S.base || {}, objs = b.objects || [];
+  const cnt = (k) => objs.filter((o) => o?.kind === k).length;
+  $('#woTitle').textContent = b.title || b.name || 'Work order';
+  $('#woSub').textContent = S.hall
+    ? `${b.floor?.w ?? '?'} × ${b.floor?.d ?? '?'} m · ${cnt('cdu')} CDUs · ${cnt('busway')} busways · ${cnt('keepout')} keep-outs`
+    : `${b.floor?.w ?? '?'} × ${b.floor?.d ?? '?'} m · ${cnt('conveyor')} conveyor · ${cnt('pillar')} columns`;
+  $('#crumbTxt').textContent = S.hall ? 'Control room · Hall B' : 'Control room · Line A';
+  $('#k0l').textContent = S.hall ? 'MW online' : 'Defects';
+}
+let kpiAnim = null;
+function kpiValues() {
+  const rec = viewRec(), rep = rec?.report;
+  const kw = (S.sceneNow?.objects || []).filter((o) => o?.kind === 'rack').reduce((a, r) => a + (num(r.kw) ? r.kw : 0), 0);
+  const defects = rep ? (rep.checks || []).reduce((a, c) => a + (c && !c.passed ? (c.violations || []).length || 1 : 0), 0) : null;
+  return { mw: kw / 1000, defects, passed: rep?.passed, total: rep?.total, iters: S.cur, cost: S.done?.usage?.cost_usd, t: S.t };
+}
+function renderKPIs(roll = false) {
+  const v = kpiValues();
+  const set = (k) => {
+    $('#k0').textContent = S.hall ? (k * v.mw).toFixed(1) : (v.defects == null ? '—' : String(Math.round(k * v.defects)));
+    $('#k1').textContent = num(v.passed) ? `${Math.round(k * v.passed)}/${v.total}` : '—';
+    $('#k2').textContent = String(Math.round(k * v.iters || 0));
+    $('#k3').textContent = num(v.cost) && v.cost > 0 ? `$${(k * v.cost).toFixed(3)}` : (S.done ? '$0' : '—');
+    $('#k4').textContent = fmtTime(v.t);
+  };
+  $('#kpi1').className = 'kpi' + (num(v.passed) ? (v.passed === v.total ? ' ok' : ' bad') : '');
+  $('#kpi0').className = 'kpi' + (S.hall ? (S.done?.status === 'verified' ? ' ok' : '') : (v.defects ? ' bad' : v.defects === 0 ? ' ok' : ''));
+  if (!roll) { set(1); return; }
+  kpiAnim = { t0: performance.now(), set };
+}
+function walkAway() {
+  $('#waT').textContent = fmtTime(S.t);
+  $('#waIt').textContent = S.cur ? String(S.cur) : '—';
+  $('#waReq').textContent = S.goal || '';
+}
+// ---------- checks
+function prettyId(id) { const s = String(id ?? '').replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
+function joinIds(ids) {
+  ids = [...new Set(ids.filter(Boolean))];
+  if (!ids.length) return '';
+  if (ids.length > 1) { const pre = ids.map((i) => String(i).split('_')[0]); if (pre.every((p) => p === pre[0]) && ids.every((i) => String(i).includes('_'))) return ids.map((i) => String(i).split('_').slice(1).join('_')).join(' and '); }
+  return ids.map(prettyId).join(' and ');
+}
+function category(c) {
+  const t = String(c?.type || '').toLowerCase(), kind = String(c?.params?.kind || '').toLowerCase();
+  if (t === 'capacity') return kind === 'busway' ? 'Power' : 'Cooling';
+  if (/power|busway|feed|electr/.test(t)) return 'Power';
+  if (/cool|cdu|hose|redund|thermal/.test(t)) return 'Cooling';
+  if (/collision|bounds|fixed|zone|aisle|clearance|egress|keepout/.test(t)) return 'Structure & safety';
+  return 'Equipment';
+}
+const CAT_ORDER = ['Structure & safety', 'Power', 'Cooling', 'Equipment'];
+function paramSummary(c) {
+  const p = c.params || {};
+  const kinds = (x) => (Array.isArray(x) ? x : [x || 'pillar']).join(', ');
+  switch (c.type) {
+    case 'exists': return `${p.id ?? '?'}${p.kind ? ` (${p.kind})` : ''}`;
+    case 'no_collision': return 'all physical footprints';
+    case 'in_bounds': return `inside ${FW}×${FD} m floor`;
+    case 'fixed_unchanged': return S.hall ? 'columns, CDUs, busways, panel' : 'pillars, conveyor, sensor';
+    case 'reach': return `${p.robot ?? '?'} → ${p.point ?? '?'} · ≤${Math.round((+p.margin || .9) * 100)}%`;
+    case 'swing_clear': return `${p.from ?? '?'} → ${p.to ?? '?'} · vs ${kinds(p.against_kinds)}`;
+    case 'min_clearance': return `${p.subject ?? '?'} ≥ ${fmt(+p.distance)} m · ${kinds(p.against_kinds)}`;
+    case 'zone_clear': return `${p.zone ?? '?'} clear${p.include_envelopes ? ' · incl. reach envelopes' : ''}`;
+    case 'aligned': return `${p.a ?? '?'} ↔ ${p.b ?? '?'} · ±${fmt(+(p.tolerance ?? .05))} m`;
+    case 'total_power': return `≥ ${fmtPower(+p.min_kw || 0)} of IT load`;
+    case 'capacity': return `every ${p.kind || 'feeder'} within its ${p.kind === 'busway' ? 'derated ' : ''}rating`;
+    case 'redundancy': return `N+1 across all ${p.kind || 'cdu'}s`;
+    case 'hose_length': return `coolant run ≤ ${p.max_m ? `${p.max_m} m` : 'CDU hose_m'}`;
+    case 'feed_reach': return `rack within ${p.max_m ? `${p.max_m} m` : 'tap_m'} of its busway`;
+    case 'aisle_width': return `aisles ≥ ${fmt(+(p.min_m ?? 1.2), 1)} m`;
+    default: return Object.entries(p).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join('|') : v}`).join(' · ');
+  }
+}
+function viewRec() { return S.iters.get(S.view ?? S.cur) || null; }
+function renderChecks() {
+  const rec = viewRec(), rep = rec?.report;
+  const rows = Array.isArray(rep?.checks) && rep.checks.length ? rep.checks : (S.spec?.checks || []);
+  const stale = !rep && S.cur > 1;
+  if (!rows.length) { ui.checks.innerHTML = ''; ui.count.textContent = '—'; ui.count.className = 'count'; return; }
+  const groups = new Map(CAT_ORDER.map((c) => [c, []]));
+  rows.forEach((c, i) => { if (!c) return; const g = category(c); if (!groups.has(g)) groups.set(g, []); groups.get(g).push([c, i]); });
+  let html = '', n = 0;
+  for (const [g, list] of groups) {
+    if (!list.length) continue;
+    const pass = list.filter(([c]) => c.passed).length;
+    html += `<div class="grp"><span>${esc(g)}</span>${rep ? `<span class="${pass === list.length ? 'ok' : 'bad'}">${pass}/${list.length}</span>` : `<span>${list.length}</span>`}</div>`;
+    for (const [c] of list) {
+      const vio = Array.isArray(c.violations) ? c.violations : [];
+      const st = rep ? (c.passed ? 'pass' : 'fail') : '';
+      const mags = vio.map((x) => x.magnitude).filter(num);
+      const m = st === 'fail' ? (mags.length && ['no_collision', 'min_clearance', 'reach', 'aligned', 'zone_clear', 'hose_length', 'feed_reach', 'aisle_width', 'in_bounds'].includes(c.type) ? `${fmt(Math.max(...mags))} m` : `${vio.length || 1}×`) : st === 'pass' ? 'PASS' : '';
+      const tip = [c.why, ...vio.slice(0, 6).map((x) => `• ${x.detail}${x.fix ? `\n  fix: ${x.fix}` : ''}`)].filter(Boolean).join('\n');
+      const first = vio[0]?.objects?.find((id) => visuals.has(id) && !visuals.get(id).o.fixed) || vio[0]?.objects?.[0];
+      const src = c.source && c.source.url ? `<a class="cite" href="${esc(c.source.url)}" target="_blank" rel="noopener" title="${esc(`${c.source.title || ''}${c.source.snippet ? ` — ${c.source.snippet}` : ''}`)}">CITED ↗</a>` : '';
+      html += `<div class="ck ${st} ${stale ? 'stale' : ''} ${first ? 'hasfix' : ''}" title="${esc(tip)}" data-obj="${esc(first || '')}" style="${S.rowsAnim ? `animation-delay:${n * .05}s` : 'animation:none'}">
+        <i class="d"></i><div><div class="t">${esc(c.type === 'capacity' ? `capacity · ${c.params?.kind || ''}` : c.type)}${src}</div><div class="p">${esc(paramSummary(c))}</div></div><span class="m">${esc(m)}</span></div>`;
+      n++;
+    }
+  }
+  ui.checks.innerHTML = html;
+  if (rep) { ui.count.textContent = `${rep.passed ?? rows.filter((c) => c?.passed).length}/${rep.total ?? rows.length}`; ui.count.className = 'count ' + (rep.all_pass ? 'ok' : 'bad'); }
+  else { ui.count.textContent = `0/${rows.length}`; ui.count.className = 'count'; }
+}
+ui.checks.addEventListener('click', (e) => { if (e.target.closest('a')) return; const r = e.target.closest('.ck'); if (r?.dataset.obj) focusObj(r.dataset.obj); });
+function renderSources() {
+  const seen = new Set(), list = [];
+  for (const r of S.research || []) if (r?.url && !seen.has(r.url + r.title)) { seen.add(r.url + r.title); list.push(r); }
+  for (const c of S.spec?.checks || []) if (c?.source?.url && !seen.has(c.source.url + c.source.title)) { seen.add(c.source.url + c.source.title); list.push(c.source); }
+  $('#srcSec').hidden = !list.length;
+  $('#srcN').textContent = list.length ? String(list.length) : '';
+  $('#sources').innerHTML = list.slice(0, 8).map((s) => { let host = ''; try { host = new URL(s.url).hostname.replace(/^www\./, ''); } catch (_) { host = ''; } return `<a href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(s.snippet || s.title || '')}"><i>${esc(host)}</i>${esc(s.title || s.url)}</a>`; }).join('');
+}
+function renderIters() {
+  if (!S.iters.size) { ui.iters.innerHTML = '<span class="muted">—</span>'; ui.viewing.textContent = ''; return; }
+  const sel = S.view ?? S.cur;
+  let h = [...S.iters.values()].map((r) => {
+    const st = r.report ? (r.report.all_pass ? 'pass' : 'fail') : (r.sandbox && r.sandbox.ok === false ? 'fail' : '');
+    const cnt = r.report ? ` · ${r.report.passed ?? '?'}/${r.report.total ?? '?'}` : '';
+    return `<button class="it ${st} ${r.n === sel ? 'sel' : ''}" data-it="${r.n}" type="button"><i></i>ITER ${r.n}${cnt}</button>`;
+  }).join('');
+  if (S.view != null) h += `<button class="it live" data-it="live" type="button">● LIVE</button>`;
+  ui.iters.innerHTML = h;
+  ui.viewing.textContent = S.view != null ? `viewing iter ${S.view}` : '';
+}
+ui.iters.addEventListener('click', (e) => { const b = e.target.closest('.it'); if (!b) return; const n = b.dataset.it === 'live' ? null : +b.dataset.it; showIteration(n === S.cur ? null : n); });
+function renderVision() {
+  const vis = viewRec()?.vision;
+  if (!vis) { ui.vision.innerHTML = '<span class="muted">—</span>'; return; }
+  const verdict = ['pass', 'fail', 'skipped'].includes(vis.verdict) ? vis.verdict : 'skipped';
+  const issues = Array.isArray(vis.issues) ? vis.issues : [], adj = Array.isArray(vis.adjudication) ? vis.adjudication : [];
+  let h = `<span class="vp ${verdict}">${verdict}</span>`;
+  h += issues.length ? esc(issues[0]?.description || '') + (issues.length > 1 ? ` <span class="muted">+${issues.length - 1} more</span>` : '') : (verdict === 'pass' ? 'No visible defects in the rendered views.' : verdict === 'skipped' ? 'Inspector not run for this iteration.' : '');
+  for (const a of adj.slice(0, 3)) { const r = String(a?.ruling || '').toLowerCase(); h += `<div class="adj">claim “${esc(a?.claim)}” → <b class="${r.startsWith('confirm') ? 'confirmed' : r.startsWith('reject') ? 'rejected' : ''}">${esc(a?.ruling)}</b> · ${esc(a?.measured)}</div>`; }
+  ui.vision.innerHTML = h;
+}
+function hlPy(src) {
+  const s = String(src || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s.replace(/(#[^\n]*)|(f?"(?:[^"\\\n]|\\.)*"|f?'(?:[^'\\\n]|\\.)*')|\b(def|for|in|if|else|elif|return|import|from|as|while|and|or|not|None|True|False|print|round|with|lambda|try|except)\b|\b(\d+\.?\d*)\b/g,
+    (m, c, str, kw, n) => (c ? `<i class="c">${c}</i>` : str ? `<i class="s">${str}</i>` : kw ? `<i class="k">${kw}</i>` : `<i class="n">${n}</i>`));
+}
+function renderCode() { const rec = viewRec(); ui.codeTitle.textContent = rec ? `Layout program · iter ${rec.n}` : 'Layout program'; ui.code.innerHTML = rec?.code ? hlPy(rec.code) : '# waiting for the layout agent'; ui.note.textContent = rec?.note || ''; }
+const AGENT_COLORS = { research: '#7c3aed', spec: '#7c3aed', layout: '#2E5BFF', sandbox: '#0891b2', verifier: '#c2410c', vision: '#db2777', supervisor: '#0B0B0C' };
+function renderLog() { ui.log.innerHTML = S.logs.slice(-7).map((l, i, a) => `<div class="ln" style="${i === a.length - 1 && l.fresh ? '' : 'animation:none'}"><span class="tt">${num(l.t) ? `+${l.t.toFixed(1)}s` : ''}</span><span class="a" style="color:${AGENT_COLORS[l.agent] || '#555'}">${esc(l.agent || 'log')}</span>${esc(l.msg)}</div>`).join(''); }
+function renderModels() {
+  const m = S.models || {}, strip = (s) => String(s).replace(/^nvidia\//i, '');
+  ui.models.innerHTML = (m.planner ? `<span class="chip" title="${esc(m.planner)}"><b>Planner</b>${esc(strip(m.planner))}</span>` : '') + (m.vision ? `<span class="chip" title="${esc(m.vision)}"><b>Vision</b>${esc(strip(m.vision))}</span>` : '');
+}
+function renderAll() { renderChecks(); renderIters(); renderVision(); renderCode(); renderKPIs(); walkAway(); }
+
+/* =========================================================== verify rendering */
+function kindOf(id) { return visuals.get(id)?.kind; }
+function alertFor(c, vi, rec) {
+  const P = c.params || {}, objs = Array.isArray(vi.objects) ? vi.objects : [], mag = vi.magnitude;
+  const isFixed = (id) => visuals.get(id)?.o.fixed;
+  const other = (self) => objs.find((x) => x !== self);
+  const loads = rec ? recLoads(rec) : {};
+  switch (c.type) {
+    case 'no_collision': { const mv = objs.find((id) => !isFixed(id)) || objs[0]; return { on: mv, text: `COLLISION · ${other(mv) ?? '?'} · ${fmt(mag)} m` }; }
+    case 'min_clearance': { const s = P.subject || objs[0]; return { on: s, text: `CLEARANCE · ${other(s) ?? '?'} · ${fmt(mag)} m short` }; }
+    case 'swing_clear': { const r = P.robot || objs[0]; return { on: r, text: `SWING BLOCKED · ${objs.filter((x) => x !== r).join(', ') || '?'}` }; }
+    case 'reach': return { on: P.robot || objs[0], text: `OUT OF REACH · ${P.point ?? objs[1] ?? '?'} · +${fmt(mag)} m` };
+    case 'aligned': return { on: objs[0], text: `MISALIGNED · ${fmt(mag, 3)} m vs ${objs[1] ?? '?'}` };
+    case 'zone_clear': { const z = P.zone || objs[1]; const zv = visuals.get(z); return { on: objs[0], text: `${zv?.kind === 'walkway' ? 'IN EGRESS' : 'IN KEEP-OUT'} · ${z ?? '?'}`, also: z }; }
+    case 'in_bounds': return { on: objs[0], text: `OUT OF BOUNDS · ${fmt(mag)} m` };
+    case 'fixed_unchanged': return { on: objs[0], text: /REMOVED/i.test(vi.detail || '') ? 'STRUCTURE REMOVED' : `STRUCTURE MOVED · ${fmt(mag)} m` };
+    case 'capacity': { const f = objs.find((id) => ['cdu', 'busway'].includes(kindOf(id))) || objs[0]; const L = loads[f]; return { on: f, text: `OVERLOAD · ${L ? `${Math.round(L.load_kw)} / ${Math.round(L.cap_kw)} kW` : `${objs.length - 1} racks`}` }; }
+    case 'redundancy': return { on: objs[0], text: `N+1 SHORT · ${Math.round((mag || 0) * 100)} kW` };
+    case 'hose_length': { const r = objs.find((id) => kindOf(id) === 'rack') || objs[0]; return { on: r, text: `HOSE · +${fmt(mag, 1)} m to ${other(r) ?? '?'}` }; }
+    case 'feed_reach': { const r = objs.find((id) => kindOf(id) === 'rack') || objs[0]; return { on: r, text: `NO TAP · ${fmt(mag, 2)} m from ${other(r) ?? '?'}` }; }
+    case 'aisle_width': return { on: objs[0], text: `AISLE · ${fmt(mag, 2)} m short` };
+    case 'exists': case 'total_power': return { on: null };
+    default: return { on: objs[0], text: `${String(c.type).toUpperCase()} · ${String(vi.detail || '').slice(0, 40)}` };
+  }
+}
+function alertHTML(t) { const i = t.indexOf(' · '); return i < 0 ? `<b>${esc(t)}</b>` : `<b>${esc(t.slice(0, i))}</b>${esc(t.slice(i))}`; }
+function headFor(rep, rec) {
+  const fails = (rep?.checks || []).filter((c) => c && !c.passed);
+  if (!fails.length) return null;
+  const order = ['exists', 'total_power', 'no_collision', 'capacity', 'redundancy', 'swing_clear', 'zone_clear', 'reach', 'hose_length', 'feed_reach', 'aisle_width', 'min_clearance', 'aligned', 'in_bounds', 'fixed_unchanged'];
+  const rank = (t) => { const i = order.indexOf(t); return i < 0 ? 99 : i; };
+  fails.sort((a, b) => rank(a.type) - rank(b.type));
+  const c = fails[0], vio = Array.isArray(c.violations) ? c.violations : [], vi = vio[0] || {}, objs = vi.objects || [], P = c.params || {};
+  const fixedOther = objs.find((id) => visuals.get(id)?.o.fixed) || objs[1];
+  let h, catg = c.type;
+  switch (c.type) {
+    case 'no_collision': h = `Collision. ${prettyId(fixedOther || objs[0]).replace(/^Col /, 'Column ')}.`; break;
+    case 'swing_clear': { const r = P.robot || objs[0]; const bl = [...new Set(vio.flatMap((x) => (x.objects || []).filter((id) => id !== r)))]; h = `Swing blocked. ${joinIds(bl) || 'Obstacle'}.`; break; }
+    case 'reach': h = `Out of reach. ${prettyId(String(P.point || objs[1] || '').split('.')[0])}.`; break;
+    case 'min_clearance': h = `Too close. ${prettyId(objs[1] || '')}.`; break;
+    case 'zone_clear': { const z = P.zone || objs[1]; h = visuals.get(z)?.kind === 'walkway' ? 'Egress blocked.' : `Keep-out breach. ${String(z || '').replace(/_/g, ' ')}.`; break; }
+    case 'aligned': h = `Misaligned. ${fmt(vi.magnitude)} m off.`; break;
+    case 'capacity': { const all = fails.filter((x) => x.type === 'capacity').flatMap((x) => (x.violations || []).map((y) => (y.objects || []).find((id) => ['cdu', 'busway'].includes(kindOf(id))))).filter(Boolean); const ks = new Set(all.map(kindOf)); h = all.length === 1 ? `${all[0]} overloaded.` : ks.size > 1 ? 'Power and cooling overloaded.' : `${all.length} ${ks.has('cdu') ? 'CDUs' : 'busways'} overloaded.`; break; }
+    case 'redundancy': h = 'No N+1 cooling.'; break;
+    case 'hose_length': h = `Hose runs too long. ${vio.length} rack${vio.length === 1 ? '' : 's'}.`; break;
+    case 'feed_reach': h = 'Racks off the busway.'; break;
+    case 'aisle_width': h = 'Aisle too narrow.'; break;
+    case 'total_power': h = 'Short of the power goal.'; break;
+    case 'in_bounds': h = 'Out of bounds.'; break;
+    case 'fixed_unchanged': h = 'Structure moved.'; break;
+    case 'exists': h = `${prettyId(P.id || objs[0] || 'Object')} missing.`; break;
+    default: h = `${fails.length} defect${fails.length > 1 ? 's' : ''}.`;
+  }
+  const rest = [...new Set(fails.slice(1).map((x) => (x.type === 'capacity' ? `capacity·${x.params?.kind || ''}` : x.type)))];
+  const cap = `${rep.passed ?? '?'}/${rep.total ?? '?'} checks pass.` + (rest.length ? ` Also failing: ${rest.join(', ')}.` : '') + (vi.detail ? ` ${vi.detail}.` : '');
+  return { h, cap: cap.replace(/\.\./g, '.'), catg };
+}
+function renderVerify(rec, { sweep = false } = {}) {
+  clearAlerts(); clearWedges();
+  if (!rec) return;
+  const rep = rec.report, hot = new Set();
+  if (rep) {
+    const lines = new Map();
+    for (const c of rep.checks || []) {
+      if (!c || c.passed) continue;
+      for (const vi of (Array.isArray(c.violations) ? c.violations : [])) {
+        (vi.objects || []).forEach((id) => visuals.has(id) && hot.add(id));
+        const a = alertFor(c, vi, rec);
+        if (a.on && visuals.has(a.on)) { const arr = lines.get(a.on) || []; if (!arr.includes(a.text) && arr.length < 3) arr.push(a.text); lines.set(a.on, arr); }
+        if (c.type === 'hose_length') for (const id of vi.objects || []) { const l = S.linkLines.get(id); if (l) l.material = LM.coolBad; }
+        if (c.type === 'feed_reach') for (const id of vi.objects || []) { const l = S.powerLines.get(id); if (l) l.material = LM.powerBad; }
+      }
+      if (c.type === 'reach') { const rv = visuals.get(c.params?.robot); if (rv?.reachMat) { rv.reachMat.color.setHex(RED); rv.discMat.color.setHex(RED); rv.discMat.opacity = .06; } }
+      if (c.type === 'zone_clear' && c.params?.zone && visuals.has(c.params.zone)) hot.add(c.params.zone);
+    }
+    hot.forEach((id) => setAlert(visuals.get(id), true));
+    for (const id of hot) { const v = visuals.get(id); if (v?.anno) v.anno.el.classList.add('alert'); if (v?.stat) v.stat.material = MAT.statBad; }
+    // in a big hall only the first few rack alerts get a floating tag
+    let rackTags = 0;
+    lines.forEach((arr, id) => { const v = visuals.get(id); if (!v?.anno) return; if (v.kind === 'rack' && ++rackTags > 2) return; v.anno.alerts.innerHTML = arr.map((t) => `<div class="al">${alertHTML(t)}</div>`).join(''); v.anno.el.classList.add('lines'); });
+  }
+  if (S.hall) applyLoads(recLoads(rec));
+  const finalOk = !!(S.done && S.done.status === 'verified' && rec.n === S.cur);
+  for (const v of visuals.values()) {
+    if (v.kind !== 'robot') continue;
+    setLamp(v, finalOk ? 'green' : rep && !rep.all_pass && hot.has(v.id) ? 'red' : 'amber');
+    const rg = robotGeo(rec, v.id);
+    if (rg) showWedge(v, rg, finalOk);
+    if (sweep && rg) sweepTest(v, rg);
+  }
+  if (S.thermal) buildThermal(rec.scene || S.sceneNow, rec);
+}
+function impact(id) { const v = visuals.get(id); if (!v) return; if (!v.alert) setAlert(v, true); v.impact = now; dust(v.group.position, RED); }
+function sweepTest(v, rg) {
+  const sw = rg.sweep; if (!sw || !num(sw.a0) || !num(sw.a1) || !v.arm) return;
+  const a0 = sw.a0 * DEG, a1 = sw.a1 * DEG;
+  const rP = rg.pick ? Math.hypot(rg.pick[0] - v.o.x, rg.pick[1] - v.o.y) : 2, rD = rg.place ? Math.hypot(rg.place[0] - v.o.x, rg.place[1] - v.o.y) : rP;
+  const radius = num(sw.radius) ? sw.radius : Math.max(rP, rD) + .2;
+  const obs = (S.sceneNow?.objects || []).filter((o) => rg.refs.kinds.includes(o.kind) && o.id !== v.id);
+  const spans = { ccw: mod(a1 - a0, TAU), cw: mod(a0 - a1, TAU) }, H = v.arm.P.SH + .85, dirs = [];
+  if (sw.dir === 'ccw' || sw.dir === 'cw') dirs.push({ dir: sw.dir, span: spans[sw.dir], hit: null });
+  else { for (const d of ['ccw', 'cw']) dirs.push({ dir: d, span: spans[d], hit: sweepHit(v.o, a0, d === 'ccw' ? 1 : -1, spans[d], radius, obs, rg.refs.armW) }); dirs.sort((a, b) => (a.hit?.s ?? a.span) - (b.hit?.s ?? b.span)); }
+  const segs = [() => ({ to: { yaw: a0, r: clamp(rP, .8, 9), h: H, grip: 0 }, dur: .75 })];
+  dirs.forEach((d, i) => {
+    const sign = d.dir === 'ccw' ? 1 : -1, travel = d.hit ? Math.max(0, d.hit.s - 2 * DEG) : d.span, frac = d.span > 0 ? travel / d.span : 1;
+    segs.push(() => ({ to: { r: lerp(rP, rD, frac), h: H }, dYaw: sign * travel, dur: clamp(travel / (175 * DEG), .3, 1.8), onEnd: d.hit ? () => impact(d.hit.id) : null }));
+    if (d.hit) segs.push(() => ({ to: {}, dYaw: -sign * 7 * DEG, dur: .22 }));
+    if (i < dirs.length - 1) segs.push(() => ({ to: { yaw: a0, r: rP, h: H }, dYaw: -sign * Math.max(0, travel - 7 * DEG), dur: clamp(travel / (240 * DEG), .3, 1.2) }));
+  });
+  segs.push(() => ({ to: {}, dur: .45 }), () => ({ to: homePose(v, a0), dur: .9 }));
+  armPlay(v, segs);
+}
+function startPickPlace(v, rg) {
+  if (!v?.arm || !rg?.pick || !rg?.place) return;
+  const cvId = String(rg.refs.pick || '').split('.')[0], bnId = String(rg.refs.place || '').split('.')[0];
+  const cv = visuals.get(cvId)?.conv ? visuals.get(cvId) : null, bv = visuals.get(bnId)?.parts ? visuals.get(bnId) : null;
+  const x0 = v.o.x, y0 = v.o.y;
+  const aP = Math.atan2(rg.pick[1] - y0, rg.pick[0] - x0), aD = Math.atan2(rg.place[1] - y0, rg.place[0] - x0);
+  const rP = Math.hypot(rg.pick[0] - x0, rg.pick[1] - y0), rD = Math.hypot(rg.place[0] - x0, rg.place[1] - y0);
+  const top = (cv ? cv.conv.H : .9) + BOX_H, binTop = bv ? (bv.o.h || 1) : .9;
+  const HOVER = top + .5, CARRY = Math.max(binTop + .8, top + .75), REL = binTop + BOX_H + .14;
+  const dir = rg.sweep?.dir === 'ccw' || rg.sweep?.dir === 'cw' ? rg.sweep.dir : null, back = dir === 'ccw' ? 'cw' : dir === 'cw' ? 'ccw' : null;
+  const span = dir === 'ccw' ? mod(aD - aP, TAU) : dir === 'cw' ? mod(aP - aD, TAU) : Math.abs(mod(aD - aP + Math.PI, TAU) - Math.PI);
+  const swingDur = clamp(span / (125 * DEG), 1, 2.6);
+  armPlay(v, [
+    () => ({ to: { yaw: aP, r: rP, h: HOVER, grip: 0 }, dur: 1.1 }),
+    () => ({ to: { h: HOVER }, dur: .05, waitFor: () => convReady(cv) }),
+    () => ({ to: { h: top }, dur: .5 }),
+    () => ({ to: { grip: 1 }, dur: .22, onEnd: () => grabBox(v, cv) }),
+    () => ({ to: { h: CARRY }, dur: .5 }),
+    () => ({ to: { yaw: aD, r: rD, h: CARRY }, dir, dur: swingDur }),
+    () => ({ to: { h: REL }, dur: .42 }),
+    () => ({ to: { grip: 0 }, dur: .2, onStart: () => releaseBox(v, bv) }),
+    () => ({ to: { h: CARRY }, dur: .38 }),
+    () => ({ to: { yaw: aP, r: rP, h: HOVER }, dir: back, dur: swingDur * .85 }),
+  ], { loop: true, loopFrom: 1 });
+}
+
+/* =========================================================== event handling */
+function iterRec(n) {
+  n = num(n) ? n : (S.cur || 1);
+  let r = S.iters.get(n);
+  if (!r) { r = { n, code: '', note: '', scene: null, points: null, report: null, geometry: null, vision: null, decision: null, sandbox: null }; S.iters.set(n, r); }
+  return r;
+}
+function lastSceneUpTo(n) { for (let i = n; i >= 1; i--) { const r = S.iters.get(i); if (r?.scene) return r.scene; } return S.base; }
+function resetRun() {
+  S.spec = null; S.iters = new Map(); S.cur = 0; S.view = null; S.done = null; S.logs = []; S.stage = {}; S.firstFrame = true; S.lastDecision = null;
+  S.agentTxt = {}; S.research = []; S.t = 0; S.lastFail = null; orbitBoostUntil = 0;
+  banner(null); clearAlerts(); clearWedges(); clearParts(); powerOff();
+  for (const v of visuals.values()) if (v.arm) armStop(v, false);
+  if (S.base) applyScene(S.base);
+  scheduleHall(S.base, null, 0);
+  if (S.hall) applyLoads(computeLoads(S.base));
+  for (const v of visuals.values()) if (v.anno) { v.anno.el.classList.remove('ok'); if (!['cdu', 'busway'].includes(v.kind)) setSub(v, v.anno.baseSub); }
+  ui.interp.textContent = 'Waiting for the spec agent.';
+  renderCrew(); renderKick(); renderAll(); renderLog(); renderSources();
+}
+function onRunStart(e) {
+  resetRun();
+  if (e.scenario && Array.isArray(e.scenario.objects)) { if (setBase(e.scenario)) { S.scenarioName = e.scenario.name || S.scenarioName; renderScenarios(); } }
+  S.goal = e.goal || S.goal; S.models = e.models || {};
+  renderModels(); renderCrew();
+  heroMode('run'); panelOpen(true); walkAway();
+  stage(S.research.length ? 'spec' : 'spec');
+  setHead('Writing the definition of done.', S.goal ? `“${S.goal}”` : 'The spec agent is turning the request into machine-checkable rules.');
+  const h = homeView(); flyTo(h.tgt.clone(), h.pos.clone().multiplyScalar(.96), 2.2, .6);
+}
+function onResearch(e) {
+  S.research = Array.isArray(e.references) ? e.references.filter((r) => r && (r.url || r.title)) : [];
+  stage('research', 'done');
+  agentSay('research', `${S.research.length} cited reference${S.research.length === 1 ? '' : 's'}`);
+  renderSources();
+  setHead('Reading the building codes.', S.research[0]?.title ? `${S.research.length} references, e.g. ${S.research[0].title}.` : null);
+}
+function onSpec(e) {
+  const sp = e.spec || {};
+  S.spec = { ...sp, checks: Array.isArray(sp.checks) ? sp.checks.filter(Boolean) : [], new_objects: Array.isArray(sp.new_objects) ? sp.new_objects.filter(Boolean) : [] };
+  ui.interp.textContent = S.spec.interpretation || '';
+  ui.interp.title = (Array.isArray(S.spec.assumptions) ? S.spec.assumptions : []).map((a) => `• ${a}`).join('\n');
+  stage('spec', 'done');
+  const n = S.spec.checks.length, cited = S.spec.checks.filter((c) => c.source?.url).length;
+  agentSay('spec', `${n} checks${cited ? ` · ${cited} cited` : ''}`);
+  setHead(`${n} check${n === 1 ? '' : 's'} define done.`, S.spec.interpretation || 'Definition of done written.');
+  S.rowsAnim = true; renderChecks(); S.rowsAnim = false;
+  renderSources();
+}
+function onIterStart(e) {
+  const n = num(e.iter) ? e.iter : S.cur + 1;
+  S.cur = n; S.view = null; iterRec(n);
+  for (const k of ['layout', 'sandbox', 'verify', 'vision', 'supervisor']) S.stage[k] = '';
+  if (S.stage.spec !== 'fail') S.stage.spec = 'done';
+  stage('layout');
+  const racks = (S.spec?.new_objects || []).filter((o) => o.kind === 'rack').length;
+  const nobj = S.spec?.new_objects?.[0]?.id;
+  if (n === 1) setHead(racks ? `Laying out ${racks} racks.` : S.hall ? 'Laying out racks.' : (nobj ? `Placing ${nobj}.` : 'Placing equipment.'), 'The layout agent writes a Python program against the scene API.');
+  else setHead(S.lastFail && ['capacity', 'redundancy'].includes(S.lastFail.catg) ? `${S.lastFail.h} Re-balancing.` : 'Re-planning.', `Iteration ${n}. The layout agent rewrites the program from the verifier's fix vectors.`);
+  agentSay('layout', n === 1 ? 'writing layout program…' : `iteration ${n}: applying fixes…`);
+  for (const v of visuals.values()) if (v.arm && v.seq) armStop(v);
+  renderAll();
+}
+function onLayout(e) {
+  const r = iterRec(e.iter); r.code = e.code || ''; r.note = e.note || '';
+  stage('layout', 'done'); stage('sandbox');
+  if (r.note) { setHead(null, r.note); agentSay('layout', r.note); }
+  if (r.n === (S.view ?? S.cur)) renderCode();
+}
+function onSandbox(e) {
+  const r = iterRec(e.iter); r.sandbox = e; r.points = e.points && typeof e.points === 'object' ? e.points : null;
+  if (e.ok === false || !e.scene || !Array.isArray(e.scene.objects)) {
+    stage('sandbox', 'fail'); agentSay('sandbox', 'program crashed');
+    setHead('Program crashed.', String(e.error || 'The sandbox rejected the layout program.').split('\n').filter(Boolean).slice(-2).join(' ').slice(0, 220));
+    renderIters(); return;
+  }
+  r.scene = e.scene;
+  stage('sandbox', 'done'); stage('verify');
+  if (S.view != null) { renderIters(); return; }
+  const prev = S.sceneNow;
+  clearAlerts(); clearWedges();
+  const added = applyScene(e.scene);
+  const moves = [];
+  let rackCount = 0, newRacks = 0, movedRacks = 0;
+  for (const o of e.scene.objects) {
+    if (!o || !num(o.x)) continue;
+    const p = findObj(prev, o.id);
+    if (o.kind === 'rack') { rackCount++; if (!p) newRacks++; else if (Math.hypot(p.x - o.x, p.y - o.y) > 1e-3) movedRacks++; continue; }
+    if (!p) moves.push(`${o.id} placed at (${fmt(o.x)}, ${fmt(o.y)})`);
+    else if (Math.hypot(p.x - o.x, p.y - o.y) > 1e-3) moves.push(`${o.id} → (${fmt(o.x)}, ${fmt(o.y)})`);
+  }
+  if (rackCount) moves.unshift(`${rackCount} racks${newRacks ? `, ${newRacks} new` : ''}${movedRacks ? `, ${movedRacks} moved` : ''}`);
+  agentSay('sandbox', rackCount ? `OK · ${rackCount} racks in scene` : 'OK · scene updated');
+  setHead(null, moves.length ? `Sandbox OK. ${moves.join(' · ')}.` : 'Sandbox OK. No objects moved.');
+  if (S.hall) {
+    scheduleHall(e.scene, r, added.length ? 950 : 50);
+    applyLoads(recLoads(r));
+    if (S.firstFrame) { S.firstFrame = false; const rk = e.scene.objects.filter((o) => o?.kind === 'rack'); frameObjs(rk.length ? rk : e.scene.objects); }
+  }
+  for (const v of visuals.values()) if (v.arm) {
+    setLamp(v, 'amber');
+    const rg = robotGeo(r, v.id), yaw = rg?.pick ? Math.atan2(rg.pick[1] - v.o.y, rg.pick[0] - v.o.x) : v.pose.yaw;
+    if (added.includes(v)) { v.pose = homePose(v, yaw); applyIK(v); } else armPlay(v, [() => ({ to: homePose(v, yaw), dur: 1.2 })]);
+    if (S.firstFrame) { S.firstFrame = false; frameRobot(v, rg); }
+  }
+  renderAll();
+}
+function onVerify(e) {
+  const r = iterRec(e.iter); r.report = e.report && typeof e.report === 'object' ? e.report : null; r.geometry = e.geometry && typeof e.geometry === 'object' ? e.geometry : null;
+  const rep = r.report;
+  stage('verify', rep && !rep.all_pass ? 'fail' : 'done'); stage('vision');
+  agentSay('verify', rep ? `${rep.passed}/${rep.total} pass${rep.all_pass ? '' : ` · ${(rep.checks || []).filter((c) => c && !c.passed).length} failing`}` : 'no report');
+  if (S.view == null) {
+    // links may still be scheduled; make sure they exist before colouring them
+    if (S.hall) { clearTimeout(hallTimer); rebuildHall(r.scene || S.sceneNow, r); }
+    renderVerify(r, { sweep: true }); renderAll();
+  } else renderIters();
+  if (!rep) { setHead(null, 'Verifier returned no report.'); return; }
+  if (rep.all_pass) { S.lastFail = null; setHead(`All ${rep.total ?? ''} checks pass.`.replace('  ', ' '), 'Geometry, power and cooling verified. Sending renders to the vision inspector.'); }
+  else { const hf = headFor(rep, r); S.lastFail = hf; if (hf) setHead(hf.h, hf.cap); }
+}
+let finderT = 0;
+function finder() { ui.finder.classList.add('on'); ui.flash.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => ui.flash.classList.remove('on'))); clearTimeout(finderT); finderT = setTimeout(() => ui.finder.classList.remove('on'), 1500); }
+function onVision(e) {
+  const r = iterRec(e.iter);
+  r.vision = { verdict: e.verdict || 'skipped', issues: Array.isArray(e.issues) ? e.issues : [], adjudication: Array.isArray(e.adjudication) ? e.adjudication : [] };
+  stage('vision', r.vision.verdict === 'fail' ? 'fail' : 'done'); stage('supervisor');
+  agentSay('vision', r.vision.verdict === 'pass' ? 'PASS · no visible defects' : r.vision.verdict === 'fail' ? `FAIL · ${r.vision.issues[0]?.description || `${r.vision.issues.length} issues`}` : 'skipped');
+  if (r.vision.verdict !== 'skipped') finder();
+  const adj = r.vision.adjudication, rej = adj.filter((a) => /^reject/i.test(a?.ruling || '')).length, conf = adj.filter((a) => /^confirm/i.test(a?.ruling || '')).length;
+  const allPass = !!r.report?.all_pass;
+  if (r.vision.verdict === 'pass') setHead(allPass ? 'Inspector agrees.' : null, 'Vision inspector: no visible defects in the plan and isometric renders.');
+  else if (r.vision.verdict === 'fail') { const n = r.vision.issues.length; const parts = [conf ? `confirms ${conf}` : '', rej ? `rejects ${rej} as within spec` : ''].filter(Boolean).join(', '); setHead(allPass ? 'Inspector disagrees.' : null, `Vision inspector flags ${n} issue${n === 1 ? '' : 's'}.` + (parts ? ` The verifier ${parts}.` : '')); }
+  else setHead(null, 'Vision inspection skipped for this iteration.');
+  if (r.n === (S.view ?? S.cur)) renderVision();
+  renderIters();
+}
+function onDecision(e) {
+  const r = iterRec(e.iter); r.decision = { action: e.action, reason: e.reason || '' };
+  stage('supervisor', e.action === 'escalate' ? 'fail' : 'done');
+  agentSay('supervisor', `${String(e.action || '').toUpperCase()}${e.reason ? ` · ${e.reason}` : ''}`);
+  const a = e.action;
+  if (a === 'continue') setHead(S.lastFail && ['capacity', 'redundancy'].includes(S.lastFail.catg) ? `${S.lastFail.h} Re-balancing.` : 'Re-planning.', e.reason || 'Supervisor: continue with the verifier feedback.');
+  else if (a === 'replan') setHead('Starting over.', e.reason || 'Supervisor: discard this approach and re-plan.');
+  else if (a === 'done') setHead('Verified.', e.reason || 'Supervisor: definition of done satisfied.');
+  else if (a === 'escalate') setHead('Escalating.', e.reason || 'Supervisor: needs a human decision.');
+  S.lastDecision = r.decision;
+}
+function money(c) { return num(c) ? (c < .1 ? `$${c.toFixed(4)}` : `$${c.toFixed(2)}`) : ''; }
+function onDone(e) {
+  S.done = { status: e.status || 'failed', iterations: e.iterations ?? S.cur, usage: e.usage && typeof e.usage === 'object' ? e.usage : {}, summary: e.summary || '', usd_path: e.usd_path };
+  heroMode('done');
+  if (Q.get('demo') == null) setTimeout(loadRuns, 800);
+  const it = S.done.iterations, cost = S.done.usage.cost_usd > 0 ? money(S.done.usage.cost_usd) : '', calls = S.done.usage.calls > 0 ? S.done.usage.calls : 0;
+  if (S.done.status === 'verified') {
+    const kw = (S.iters.get(S.cur)?.scene?.objects || []).filter((o) => o?.kind === 'rack').reduce((a, r) => a + (num(r.kw) ? r.kw : 0), 0);
+    banner('ok', `Verified · ${it} iteration${it === 1 ? '' : 's'}${S.hall && kw ? ` · ${fmtPower(kw)} online` : ''}${cost ? ` · ${cost}` : ''}${calls ? ` · ${calls} model calls` : ''}`);
+    setHead(S.hall && kw ? `Verified. ${fmtPower(kw)} online.` : 'Verified. Zero defects.', S.done.summary || 'Every check in the definition of done passes.');
+    $('#waHead').textContent = 'Done while you were away. Verified.';
+    for (const k of Object.keys(S.stage)) if (S.stage[k] !== 'fail') S.stage[k] = 'done';
+    renderCrew(); renderKick();
+    S.view = null; activateFinal(true);
+  } else if (S.done.status === 'escalated') {
+    const reason = S.lastDecision?.reason || S.done.summary || 'The agents could not satisfy every check.';
+    banner('warn', `Human review needed · ${reason}`); setHead('Human review needed.', reason);
+    $('#waHead').textContent = 'Needs you: escalated for human review.';
+  } else {
+    banner('bad', `Run failed · ${S.done.summary || 'see agent log'}`); setHead('Run failed.', S.done.summary || 'The run ended without a verified layout.');
+    $('#waHead').textContent = 'Run ended without a verified layout.';
+  }
+  renderAll(); renderKPIs(S.done.status === 'verified');
+}
+function activateFinal(cinematic) {
+  const rec = S.iters.get(S.cur);
+  if (rec?.scene) applyScene(rec.scene);
+  if (S.hall) { clearTimeout(hallTimer); rebuildHall(rec?.scene || S.sceneNow, rec); }
+  renderVerify(rec);
+  for (const v of visuals.values()) if (v.arm) {
+    const rg = robotGeo(rec, v.id);
+    if (v.anno) { v.anno.el.classList.add('ok'); setSub(v, `${v.o.model || 'Robot'} · verified`); }
+    setLamp(v, 'green'); startPickPlace(v, rg);
+    if (cinematic) frameRobot(v, rg, true);
+  }
+  if (S.hall) {
+    powerOn(rec);
+    if (cinematic) { const rk = (rec?.scene?.objects || []).filter((o) => o?.kind === 'rack'); frameObjs(rk.length ? rk : (rec?.scene?.objects || []), true); orbitBoostUntil = now + 14; }
+  }
+}
+function showIteration(n) {
+  S.view = n;
+  const rec = viewRec(); if (!rec) { S.view = null; return; }
+  for (const v of visuals.values()) if (v.arm) armStop(v);
+  clearParts(); powerOff();
+  const live = S.view == null;
+  if (live && S.done?.status === 'verified') { activateFinal(false); renderAll(); return; }
+  const sc = rec.scene || lastSceneUpTo(rec.n);
+  applyScene(sc);
+  if (S.hall) { clearTimeout(hallTimer); rebuildHall(sc, rec); }
+  for (const v of visuals.values()) if (v.anno) { v.anno.el.classList.remove('ok'); if (!['cdu', 'busway'].includes(v.kind)) setSub(v, v.anno.baseSub); }
+  renderVerify(rec); renderAll();
+  const hf = rec.report ? (rec.report.all_pass ? { h: `All ${rec.report.total} checks pass.`, cap: rec.note } : headFor(rec.report, rec)) : null;
+  if (!live && hf) setHead(`Iter ${rec.n}. ${hf.h}`, hf.cap);
+}
+function handle(e) {
+  if (!e || typeof e !== 'object') return;
+  if (num(e.t)) S.t = Math.max(S.t, e.t);
+  switch (e.type) {
+    case 'run_start': onRunStart(e); break;
+    case 'research': onResearch(e); break;
+    case 'log': {
+      S.logs.forEach((l) => (l.fresh = false)); S.logs.push({ t: e.t, agent: e.agent, msg: e.msg, fresh: true }); if (S.logs.length > 200) S.logs.shift(); renderLog();
+      const k = AGENT_KEY[e.agent] || e.agent;
+      if (k && CREW.some((c) => c.k === k)) { agentSay(k, String(e.msg || '')); if (k === 'research' && !S.stage.research) stage('research'); }
+      if (e.agent === 'vision' && /render/i.test(e.msg || '')) finder();
+      break;
+    }
+    case 'spec': onSpec(e); break;
+    case 'iteration_start': onIterStart(e); break;
+    case 'layout': onLayout(e); break;
+    case 'sandbox': onSandbox(e); break;
+    case 'verify': onVerify(e); break;
+    case 'vision': onVision(e); break;
+    case 'decision': onDecision(e); break;
+    case 'done': onDone(e); break;
+    default: break;
+  }
+  renderKPIs(); walkAway();
+}
+
+/* =========================================================== playback: paced queue */
+const DWELL = { run_start: 1.8, research: 2.2, log: .25, spec: 3.2, iteration_start: 1.1, layout: 2.0, sandbox: 2.6, verify: 4.0, vision: 2.2, decision: 2.2, done: 0 };
+const player = { q: [], running: false, token: 0, seen: new Set() };
+function enqueue(evts) { for (const e of evts || []) { if (!e) continue; if (num(e.seq)) { if (player.seen.has(e.seq)) continue; player.seen.add(e.seq); } player.q.push(e); } pump(); }
+async function pump() {
+  if (player.running) return;
+  player.running = true; const tok = player.token;
+  while (player.q.length && tok === player.token) {
+    const e = player.q.shift();
+    try { handle(e); } catch (err) { console.warn('[donetwin] event handler failed', e?.type, err); }
+    let d = (DWELL[e.type] ?? .4);
+    if (e.type === 'spec') d += .06 * (Array.isArray(e.spec?.checks) ? e.spec.checks.length : 0);
+    if (d > 0) await sleep((d / S.speed) * 1000);
+  }
+  if (tok === player.token) player.running = false;
+}
+function resetPlayer() { player.token++; player.q = []; player.running = false; player.seen = new Set(); S.runToken++; }
+async function fetchJSON(urls, validate = () => true) {
+  for (const u of urls) { try { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) continue; const j = await r.json(); if (validate(j)) return j; } catch (_) { /* next */ } }
+  return null;
+}
+function demoFile() {
+  const d = Q.get('demo');
+  if (d == null) return null;
+  if (d === 'hall' || d === 'data_hall' || (d === '1' && (Q.get('scenario') || 'data_hall') === 'data_hall' && Q.get('scenario') !== 'sorting_cell' && Q.get('scenario') != null)) return 'sample_events_data_hall.json';
+  if (d === 'cell' || d === 'sorting_cell') return 'sample_events.json';
+  return d === '1' ? 'sample_events.json' : `sample_events_${d.replace(/[^a-z0-9_]/gi, '')}.json`;
+}
+async function loadDemoEvents() {
+  if (S.demoEvents) return S.demoEvents;
+  const f = demoFile() || 'sample_events.json';
+  const j = await fetchJSON([f, `/ui/${f}`, `/${f}`], (x) => Array.isArray(x) || Array.isArray(x?.events));
+  S.demoEvents = j ? (Array.isArray(j) ? j : j.events) : null;
+  return S.demoEvents;
+}
+async function typeGoal(text) {
+  const inp = ui.goal; inp.value = ''; inp.focus({ preventScroll: true });
+  for (const ch of text) { inp.value += ch; await sleep(12 + Math.random() * 16); }
+  await sleep(300);
+  const b = $('#runBtn'); b.classList.add('press'); await sleep(160); b.classList.remove('press');
+}
+async function startDemo({ type = true } = {}) {
+  resetPlayer(); const tok = S.runToken;
+  const evs = await loadDemoEvents();
+  if (!evs) { toast('Could not load the demo events.'); return; }
+  const g = evs.find((e) => e?.type === 'run_start')?.goal;
+  if (type && g && document.body.classList.contains('idle')) await typeGoal(g);
+  if (tok !== S.runToken) return;
+  ui.goal.blur();
+  enqueue(evs.map((e, i) => ({ ...e, seq: num(e?.seq) ? e.seq : i })));
+}
+async function poll(runId, tok) {
+  let since = 0, errs = 0;
+  while (tok === S.runToken) {
+    try {
+      const r = await fetch(`/api/events?run=${encodeURIComponent(runId)}&since=${since}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json(); errs = 0;
+      const evs = Array.isArray(j?.events) ? j.events : [];
+      if (evs.length) { const seqs = evs.map((e) => e?.seq).filter(num); since = seqs.length ? Math.max(since, Math.max(...seqs) + 1) : since + evs.length; if (tok === S.runToken) enqueue(evs); }
+      if (j?.finished) break;
+    } catch (err) { if (++errs >= 20) { toast('Lost connection to the agent server.'); break; } }
+    await sleep(600);
+  }
+}
+async function startLive(goal) {
+  resetPlayer(); const tok = S.runToken;
+  let res = null;
+  try { res = await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal, scenario: S.scenarioName, mock: false }) }); } catch (_) { res = null; }
+  let runId = null;
+  if (res && res.ok) { try { runId = (await res.json())?.run_id; } catch (_) { runId = null; } }
+  if (tok !== S.runToken) return;
+  if (!runId) { toast(res ? `Agent server refused the run (HTTP ${res.status}).` : 'Agent server not reachable.'); return; }
+  try { history.replaceState(null, '', `?scenario=${encodeURIComponent(S.scenarioName)}&replay=${encodeURIComponent(runId)}`); } catch (_) { /* ignore */ }
+  S.goal = goal; heroMode('run'); panelOpen(true); walkAway(); renderCrew(); renderKick();
+  setHead('Handing off to the crew.', `Run ${runId}`);
+  poll(runId, tok);
+}
+function startReplay(runId) { resetPlayer(); poll(runId, S.runToken); }
+function replayRun(runId) {
+  if (!runId) return;
+  $('#replayMenu').hidden = true; $('#runsMenu').hidden = true;
+  try { history.replaceState(null, '', `?replay=${encodeURIComponent(runId)}`); } catch (_) { /* ignore */ }
+  setHead('Loading run.', `Replaying ${runId}`);
+  startReplay(runId);
+}
+function setBase(scn, { intro = false } = {}) {
+  const key = JSON.stringify(scn);
+  if (key === S.baseKey) return false;
+  for (const v of [...visuals.values()]) disposeVisual(v);
+  visuals.clear(); disposeGroup(hallRoot); disposeGroup(thermalRoot); S.linkLines = new Map(); S.powerLines = new Map();
+  S.base = scn; S.baseKey = key; S.hall = isHallScene(scn);
+  if (!S.hall && S.thermal) setThermal(false);
+  buildEnvironment(scn);
+  applyScene(scn, { animate: false });
+  if (S.hall) applyLoads(computeLoads(scn));
+  if (intro) [...visuals.values()].forEach((v, i) => { v.rise = { t0: now + .3 + i * .06, dur: .7 }; v.group.position.y = -4; if (v.anno) v.anno.obj.visible = false; });
+  renderWO(); renderKick();
+  $('#views [data-v="thermal"]').style.display = S.hall ? '' : 'none';
+  $('#views [data-v="xray"]').style.display = S.hall ? '' : 'none';
+  return true;
+}
+async function loadScenario(name) {
+  const ok = (j) => j && Array.isArray(j.objects);
+  const urls = [`/api/scenario?name=${encodeURIComponent(name)}`, `../scenarios/${name}.json`, `/scenarios/${name}.json`, `scenarios/${name}.json`];
+  return (await fetchJSON(urls, ok)) || EMBEDDED[name] || EMBEDDED.sorting_cell;
+}
+function fmtStarted(s) { if (num(s)) { try { return new Date(s * (s < 1e12 ? 1000 : 1)).toLocaleString(); } catch (_) { return String(s); } } return String(s ?? '').replace('T', ' ').slice(0, 19); }
+async function loadRuns() {
+  try {
+    const r = await fetch('/api/runs', { cache: 'no-store' }); if (!r.ok) return;
+    const runs = await r.json(); if (!Array.isArray(runs) || !runs.length) return;
+    const cls = (s) => (s === 'verified' ? 'ok' : s === 'escalated' ? 'warn' : s === 'failed' ? 'bad' : '');
+    const html = runs.filter((x) => x && x.run_id).slice(0, 30).map((x) => `<button class="ri" type="button" data-run="${esc(x.run_id)}"><b>${esc(x.goal || x.run_id)}</b><span class="${cls(x.status)}">${esc(String(x.status || 'unknown').toUpperCase())}</span><span> · ${esc(x.scenario || '')}${x.scenario ? ' · ' : ''}${esc(x.run_id)} · ${esc(fmtStarted(x.started))}</span></button>`).join('');
+    if (!html) return;
+    $('#runsMenu').innerHTML = html; $('#replayMenu').innerHTML = html;
+    $('#runsWrap').hidden = false; $('#replayWrap').hidden = false;
+  } catch (_) { /* no server */ }
+}
+const SCEN_LABEL = { data_hall: 'Data hall', sorting_cell: 'Robot cell' };
+function renderScenarios() {
+  $('#scen').innerHTML = S.scenarios.map((n) => `<button type="button" data-n="${esc(n)}" class="${n === S.scenarioName ? 'on' : ''}">${esc(SCEN_LABEL[n] || n.replace(/_/g, ' '))}</button>`).join('');
+}
+async function loadScenarioList() {
+  try { const r = await fetch('/api/scenarios', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); const list = Array.isArray(j) ? j : Array.isArray(j?.scenarios) ? j.scenarios : null; if (list?.length) S.scenarios = list.map((x) => (typeof x === 'string' ? x : x?.name)).filter(Boolean); } } catch (_) { /* keep defaults */ }
+  if (!S.scenarios.includes(S.scenarioName)) S.scenarios.unshift(S.scenarioName);
+  S.scenarios.sort((a, b) => (a === 'data_hall' ? -1 : b === 'data_hall' ? 1 : 0));
+  renderScenarios();
+}
+async function switchScenario(name) {
+  if (!name) return;
+  resetPlayer();
+  S.scenarioName = name; renderScenarios();
+  try { history.replaceState(null, '', `?scenario=${encodeURIComponent(name)}`); } catch (_) { /* ignore */ }
+  const base = await loadScenario(name);
+  S.baseKey = ''; setBase(base, { intro: true });
+  resetRun(); heroMode('idle'); panelOpen(false);
+  ui.goal.value = base.goal || '';
+  idleCopy();
+  const h = homeView(); flyTo(h.tgt, h.pos, 2.2, .6);
+}
+function idleCopy() {
+  setHead('Describe the change.', S.hall
+    ? 'Laying out an AI data hall’s racks, power and cooling takes engineers weeks of spreadsheets and CAD. Hand it to a Nemotron crew that writes its own definition of done and verifies every rule.'
+    : 'Nemotron agents write their own definition of done, edit this digital twin, and keep going until a deterministic verifier finds zero defects.');
+  renderKick();
+}
+
+/* =========================================================== wiring */
+$('#runBtn').addEventListener('click', () => { const g = ui.goal.value.trim() || S.base?.goal || ''; S.goal = g; startLive(g); });
+ui.goal.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#runBtn').click(); } });
+$('#againBtn').addEventListener('click', () => { heroMode('idle'); idleCopy(); });
+$('#replayBtn').addEventListener('click', (e) => { e.stopPropagation(); const m = $('#replayMenu'); m.hidden = !m.hidden; });
+$('#replayMenu').addEventListener('click', (e) => { const b = e.target.closest('.ri'); if (b) replayRun(b.dataset.run); });
+$('#runsBtn').addEventListener('click', (e) => { e.stopPropagation(); const m = $('#runsMenu'); m.hidden = !m.hidden; });
+$('#runsMenu').addEventListener('click', (e) => { const b = e.target.closest('.ri'); if (b) replayRun(b.dataset.run); });
+addEventListener('click', (e) => { if (!e.target.closest('.runs')) { $('#replayMenu').hidden = true; $('#runsMenu').hidden = true; } });
+$('#scen').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && b.dataset.n !== S.scenarioName) switchScenario(b.dataset.n); });
+$('#speed').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; S.speed = +b.dataset.s || 1; $('#speed').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); });
+function setQuality(hq) { QUAL.hq = hq; QUAL.auto = false; $('#views [data-v="quality"]').classList.toggle('on', hq); }
+$('#views').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.v === 'thermal') setThermal(!S.thermal);
+  else if (b.dataset.v === 'xray') { S.xray = !S.xray; applyXray(); }
+  else if (b.dataset.v === 'quality') { setQuality(!QUAL.hq); toast(QUAL.hq ? 'High quality: SSAO + bloom on.' : 'Performance mode: post-processing off.', 1800); }
+});
+addEventListener('keydown', (e) => {
+  if (e.target === ui.goal || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === '1' || k === '2' || k === '4') $(`#speed button[data-s="${k}"]`)?.click();
+  else if (k === 't') $('#views [data-v="thermal"]').click();
+  else if (k === 'x') $('#views [data-v="xray"]').click();
+  else if (k === 'q') $('#views [data-v="quality"]').click();
+});
+// rack hover labels
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let needPick = false, hoverV = null;
+renderer.domElement.addEventListener('pointermove', (e) => { ptr.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); needPick = true; });
+renderer.domElement.addEventListener('pointerleave', () => { ptr.set(9, 9); needPick = true; });
+function pickTick() {
+  if (!needPick || !S.hall) return; needPick = false;
+  ray.setFromCamera(ptr, camera);
+  const cabs = []; for (const v of visuals.values()) if (v.cab) cabs.push(v.cab);
+  const hit = cabs.length ? ray.intersectObjects(cabs, false)[0] : null;
+  const nv = hit ? visuals.get(hit.object.userData.rackOf) : null;
+  if (nv !== hoverV) { hoverV?.anno?.el.classList.remove('hover'); hoverV = nv; nv?.anno?.el.classList.add('hover'); renderer.domElement.style.cursor = nv ? 'pointer' : ''; }
+}
+
+/* =========================================================== frame loop */
+const clock = new THREE.Clock();
+const UP = new THREE.Vector3(0, 1, 0), _off = new THREE.Vector3();
+let now = 0, fpsAcc = 0, fpsN = 0;
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(clock.getDelta(), .1); now += dt;
+  if (fly) {
+    const k = clamp((now - fly.t0) / fly.dur, 0, 1), e = ease(k);
+    camera.position.lerpVectors(fly.p0, fly.p1, e); camera.position.y += Math.sin(Math.PI * e) * fly.lift;
+    controls.target.lerpVectors(fly.q0, fly.q1, e);
+    if (k >= 1) { fly = null; lastInput = now - 3; }
+  } else if (!dragging && now - lastInput > 4) {
+    const w = now < orbitBoostUntil ? .11 : .04;
+    _off.copy(camera.position).sub(controls.target).applyAxisAngle(UP, w * dt);
+    camera.position.copy(controls.target).add(_off);
+  }
+  if (Math.abs(viewOff - viewOffTarget) > .5) { viewOff = lerp(viewOff, viewOffTarget, Math.min(1, dt * 4)); layoutView(); }
+  for (const v of visuals.values()) updateVisual(v, dt);
+  for (let i = exiting.length - 1; i >= 0; i--) {
+    const v = exiting[i], k = clamp((now - v.exit.t0) / v.exit.dur, 0, 1);
+    v.group.scale.setScalar(Math.max(.001, 1 - k * k)); v.group.position.y = -k * .3;
+    if (k >= 1) { disposeVisual(v); exiting.splice(i, 1); }
+  }
+  dropsTick();
+  for (let i = dusts.length - 1; i >= 0; i--) {
+    const d = dusts[i], k = clamp((now - d.t0) / .75, 0, 1);
+    d.m.scale.setScalar(1 + k * 2.4); d.m.material.opacity = .3 * (1 - k);
+    if (k >= 1) { d.m.removeFromParent(); d.m.geometry.dispose(); d.m.material.dispose(); dusts.splice(i, 1); }
+  }
+  if (S.powered) LM.coolOn.dashOffset -= dt * 1.3;
+  if (kpiAnim) { const k = clamp((performance.now() - kpiAnim.t0) / 1400, 0, 1); kpiAnim.set(easeOutCubic(k)); if (k >= 1) kpiAnim = null; }
+  if (S.t && document.body.classList.contains('run')) { /* agent time comes from events */ }
+  motesTick(); pickTick();
+  controls.update();
+  // auto-downgrade post-processing on slow GPUs (never in forced modes)
+  if (QUAL.auto && now > 2 && now < 8) { fpsAcc += dt; fpsN++; if (fpsN > 90 && fpsAcc / fpsN > 1 / 24) { setQuality(false); toast('Performance mode: post-processing off (press Q to re-enable).', 3200); } }
+  if (QUAL.hq) composer.render(dt); else renderer.render(scene, camera);
+  labels.render(scene, camera);
+}
+
+/* =========================================================== boot */
+(async function boot() {
+  layoutView(); renderCrew();
+  $('#views [data-v="quality"]').classList.toggle('on', QUAL.hq);
+  tick();
+  const demo = Q.get('demo') != null, replay = Q.get('replay');
+  if (!demo) { loadRuns(); loadScenarioList(); } else renderScenarios();
+  const sp = Q.get('speed'); if (sp) $(`#speed button[data-s="${sp}"]`)?.click();
+  let base = null;
+  if (demo) { const evs = await loadDemoEvents(); base = evs?.find((e) => e?.type === 'run_start')?.scenario || null; if (base?.name) { S.scenarioName = base.name; renderScenarios(); } }
+  if (!base || !Array.isArray(base.objects)) base = await loadScenario(S.scenarioName);
+  setBase(base, { intro: true });
+  ui.goal.value = base.goal || '';
+  idleCopy();
+  if (Q.get('thermal') === '1') setThermal(true);
+  const h = homeView(); camera.position.copy(h.pos).multiplyScalar(1.35); controls.target.copy(h.tgt); flyTo(h.tgt, h.pos, 2.6, .4);
+  if (demo) { await sleep(2600); startDemo({ type: true }); }
+  else if (replay) startReplay(replay);
+})();
+</script>
+</body>
+</html>

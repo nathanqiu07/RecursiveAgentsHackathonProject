@@ -1,0 +1,14 @@
+# OpenShell policy for executing agent-written layout programs.
+# The program only needs the Python stdlib and a scratch dir: no network, no writes outside /tmp, no root.
+version: 1
+
+filesystem_policy:
+  include_workdir: false
+  read_only: [/usr, /lib, /lib64, /bin, /etc]
+  read_write: [/tmp]
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+# No network_policies section: the layout program gets zero egress.

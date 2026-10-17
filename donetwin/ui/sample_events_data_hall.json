@@ -1,0 +1,3464 @@
+[
+ {
+  "seq": 0,
+  "t": 0.0,
+  "type": "run_start",
+  "goal": "Deploy 2 MW of GB200 NVL72 racks in Hall B with N+1 cooling.",
+  "scenario": {
+   "name": "data_hall",
+   "title": "Hall B \u00b7 AI factory fit-out",
+   "goal": "Deploy 2 MW of GB200 NVL72 racks in Hall B with N+1 cooling.",
+   "floor": {
+    "w": 24,
+    "d": 16
+   },
+   "objects": [
+    {
+     "id": "egress_W",
+     "kind": "walkway",
+     "x": 0.7,
+     "y": 8.0,
+     "w": 1.4,
+     "d": 16.0,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "note": "egress corridor to west exit door"
+    },
+    {
+     "id": "egress_S",
+     "kind": "walkway",
+     "x": 12.0,
+     "y": 0.7,
+     "w": 24.0,
+     "d": 1.4,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "note": "egress corridor to south exit doors"
+    },
+    {
+     "id": "col_C1",
+     "kind": "pillar",
+     "x": 8.0,
+     "y": 6.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C2",
+     "kind": "pillar",
+     "x": 16.0,
+     "y": 6.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C3",
+     "kind": "pillar",
+     "x": 8.0,
+     "y": 12.6,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C4",
+     "kind": "pillar",
+     "x": 16.0,
+     "y": 12.6,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "CDU_1",
+     "kind": "cdu",
+     "x": 4.0,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_2",
+     "kind": "cdu",
+     "x": 9.5,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_3",
+     "kind": "cdu",
+     "x": 15.0,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_4",
+     "kind": "cdu",
+     "x": 20.5,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "BW_A",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 3.4,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_B",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 6.2,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_C",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 9.8,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_D",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 12.6,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "PNL_1",
+     "kind": "panel",
+     "x": 23.6,
+     "y": 3.5,
+     "w": 0.6,
+     "d": 1.6,
+     "h": 2.2,
+     "rot": 0,
+     "fixed": true,
+     "note": "main switchboard"
+    },
+    {
+     "id": "nec_PNL_1",
+     "kind": "keepout",
+     "x": 22.65,
+     "y": 3.5,
+     "w": 1.3,
+     "d": 2.2,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "reason": "NEC 110.26 working space in front of PNL_1 (keep clear)"
+    },
+    {
+     "id": "slab_vault",
+     "kind": "keepout",
+     "x": 21.0,
+     "y": 10.95,
+     "w": 6.0,
+     "d": 6.9,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "reason": "Slab over cable vault: 1,200 kg/m2 max (GB200 NVL72 rack ~1,890 kg/m2)"
+    }
+   ],
+   "domain_notes": "AI data hall fit-out. New racks go in rows under the busways. Each rack needs a cdu and a busway assignment. Busways: continuous load <= capacity_kw*derate. CDUs: assigned load <= capacity_kw, total load must survive loss of the largest CDU (N+1), hose run (Manhattan distance rack center -> CDU port) <= hose_m. Racks in the same row abut (gap 0); aisles between rows >= 1.2 m. Keepouts and egress corridors must stay clear.",
+   "research_queries": [
+    "NEC 110.26 working space clearance in front of electrical equipment",
+    "NFPA 101 minimum egress corridor width",
+    "data center hot aisle cold aisle minimum width",
+    "NVIDIA GB200 NVL72 rack power kW weight liquid cooling CDU",
+    "busway continuous load 80 percent NEC"
+   ]
+  },
+  "models": {
+   "planner": "nvidia/Nemotron-3-Super-120B-A12B",
+   "vision": "nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B"
+  }
+ },
+ {
+  "seq": 1,
+  "t": 0.2,
+  "type": "log",
+  "agent": "research",
+  "msg": "Searching You.com for data hall code requirements (4 queries)..."
+ },
+ {
+  "seq": 2,
+  "t": 4.4,
+  "type": "research",
+  "references": [
+   {
+    "query": "NEC 110.26 working space switchboard",
+    "title": "NFPA 70 (NEC) 110.26: working space about electrical equipment",
+    "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+    "snippet": "Paraphrase: dedicated clear working space in front of switchboards."
+   },
+   {
+    "query": "NFPA 101 means of egress obstruction",
+    "title": "NFPA 101 Life Safety Code: means of egress",
+    "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+    "snippet": "Paraphrase: egress paths must be kept unobstructed."
+   },
+   {
+    "query": "NEC continuous load 80 percent busway",
+    "title": "NFPA 70 (NEC): continuous loads and the 80% rule",
+    "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+    "snippet": "Paraphrase: continuous load at or below 80% of the rating."
+   },
+   {
+    "query": "NFPA 75 information technology equipment rooms",
+    "title": "NFPA 75: protection of information technology equipment",
+    "url": "https://www.nfpa.org/codes-and-standards/nfpa-75-standard-development/75",
+    "snippet": "Paraphrase: requirements for IT equipment rooms."
+   }
+  ]
+ },
+ {
+  "seq": 3,
+  "t": 4.5,
+  "type": "log",
+  "agent": "research",
+  "msg": "4 cited references handed to the spec agent."
+ },
+ {
+  "seq": 4,
+  "t": 4.8,
+  "type": "log",
+  "agent": "spec",
+  "msg": "Reading Hall B: 24 x 16 m, 4 CDUs, 4 busways, 2 keep-outs, 2 egress corridors."
+ },
+ {
+  "seq": 5,
+  "t": 6.4,
+  "type": "log",
+  "agent": "spec",
+  "msg": "Looking up working-space and egress requirements..."
+ },
+ {
+  "seq": 6,
+  "t": 19.4,
+  "type": "spec",
+  "spec": {
+   "interpretation": "Deploy 16 GB200 NVL72 racks (132 kW each, 2.1 MW) in rows under the busways, every rack on a CDU loop and a busway tap, with N+1 cooling and all code zones clear.",
+   "assumptions": [
+    "16 racks x 132 kW = 2,112 kW meets the 2 MW goal.",
+    "Racks in a row abut; aisles are at least 1.2 m.",
+    "Hose runs are Manhattan distance to the CDU port.",
+    "Busways carry at most 80% of rating continuously."
+   ],
+   "new_objects": [
+    {
+     "id": "R01",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R02",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R03",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R04",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R05",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R06",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R07",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R08",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R09",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R10",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R11",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R12",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R13",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R14",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R15",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    },
+    {
+     "id": "R16",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "pick": null,
+     "place": null
+    }
+   ],
+   "checks": [
+    {
+     "type": "no_collision",
+     "params": {},
+     "why": "mandatory: physical collisions are never acceptable"
+    },
+    {
+     "type": "in_bounds",
+     "params": {},
+     "why": "mandatory: the layout must fit the floor"
+    },
+    {
+     "type": "fixed_unchanged",
+     "params": {},
+     "why": "mandatory: structural elements are immovable"
+    },
+    {
+     "type": "total_power",
+     "params": {
+      "min_kw": 2000
+     },
+     "why": "The goal is 2 MW of IT load."
+    },
+    {
+     "type": "capacity",
+     "params": {
+      "kind": "cdu"
+     },
+     "why": "Each CDU can only reject the heat of the racks on its loop (800 kW)."
+    },
+    {
+     "type": "capacity",
+     "params": {
+      "kind": "busway"
+     },
+     "why": "Busway continuous load must stay within 80% of its 800 kW rating.",
+     "source": {
+      "title": "NFPA 70 (NEC): continuous loads and the 80% rule",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+      "snippet": "Paraphrase: size feeders so continuous load stays at or below 80% of the overcurrent device rating."
+     }
+    },
+    {
+     "type": "redundancy",
+     "params": {
+      "kind": "cdu"
+     },
+     "why": "N+1 cooling: losing the largest CDU must not overheat any rack."
+    },
+    {
+     "type": "hose_length",
+     "params": {},
+     "why": "Secondary coolant hoses are rated to 14 m (Manhattan run to the CDU port)."
+    },
+    {
+     "type": "feed_reach",
+     "params": {},
+     "why": "Tap-box whips reach 0.8 m, so every rack must sit under its busway."
+    },
+    {
+     "type": "aisle_width",
+     "params": {
+      "min_m": 1.2
+     },
+     "why": "Hot and cold aisles need 1.2 m for service carts.",
+     "source": {
+      "title": "NFPA 75: protection of IT equipment",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-75-standard-development/75",
+      "snippet": "Paraphrase: keep IT rooms serviceable and accessible for maintenance and fire response."
+     }
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "slab_vault",
+      "include_envelopes": false
+     },
+     "why": "The slab over the cable vault holds 1,200 kg/m\u00b2, below a loaded rack."
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "nec_PNL_1",
+      "include_envelopes": false
+     },
+     "why": "Working space in front of the switchboard stays clear.",
+     "source": {
+      "title": "NFPA 70 (NEC) 110.26: working space about electrical equipment",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+      "snippet": "Paraphrase: keep a dedicated clear working space in front of switchboards and panels."
+     }
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "egress_W",
+      "include_envelopes": false
+     },
+     "why": "West exit corridor must stay unobstructed.",
+     "source": {
+      "title": "NFPA 101 Life Safety Code: means of egress",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+      "snippet": "Paraphrase: means of egress must be kept free of obstructions."
+     }
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "egress_S",
+      "include_envelopes": false
+     },
+     "why": "South exit corridor must stay unobstructed.",
+     "source": {
+      "title": "NFPA 101 Life Safety Code: means of egress",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+      "snippet": "Paraphrase: means of egress must be kept free of obstructions."
+     }
+    }
+   ]
+  }
+ },
+ {
+  "seq": 7,
+  "t": 19.5,
+  "type": "log",
+  "agent": "spec",
+  "msg": "Definition of done: 14 checks, 5 with cited code references."
+ },
+ {
+  "seq": 8,
+  "t": 20.1,
+  "type": "iteration_start",
+  "iter": 1
+ },
+ {
+  "seq": 9,
+  "t": 20.9,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Writing rack layout program."
+ },
+ {
+  "seq": 10,
+  "t": 30.9,
+  "type": "layout",
+  "iter": 1,
+  "code": "# naive: two long rows, one CDU per row\nfor r, (bw, y, cdu) in enumerate([(\"BW_A\", 3.4, \"CDU_1\"), (\"BW_B\", 6.2, \"CDU_2\")]):\n    for i in range(8):\n        scene.add_rack(f\"R{r*8+i+1:02d}\", \"GB200-NVL72\", x=2.3 + 0.6*i, y=y,\n                       cdu=cdu, busway=bw)\nprint(feeder_loads(scene))\n",
+  "note": "Naive pass: two rows of 8 under BW_A and BW_B, one CDU per row."
+ },
+ {
+  "seq": 11,
+  "t": 31.1,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "Executing layout program in sandbox (timeout 10 s)..."
+ },
+ {
+  "seq": 12,
+  "t": 32.0,
+  "type": "sandbox",
+  "iter": 1,
+  "ok": true,
+  "error": null,
+  "stdout": "{\"CDU_1\": 1056, \"CDU_2\": 1056, \"CDU_3\": 0, \"CDU_4\": 0, \"BW_A\": 1056, \"BW_B\": 1056, \"BW_C\": 0, \"BW_D\": 0}\n",
+  "scene": {
+   "name": "data_hall",
+   "title": "Hall B \u00b7 AI factory fit-out",
+   "goal": "Deploy 2 MW of GB200 NVL72 racks in Hall B with N+1 cooling.",
+   "floor": {
+    "w": 24,
+    "d": 16
+   },
+   "objects": [
+    {
+     "id": "egress_W",
+     "kind": "walkway",
+     "x": 0.7,
+     "y": 8.0,
+     "w": 1.4,
+     "d": 16.0,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "note": "egress corridor to west exit door"
+    },
+    {
+     "id": "egress_S",
+     "kind": "walkway",
+     "x": 12.0,
+     "y": 0.7,
+     "w": 24.0,
+     "d": 1.4,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "note": "egress corridor to south exit doors"
+    },
+    {
+     "id": "col_C1",
+     "kind": "pillar",
+     "x": 8.0,
+     "y": 6.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C2",
+     "kind": "pillar",
+     "x": 16.0,
+     "y": 6.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C3",
+     "kind": "pillar",
+     "x": 8.0,
+     "y": 12.6,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C4",
+     "kind": "pillar",
+     "x": 16.0,
+     "y": 12.6,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "CDU_1",
+     "kind": "cdu",
+     "x": 4.0,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_2",
+     "kind": "cdu",
+     "x": 9.5,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_3",
+     "kind": "cdu",
+     "x": 15.0,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_4",
+     "kind": "cdu",
+     "x": 20.5,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "BW_A",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 3.4,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_B",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 6.2,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_C",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 9.8,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_D",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 12.6,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "PNL_1",
+     "kind": "panel",
+     "x": 23.6,
+     "y": 3.5,
+     "w": 0.6,
+     "d": 1.6,
+     "h": 2.2,
+     "rot": 0,
+     "fixed": true,
+     "note": "main switchboard"
+    },
+    {
+     "id": "nec_PNL_1",
+     "kind": "keepout",
+     "x": 22.65,
+     "y": 3.5,
+     "w": 1.3,
+     "d": 2.2,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "reason": "NEC 110.26 working space in front of PNL_1 (keep clear)"
+    },
+    {
+     "id": "slab_vault",
+     "kind": "keepout",
+     "x": 21.0,
+     "y": 10.95,
+     "w": 6.0,
+     "d": 6.9,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "reason": "Slab over cable vault: 1,200 kg/m2 max (GB200 NVL72 rack ~1,890 kg/m2)"
+    },
+    {
+     "id": "R01",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 2.3,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R02",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 2.9,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R03",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 3.5,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R04",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 4.1,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R05",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 4.7,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R06",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 5.3,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R07",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 5.9,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R08",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 6.5,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R09",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 2.3,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R10",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 2.9,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R11",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 3.5,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R12",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 4.1,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R13",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 4.7,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R14",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 5.3,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R15",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 5.9,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R16",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 6.5,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_B",
+     "fixed": false
+    }
+   ],
+   "domain_notes": "AI data hall fit-out. New racks go in rows under the busways. Each rack needs a cdu and a busway assignment. Busways: continuous load <= capacity_kw*derate. CDUs: assigned load <= capacity_kw, total load must survive loss of the largest CDU (N+1), hose run (Manhattan distance rack center -> CDU port) <= hose_m. Racks in the same row abut (gap 0); aisles between rows >= 1.2 m. Keepouts and egress corridors must stay clear.",
+   "research_queries": [
+    "NEC 110.26 working space clearance in front of electrical equipment",
+    "NFPA 101 minimum egress corridor width",
+    "data center hot aisle cold aisle minimum width",
+    "NVIDIA GB200 NVL72 rack power kW weight liquid cooling CDU",
+    "busway continuous load 80 percent NEC"
+   ]
+  },
+  "points": {}
+ },
+ {
+  "seq": 13,
+  "t": 32.1,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "OK. 16 racks placed."
+ },
+ {
+  "seq": 14,
+  "t": 32.4,
+  "type": "verify",
+  "iter": 1,
+  "report": {
+   "checks": [
+    {
+     "type": "no_collision",
+     "params": {},
+     "why": "mandatory: physical collisions are never acceptable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "in_bounds",
+     "params": {},
+     "why": "mandatory: the layout must fit the floor",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "fixed_unchanged",
+     "params": {},
+     "why": "mandatory: structural elements are immovable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "total_power",
+     "params": {
+      "min_kw": 2000
+     },
+     "why": "The goal is 2 MW of IT load.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "capacity",
+     "params": {
+      "kind": "cdu"
+     },
+     "why": "Each CDU can only reject the heat of the racks on its loop (800 kW).",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "CDU_1",
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08"
+       ],
+       "magnitude": 2.56,
+       "detail": "CDU_1 carries 1056 kW from 8 racks; limit 800 kW",
+       "fix": "move at least 2 rack(s) off CDU_1; spare capacity: CDU_3 800 kW, CDU_4 800 kW"
+      },
+      {
+       "objects": [
+        "CDU_2",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15",
+        "R16"
+       ],
+       "magnitude": 2.56,
+       "detail": "CDU_2 carries 1056 kW from 8 racks; limit 800 kW",
+       "fix": "move at least 2 rack(s) off CDU_2; spare capacity: CDU_3 800 kW, CDU_4 800 kW"
+      }
+     ]
+    },
+    {
+     "type": "capacity",
+     "params": {
+      "kind": "busway"
+     },
+     "why": "Busway continuous load must stay within 80% of its 800 kW rating.",
+     "source": {
+      "title": "NFPA 70 (NEC): continuous loads and the 80% rule",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+      "snippet": "Paraphrase: size feeders so continuous load stays at or below 80% of the overcurrent device rating."
+     },
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "BW_A",
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08"
+       ],
+       "magnitude": 4.16,
+       "detail": "BW_A carries 1056 kW from 8 racks; limit 640 kW (800 kW x 0.8 continuous-load derate)",
+       "fix": "move at least 4 rack(s) off BW_A; spare capacity: BW_C 640 kW, BW_D 640 kW"
+      },
+      {
+       "objects": [
+        "BW_B",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15",
+        "R16"
+       ],
+       "magnitude": 4.16,
+       "detail": "BW_B carries 1056 kW from 8 racks; limit 640 kW (800 kW x 0.8 continuous-load derate)",
+       "fix": "move at least 4 rack(s) off BW_B; spare capacity: BW_C 640 kW, BW_D 640 kW"
+      }
+     ]
+    },
+    {
+     "type": "redundancy",
+     "params": {
+      "kind": "cdu"
+     },
+     "why": "N+1 cooling: losing the largest CDU must not overheat any rack.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "hose_length",
+     "params": {},
+     "why": "Secondary coolant hoses are rated to 14 m (Manhattan run to the CDU port).",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "R09",
+        "CDU_2"
+       ],
+       "magnitude": 1.8,
+       "detail": "R09 -> CDU_2 hose run 15.8 m exceeds 14.0 m",
+       "fix": "reassign R09 to CDU_1 (10.3 m)"
+      },
+      {
+       "objects": [
+        "R10",
+        "CDU_2"
+       ],
+       "magnitude": 1.2,
+       "detail": "R10 -> CDU_2 hose run 15.2 m exceeds 14.0 m",
+       "fix": "reassign R10 to CDU_1 (9.7 m)"
+      },
+      {
+       "objects": [
+        "R11",
+        "CDU_2"
+       ],
+       "magnitude": 0.6,
+       "detail": "R11 -> CDU_2 hose run 14.6 m exceeds 14.0 m",
+       "fix": "reassign R11 to CDU_1 (9.1 m)"
+      }
+     ]
+    },
+    {
+     "type": "feed_reach",
+     "params": {},
+     "why": "Tap-box whips reach 0.8 m, so every rack must sit under its busway.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "aisle_width",
+     "params": {
+      "min_m": 1.2
+     },
+     "why": "Hot and cold aisles need 1.2 m for service carts.",
+     "source": {
+      "title": "NFPA 75: protection of IT equipment",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-75-standard-development/75",
+      "snippet": "Paraphrase: keep IT rooms serviceable and accessible for maintenance and fire response."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "slab_vault",
+      "include_envelopes": false
+     },
+     "why": "The slab over the cable vault holds 1,200 kg/m\u00b2, below a loaded rack.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "nec_PNL_1",
+      "include_envelopes": false
+     },
+     "why": "Working space in front of the switchboard stays clear.",
+     "source": {
+      "title": "NFPA 70 (NEC) 110.26: working space about electrical equipment",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+      "snippet": "Paraphrase: keep a dedicated clear working space in front of switchboards and panels."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "egress_W",
+      "include_envelopes": false
+     },
+     "why": "West exit corridor must stay unobstructed.",
+     "source": {
+      "title": "NFPA 101 Life Safety Code: means of egress",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+      "snippet": "Paraphrase: means of egress must be kept free of obstructions."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "egress_S",
+      "include_envelopes": false
+     },
+     "why": "South exit corridor must stay unobstructed.",
+     "source": {
+      "title": "NFPA 101 Life Safety Code: means of egress",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+      "snippet": "Paraphrase: means of egress must be kept free of obstructions."
+     },
+     "passed": true,
+     "violations": []
+    }
+   ],
+   "passed": 11,
+   "total": 14,
+   "all_pass": false,
+   "penalty": 20.04
+  },
+  "geometry": {
+   "loads": {
+    "CDU_1": {
+     "load_kw": 1056,
+     "cap_kw": 800.0
+    },
+    "CDU_2": {
+     "load_kw": 1056,
+     "cap_kw": 800.0
+    },
+    "CDU_3": {
+     "load_kw": 0,
+     "cap_kw": 800.0
+    },
+    "CDU_4": {
+     "load_kw": 0,
+     "cap_kw": 800.0
+    },
+    "BW_A": {
+     "load_kw": 1056,
+     "cap_kw": 640.0
+    },
+    "BW_B": {
+     "load_kw": 1056,
+     "cap_kw": 640.0
+    },
+    "BW_C": {
+     "load_kw": 0,
+     "cap_kw": 640.0
+    },
+    "BW_D": {
+     "load_kw": 0,
+     "cap_kw": 640.0
+    }
+   },
+   "links": [
+    {
+     "rack": "R01",
+     "cdu": "CDU_1",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R02",
+     "cdu": "CDU_1",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R03",
+     "cdu": "CDU_1",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R04",
+     "cdu": "CDU_1",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R05",
+     "cdu": "CDU_1",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R06",
+     "cdu": "CDU_1",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R07",
+     "cdu": "CDU_1",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R08",
+     "cdu": "CDU_1",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R09",
+     "cdu": "CDU_2",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R10",
+     "cdu": "CDU_2",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R11",
+     "cdu": "CDU_2",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R12",
+     "cdu": "CDU_2",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R13",
+     "cdu": "CDU_2",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R14",
+     "cdu": "CDU_2",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R15",
+     "cdu": "CDU_2",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R16",
+     "cdu": "CDU_2",
+     "busway": "BW_B"
+    }
+   ]
+  }
+ },
+ {
+  "seq": 15,
+  "t": 32.45,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "11/14 checks pass, penalty 20.04."
+ },
+ {
+  "seq": 16,
+  "t": 32.5,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL capacity: CDU_1 carries 1056 kW from 8 racks; limit 800 kW"
+ },
+ {
+  "seq": 17,
+  "t": 32.55,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL capacity: BW_A carries 1056 kW from 8 racks; limit 640 kW (800 kW x 0.8 continuous-load derate)"
+ },
+ {
+  "seq": 18,
+  "t": 32.6,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL hose_length: R09 -> CDU_2 hose run 15.8 m exceeds 14.0 m"
+ },
+ {
+  "seq": 19,
+  "t": 32.9,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Rendering plan and isometric views for the inspector..."
+ },
+ {
+  "seq": 20,
+  "t": 39.9,
+  "type": "vision",
+  "iter": 1,
+  "verdict": "fail",
+  "issues": [
+   {
+    "severity": "high",
+    "objects": [
+     "CDU_1",
+     "CDU_2"
+    ],
+    "description": "Two CDUs carry all 16 racks while CDU_3 and CDU_4 sit idle."
+   }
+  ],
+  "adjudication": []
+ },
+ {
+  "seq": 21,
+  "t": 42.9,
+  "type": "decision",
+  "iter": 1,
+  "action": "continue",
+  "reason": "3 failing check(s): capacity, hose_length. Apply the verifier's fixes."
+ },
+ {
+  "seq": 22,
+  "t": 42.95,
+  "type": "log",
+  "agent": "supervisor",
+  "msg": "CONTINUE: 3 failing check(s): capacity, hose_length. Apply the verifier's fixes."
+ },
+ {
+  "seq": 23,
+  "t": 43.55,
+  "type": "iteration_start",
+  "iter": 2
+ },
+ {
+  "seq": 24,
+  "t": 44.35,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Re-planning from 6 failed checks."
+ },
+ {
+  "seq": 25,
+  "t": 55.35,
+  "type": "layout",
+  "iter": 2,
+  "code": "# spread load: 4 rows of 4, every rack on its nearest CDU\nrows = [(\"BW_A\", 3.4), (\"BW_B\", 6.2), (\"BW_C\", 9.8), (\"BW_D\", 12.6)]\nn = 0\nfor bw, y in rows:\n    for i in range(4):\n        n += 1\n        x = 14.3 + 0.6*i\n        scene.add_rack(f\"R{n:02d}\", \"GB200-NVL72\", x=x, y=y,\n                       cdu=nearest_cdu(scene, x, y), busway=bw)\n",
+  "note": "Spread the load across all four busways, 4 racks per row starting at x=14.3, each on the nearest CDU."
+ },
+ {
+  "seq": 26,
+  "t": 55.55,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "Executing layout program in sandbox (timeout 10 s)..."
+ },
+ {
+  "seq": 27,
+  "t": 56.45,
+  "type": "sandbox",
+  "iter": 2,
+  "ok": true,
+  "error": null,
+  "stdout": "{\"CDU_1\": 0, \"CDU_2\": 0, \"CDU_3\": 2112, \"CDU_4\": 0, \"BW_A\": 528, \"BW_B\": 528, \"BW_C\": 528, \"BW_D\": 528}\n",
+  "scene": {
+   "name": "data_hall",
+   "title": "Hall B \u00b7 AI factory fit-out",
+   "goal": "Deploy 2 MW of GB200 NVL72 racks in Hall B with N+1 cooling.",
+   "floor": {
+    "w": 24,
+    "d": 16
+   },
+   "objects": [
+    {
+     "id": "egress_W",
+     "kind": "walkway",
+     "x": 0.7,
+     "y": 8.0,
+     "w": 1.4,
+     "d": 16.0,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "note": "egress corridor to west exit door"
+    },
+    {
+     "id": "egress_S",
+     "kind": "walkway",
+     "x": 12.0,
+     "y": 0.7,
+     "w": 24.0,
+     "d": 1.4,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "note": "egress corridor to south exit doors"
+    },
+    {
+     "id": "col_C1",
+     "kind": "pillar",
+     "x": 8.0,
+     "y": 6.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C2",
+     "kind": "pillar",
+     "x": 16.0,
+     "y": 6.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C3",
+     "kind": "pillar",
+     "x": 8.0,
+     "y": 12.6,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C4",
+     "kind": "pillar",
+     "x": 16.0,
+     "y": 12.6,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "CDU_1",
+     "kind": "cdu",
+     "x": 4.0,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_2",
+     "kind": "cdu",
+     "x": 9.5,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_3",
+     "kind": "cdu",
+     "x": 15.0,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_4",
+     "kind": "cdu",
+     "x": 20.5,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "BW_A",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 3.4,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_B",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 6.2,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_C",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 9.8,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_D",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 12.6,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "PNL_1",
+     "kind": "panel",
+     "x": 23.6,
+     "y": 3.5,
+     "w": 0.6,
+     "d": 1.6,
+     "h": 2.2,
+     "rot": 0,
+     "fixed": true,
+     "note": "main switchboard"
+    },
+    {
+     "id": "nec_PNL_1",
+     "kind": "keepout",
+     "x": 22.65,
+     "y": 3.5,
+     "w": 1.3,
+     "d": 2.2,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "reason": "NEC 110.26 working space in front of PNL_1 (keep clear)"
+    },
+    {
+     "id": "slab_vault",
+     "kind": "keepout",
+     "x": 21.0,
+     "y": 10.95,
+     "w": 6.0,
+     "d": 6.9,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "reason": "Slab over cable vault: 1,200 kg/m2 max (GB200 NVL72 rack ~1,890 kg/m2)"
+    },
+    {
+     "id": "R01",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.3,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R02",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.9,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R03",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 15.5,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R04",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 16.1,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R05",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.3,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R06",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.9,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R07",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 15.5,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R08",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 16.1,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R09",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.3,
+     "y": 9.8,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_C",
+     "fixed": false
+    },
+    {
+     "id": "R10",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.9,
+     "y": 9.8,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_C",
+     "fixed": false
+    },
+    {
+     "id": "R11",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 15.5,
+     "y": 9.8,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_C",
+     "fixed": false
+    },
+    {
+     "id": "R12",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 16.1,
+     "y": 9.8,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_C",
+     "fixed": false
+    },
+    {
+     "id": "R13",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.3,
+     "y": 12.6,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_D",
+     "fixed": false
+    },
+    {
+     "id": "R14",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.9,
+     "y": 12.6,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_D",
+     "fixed": false
+    },
+    {
+     "id": "R15",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 15.5,
+     "y": 12.6,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_D",
+     "fixed": false
+    },
+    {
+     "id": "R16",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 16.1,
+     "y": 12.6,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_D",
+     "fixed": false
+    }
+   ],
+   "domain_notes": "AI data hall fit-out. New racks go in rows under the busways. Each rack needs a cdu and a busway assignment. Busways: continuous load <= capacity_kw*derate. CDUs: assigned load <= capacity_kw, total load must survive loss of the largest CDU (N+1), hose run (Manhattan distance rack center -> CDU port) <= hose_m. Racks in the same row abut (gap 0); aisles between rows >= 1.2 m. Keepouts and egress corridors must stay clear.",
+   "research_queries": [
+    "NEC 110.26 working space clearance in front of electrical equipment",
+    "NFPA 101 minimum egress corridor width",
+    "data center hot aisle cold aisle minimum width",
+    "NVIDIA GB200 NVL72 rack power kW weight liquid cooling CDU",
+    "busway continuous load 80 percent NEC"
+   ]
+  },
+  "points": {}
+ },
+ {
+  "seq": 28,
+  "t": 56.55,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "OK. 16 racks placed."
+ },
+ {
+  "seq": 29,
+  "t": 56.85,
+  "type": "verify",
+  "iter": 2,
+  "report": {
+   "checks": [
+    {
+     "type": "no_collision",
+     "params": {},
+     "why": "mandatory: physical collisions are never acceptable",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "col_C2",
+        "R07"
+       ],
+       "magnitude": 0.1,
+       "detail": "col_C2 footprint collides with R07 (0.06 m2 overlap, 0.10 m penetration)",
+       "fix": "translate R07 by (dx=-0.15, dy=+0.00) or translate R07 by (dx=+0.00, dy=-0.95)"
+      },
+      {
+       "objects": [
+        "col_C2",
+        "R08"
+       ],
+       "magnitude": 0.5,
+       "detail": "col_C2 footprint collides with R08 (0.30 m2 overlap, 0.50 m penetration)",
+       "fix": "translate R08 by (dx=+0.55, dy=+0.00) or translate R08 by (dx=-0.75, dy=+0.00)"
+      },
+      {
+       "objects": [
+        "col_C4",
+        "R15"
+       ],
+       "magnitude": 0.1,
+       "detail": "col_C4 footprint collides with R15 (0.06 m2 overlap, 0.10 m penetration)",
+       "fix": "translate R15 by (dx=-0.15, dy=+0.00) or translate R15 by (dx=+0.00, dy=-0.95)"
+      },
+      {
+       "objects": [
+        "col_C4",
+        "R16"
+       ],
+       "magnitude": 0.5,
+       "detail": "col_C4 footprint collides with R16 (0.30 m2 overlap, 0.50 m penetration)",
+       "fix": "translate R16 by (dx=+0.55, dy=+0.00) or translate R16 by (dx=-0.75, dy=+0.00)"
+      }
+     ]
+    },
+    {
+     "type": "in_bounds",
+     "params": {},
+     "why": "mandatory: the layout must fit the floor",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "fixed_unchanged",
+     "params": {},
+     "why": "mandatory: structural elements are immovable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "total_power",
+     "params": {
+      "min_kw": 2000
+     },
+     "why": "The goal is 2 MW of IT load.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "capacity",
+     "params": {
+      "kind": "cdu"
+     },
+     "why": "Each CDU can only reject the heat of the racks on its loop (800 kW).",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "CDU_3",
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15",
+        "R16"
+       ],
+       "magnitude": 13.12,
+       "detail": "CDU_3 carries 2112 kW from 16 racks; limit 800 kW",
+       "fix": "move at least 10 rack(s) off CDU_3; spare capacity: CDU_1 800 kW, CDU_2 800 kW, CDU_4 800 kW"
+      }
+     ]
+    },
+    {
+     "type": "capacity",
+     "params": {
+      "kind": "busway"
+     },
+     "why": "Busway continuous load must stay within 80% of its 800 kW rating.",
+     "source": {
+      "title": "NFPA 70 (NEC): continuous loads and the 80% rule",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+      "snippet": "Paraphrase: size feeders so continuous load stays at or below 80% of the overcurrent device rating."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "redundancy",
+     "params": {
+      "kind": "cdu"
+     },
+     "why": "N+1 cooling: losing the largest CDU must not overheat any rack.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "hose_length",
+     "params": {},
+     "why": "Secondary coolant hoses are rated to 14 m (Manhattan run to the CDU port).",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "feed_reach",
+     "params": {},
+     "why": "Tap-box whips reach 0.8 m, so every rack must sit under its busway.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "aisle_width",
+     "params": {
+      "min_m": 1.2
+     },
+     "why": "Hot and cold aisles need 1.2 m for service carts.",
+     "source": {
+      "title": "NFPA 75: protection of IT equipment",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-75-standard-development/75",
+      "snippet": "Paraphrase: keep IT rooms serviceable and accessible for maintenance and fire response."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "slab_vault",
+      "include_envelopes": false
+     },
+     "why": "The slab over the cable vault holds 1,200 kg/m\u00b2, below a loaded rack.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "nec_PNL_1",
+      "include_envelopes": false
+     },
+     "why": "Working space in front of the switchboard stays clear.",
+     "source": {
+      "title": "NFPA 70 (NEC) 110.26: working space about electrical equipment",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+      "snippet": "Paraphrase: keep a dedicated clear working space in front of switchboards and panels."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "egress_W",
+      "include_envelopes": false
+     },
+     "why": "West exit corridor must stay unobstructed.",
+     "source": {
+      "title": "NFPA 101 Life Safety Code: means of egress",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+      "snippet": "Paraphrase: means of egress must be kept free of obstructions."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "egress_S",
+      "include_envelopes": false
+     },
+     "why": "South exit corridor must stay unobstructed.",
+     "source": {
+      "title": "NFPA 101 Life Safety Code: means of egress",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+      "snippet": "Paraphrase: means of egress must be kept free of obstructions."
+     },
+     "passed": true,
+     "violations": []
+    }
+   ],
+   "passed": 12,
+   "total": 14,
+   "all_pass": false,
+   "penalty": 16.32
+  },
+  "geometry": {
+   "loads": {
+    "CDU_1": {
+     "load_kw": 0,
+     "cap_kw": 800.0
+    },
+    "CDU_2": {
+     "load_kw": 0,
+     "cap_kw": 800.0
+    },
+    "CDU_3": {
+     "load_kw": 2112,
+     "cap_kw": 800.0
+    },
+    "CDU_4": {
+     "load_kw": 0,
+     "cap_kw": 800.0
+    },
+    "BW_A": {
+     "load_kw": 528,
+     "cap_kw": 640.0
+    },
+    "BW_B": {
+     "load_kw": 528,
+     "cap_kw": 640.0
+    },
+    "BW_C": {
+     "load_kw": 528,
+     "cap_kw": 640.0
+    },
+    "BW_D": {
+     "load_kw": 528,
+     "cap_kw": 640.0
+    }
+   },
+   "links": [
+    {
+     "rack": "R01",
+     "cdu": "CDU_3",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R02",
+     "cdu": "CDU_3",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R03",
+     "cdu": "CDU_3",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R04",
+     "cdu": "CDU_3",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R05",
+     "cdu": "CDU_3",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R06",
+     "cdu": "CDU_3",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R07",
+     "cdu": "CDU_3",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R08",
+     "cdu": "CDU_3",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R09",
+     "cdu": "CDU_3",
+     "busway": "BW_C"
+    },
+    {
+     "rack": "R10",
+     "cdu": "CDU_3",
+     "busway": "BW_C"
+    },
+    {
+     "rack": "R11",
+     "cdu": "CDU_3",
+     "busway": "BW_C"
+    },
+    {
+     "rack": "R12",
+     "cdu": "CDU_3",
+     "busway": "BW_C"
+    },
+    {
+     "rack": "R13",
+     "cdu": "CDU_3",
+     "busway": "BW_D"
+    },
+    {
+     "rack": "R14",
+     "cdu": "CDU_3",
+     "busway": "BW_D"
+    },
+    {
+     "rack": "R15",
+     "cdu": "CDU_3",
+     "busway": "BW_D"
+    },
+    {
+     "rack": "R16",
+     "cdu": "CDU_3",
+     "busway": "BW_D"
+    }
+   ]
+  }
+ },
+ {
+  "seq": 30,
+  "t": 56.9,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "12/14 checks pass, penalty 16.32."
+ },
+ {
+  "seq": 31,
+  "t": 56.95,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL no_collision: col_C2 footprint collides with R07 (0.06 m2 overlap, 0.10 m penetration)"
+ },
+ {
+  "seq": 32,
+  "t": 57.0,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL capacity: CDU_3 carries 2112 kW from 16 racks; limit 800 kW"
+ },
+ {
+  "seq": 33,
+  "t": 57.3,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Rendering plan and isometric views for the inspector..."
+ },
+ {
+  "seq": 34,
+  "t": 64.3,
+  "type": "vision",
+  "iter": 2,
+  "verdict": "fail",
+  "issues": [
+   {
+    "severity": "high",
+    "objects": [
+     "slab_vault"
+    ],
+    "description": "Rows C and D extend over the hatched slab-vault zone."
+   }
+  ],
+  "adjudication": []
+ },
+ {
+  "seq": 35,
+  "t": 67.3,
+  "type": "decision",
+  "iter": 2,
+  "action": "continue",
+  "reason": "2 failing check(s): no_collision, capacity. Apply the verifier's fixes."
+ },
+ {
+  "seq": 36,
+  "t": 67.35,
+  "type": "log",
+  "agent": "supervisor",
+  "msg": "CONTINUE: 2 failing check(s): no_collision, capacity. Apply the verifier's fixes."
+ },
+ {
+  "seq": 37,
+  "t": 67.95,
+  "type": "iteration_start",
+  "iter": 3
+ },
+ {
+  "seq": 38,
+  "t": 68.75,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Re-planning: columns, slab vault, hose runs."
+ },
+ {
+  "seq": 39,
+  "t": 80.75,
+  "type": "layout",
+  "iter": 3,
+  "code": "# one row per busway, one CDU per row, staggered around col_C1/C2\n# and kept west of the slab vault and clear of both egress corridors\nplan = [(\"BW_A\", 3.4, \"CDU_4\", 19.1), (\"BW_B\", 6.2, \"CDU_3\", 12.9),\n        (\"BW_C\", 9.8, \"CDU_2\", 8.6),  (\"BW_D\", 12.6, \"CDU_1\", 3.1)]\nn = 0\nfor bw, y, cdu, x0 in plan:\n    for i in range(4):\n        n += 1\n        scene.add_rack(f\"R{n:02d}\", \"GB200-NVL72\", x=x0 + 0.6*i, y=y,\n                       cdu=cdu, busway=bw)\n",
+  "note": "One row of 4 per busway and per CDU, staggered to dodge the columns, the slab vault and both egress corridors."
+ },
+ {
+  "seq": 40,
+  "t": 80.95,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "Executing layout program in sandbox (timeout 10 s)..."
+ },
+ {
+  "seq": 41,
+  "t": 81.85,
+  "type": "sandbox",
+  "iter": 3,
+  "ok": true,
+  "error": null,
+  "stdout": "{\"CDU_1\": 528, \"CDU_2\": 528, \"CDU_3\": 528, \"CDU_4\": 528, \"BW_A\": 528, \"BW_B\": 528, \"BW_C\": 528, \"BW_D\": 528}\n",
+  "scene": {
+   "name": "data_hall",
+   "title": "Hall B \u00b7 AI factory fit-out",
+   "goal": "Deploy 2 MW of GB200 NVL72 racks in Hall B with N+1 cooling.",
+   "floor": {
+    "w": 24,
+    "d": 16
+   },
+   "objects": [
+    {
+     "id": "egress_W",
+     "kind": "walkway",
+     "x": 0.7,
+     "y": 8.0,
+     "w": 1.4,
+     "d": 16.0,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "note": "egress corridor to west exit door"
+    },
+    {
+     "id": "egress_S",
+     "kind": "walkway",
+     "x": 12.0,
+     "y": 0.7,
+     "w": 24.0,
+     "d": 1.4,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "note": "egress corridor to south exit doors"
+    },
+    {
+     "id": "col_C1",
+     "kind": "pillar",
+     "x": 8.0,
+     "y": 6.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C2",
+     "kind": "pillar",
+     "x": 16.0,
+     "y": 6.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C3",
+     "kind": "pillar",
+     "x": 8.0,
+     "y": 12.6,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "col_C4",
+     "kind": "pillar",
+     "x": 16.0,
+     "y": 12.6,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 4.5,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "CDU_1",
+     "kind": "cdu",
+     "x": 4.0,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_2",
+     "kind": "cdu",
+     "x": 9.5,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_3",
+     "kind": "cdu",
+     "x": 15.0,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "CDU_4",
+     "kind": "cdu",
+     "x": 20.5,
+     "y": 15.2,
+     "w": 1.2,
+     "d": 0.8,
+     "h": 2.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "hose_m": 14.0,
+     "points": {
+      "port": [
+       0.0,
+       -0.4
+      ]
+     },
+     "note": "liquid-cooling CDU; rack hoses run orthogonally (Manhattan) to the port, max hose_m"
+    },
+    {
+     "id": "BW_A",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 3.4,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_B",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 6.2,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_C",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 9.8,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "BW_D",
+     "kind": "busway",
+     "x": 12.0,
+     "y": 12.6,
+     "w": 20.0,
+     "d": 0.25,
+     "h": 0.15,
+     "z": 3.0,
+     "rot": 0,
+     "fixed": true,
+     "capacity_kw": 800,
+     "derate": 0.8,
+     "tap_m": 0.8,
+     "note": "overhead power busway x 2..22; continuous load <= capacity*derate; racks must sit within tap_m of it"
+    },
+    {
+     "id": "PNL_1",
+     "kind": "panel",
+     "x": 23.6,
+     "y": 3.5,
+     "w": 0.6,
+     "d": 1.6,
+     "h": 2.2,
+     "rot": 0,
+     "fixed": true,
+     "note": "main switchboard"
+    },
+    {
+     "id": "nec_PNL_1",
+     "kind": "keepout",
+     "x": 22.65,
+     "y": 3.5,
+     "w": 1.3,
+     "d": 2.2,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "reason": "NEC 110.26 working space in front of PNL_1 (keep clear)"
+    },
+    {
+     "id": "slab_vault",
+     "kind": "keepout",
+     "x": 21.0,
+     "y": 10.95,
+     "w": 6.0,
+     "d": 6.9,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true,
+     "reason": "Slab over cable vault: 1,200 kg/m2 max (GB200 NVL72 rack ~1,890 kg/m2)"
+    },
+    {
+     "id": "R01",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 19.1,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_4",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R02",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 19.7,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_4",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R03",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 20.3,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_4",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R04",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 20.9,
+     "y": 3.4,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_4",
+     "busway": "BW_A",
+     "fixed": false
+    },
+    {
+     "id": "R05",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 12.9,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R06",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 13.5,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R07",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.1,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R08",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 14.7,
+     "y": 6.2,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_3",
+     "busway": "BW_B",
+     "fixed": false
+    },
+    {
+     "id": "R09",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 8.6,
+     "y": 9.8,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_C",
+     "fixed": false
+    },
+    {
+     "id": "R10",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 9.2,
+     "y": 9.8,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_C",
+     "fixed": false
+    },
+    {
+     "id": "R11",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 9.8,
+     "y": 9.8,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_C",
+     "fixed": false
+    },
+    {
+     "id": "R12",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 10.4,
+     "y": 9.8,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_2",
+     "busway": "BW_C",
+     "fixed": false
+    },
+    {
+     "id": "R13",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 3.1,
+     "y": 12.6,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_D",
+     "fixed": false
+    },
+    {
+     "id": "R14",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 3.7,
+     "y": 12.6,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_D",
+     "fixed": false
+    },
+    {
+     "id": "R15",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 4.3,
+     "y": 12.6,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_D",
+     "fixed": false
+    },
+    {
+     "id": "R16",
+     "kind": "rack",
+     "model": "GB200-NVL72",
+     "x": 4.9,
+     "y": 12.6,
+     "rot": 0.0,
+     "w": 0.6,
+     "d": 1.2,
+     "h": 2.3,
+     "kw": 132,
+     "kg": 1360,
+     "cdu": "CDU_1",
+     "busway": "BW_D",
+     "fixed": false
+    }
+   ],
+   "domain_notes": "AI data hall fit-out. New racks go in rows under the busways. Each rack needs a cdu and a busway assignment. Busways: continuous load <= capacity_kw*derate. CDUs: assigned load <= capacity_kw, total load must survive loss of the largest CDU (N+1), hose run (Manhattan distance rack center -> CDU port) <= hose_m. Racks in the same row abut (gap 0); aisles between rows >= 1.2 m. Keepouts and egress corridors must stay clear.",
+   "research_queries": [
+    "NEC 110.26 working space clearance in front of electrical equipment",
+    "NFPA 101 minimum egress corridor width",
+    "data center hot aisle cold aisle minimum width",
+    "NVIDIA GB200 NVL72 rack power kW weight liquid cooling CDU",
+    "busway continuous load 80 percent NEC"
+   ]
+  },
+  "points": {}
+ },
+ {
+  "seq": 42,
+  "t": 81.95,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "OK. 16 racks placed."
+ },
+ {
+  "seq": 43,
+  "t": 82.25,
+  "type": "verify",
+  "iter": 3,
+  "report": {
+   "checks": [
+    {
+     "type": "no_collision",
+     "params": {},
+     "why": "mandatory: physical collisions are never acceptable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "in_bounds",
+     "params": {},
+     "why": "mandatory: the layout must fit the floor",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "fixed_unchanged",
+     "params": {},
+     "why": "mandatory: structural elements are immovable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "total_power",
+     "params": {
+      "min_kw": 2000
+     },
+     "why": "The goal is 2 MW of IT load.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "capacity",
+     "params": {
+      "kind": "cdu"
+     },
+     "why": "Each CDU can only reject the heat of the racks on its loop (800 kW).",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "capacity",
+     "params": {
+      "kind": "busway"
+     },
+     "why": "Busway continuous load must stay within 80% of its 800 kW rating.",
+     "source": {
+      "title": "NFPA 70 (NEC): continuous loads and the 80% rule",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+      "snippet": "Paraphrase: size feeders so continuous load stays at or below 80% of the overcurrent device rating."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "redundancy",
+     "params": {
+      "kind": "cdu"
+     },
+     "why": "N+1 cooling: losing the largest CDU must not overheat any rack.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "hose_length",
+     "params": {},
+     "why": "Secondary coolant hoses are rated to 14 m (Manhattan run to the CDU port).",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "feed_reach",
+     "params": {},
+     "why": "Tap-box whips reach 0.8 m, so every rack must sit under its busway.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "aisle_width",
+     "params": {
+      "min_m": 1.2
+     },
+     "why": "Hot and cold aisles need 1.2 m for service carts.",
+     "source": {
+      "title": "NFPA 75: protection of IT equipment",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-75-standard-development/75",
+      "snippet": "Paraphrase: keep IT rooms serviceable and accessible for maintenance and fire response."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "slab_vault",
+      "include_envelopes": false
+     },
+     "why": "The slab over the cable vault holds 1,200 kg/m\u00b2, below a loaded rack.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "nec_PNL_1",
+      "include_envelopes": false
+     },
+     "why": "Working space in front of the switchboard stays clear.",
+     "source": {
+      "title": "NFPA 70 (NEC) 110.26: working space about electrical equipment",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+      "snippet": "Paraphrase: keep a dedicated clear working space in front of switchboards and panels."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "egress_W",
+      "include_envelopes": false
+     },
+     "why": "West exit corridor must stay unobstructed.",
+     "source": {
+      "title": "NFPA 101 Life Safety Code: means of egress",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+      "snippet": "Paraphrase: means of egress must be kept free of obstructions."
+     },
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "egress_S",
+      "include_envelopes": false
+     },
+     "why": "South exit corridor must stay unobstructed.",
+     "source": {
+      "title": "NFPA 101 Life Safety Code: means of egress",
+      "url": "https://www.nfpa.org/codes-and-standards/nfpa-101-standard-development/101",
+      "snippet": "Paraphrase: means of egress must be kept free of obstructions."
+     },
+     "passed": true,
+     "violations": []
+    }
+   ],
+   "passed": 14,
+   "total": 14,
+   "all_pass": true,
+   "penalty": 0
+  },
+  "geometry": {
+   "loads": {
+    "CDU_1": {
+     "load_kw": 528,
+     "cap_kw": 800.0
+    },
+    "CDU_2": {
+     "load_kw": 528,
+     "cap_kw": 800.0
+    },
+    "CDU_3": {
+     "load_kw": 528,
+     "cap_kw": 800.0
+    },
+    "CDU_4": {
+     "load_kw": 528,
+     "cap_kw": 800.0
+    },
+    "BW_A": {
+     "load_kw": 528,
+     "cap_kw": 640.0
+    },
+    "BW_B": {
+     "load_kw": 528,
+     "cap_kw": 640.0
+    },
+    "BW_C": {
+     "load_kw": 528,
+     "cap_kw": 640.0
+    },
+    "BW_D": {
+     "load_kw": 528,
+     "cap_kw": 640.0
+    }
+   },
+   "links": [
+    {
+     "rack": "R01",
+     "cdu": "CDU_4",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R02",
+     "cdu": "CDU_4",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R03",
+     "cdu": "CDU_4",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R04",
+     "cdu": "CDU_4",
+     "busway": "BW_A"
+    },
+    {
+     "rack": "R05",
+     "cdu": "CDU_3",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R06",
+     "cdu": "CDU_3",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R07",
+     "cdu": "CDU_3",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R08",
+     "cdu": "CDU_3",
+     "busway": "BW_B"
+    },
+    {
+     "rack": "R09",
+     "cdu": "CDU_2",
+     "busway": "BW_C"
+    },
+    {
+     "rack": "R10",
+     "cdu": "CDU_2",
+     "busway": "BW_C"
+    },
+    {
+     "rack": "R11",
+     "cdu": "CDU_2",
+     "busway": "BW_C"
+    },
+    {
+     "rack": "R12",
+     "cdu": "CDU_2",
+     "busway": "BW_C"
+    },
+    {
+     "rack": "R13",
+     "cdu": "CDU_1",
+     "busway": "BW_D"
+    },
+    {
+     "rack": "R14",
+     "cdu": "CDU_1",
+     "busway": "BW_D"
+    },
+    {
+     "rack": "R15",
+     "cdu": "CDU_1",
+     "busway": "BW_D"
+    },
+    {
+     "rack": "R16",
+     "cdu": "CDU_1",
+     "busway": "BW_D"
+    }
+   ]
+  }
+ },
+ {
+  "seq": 44,
+  "t": 82.3,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "14/14 checks pass, penalty 0."
+ },
+ {
+  "seq": 45,
+  "t": 82.6,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Rendering plan and isometric views for the inspector..."
+ },
+ {
+  "seq": 46,
+  "t": 89.6,
+  "type": "vision",
+  "iter": 3,
+  "verdict": "pass",
+  "issues": [],
+  "adjudication": []
+ },
+ {
+  "seq": 47,
+  "t": 92.6,
+  "type": "decision",
+  "iter": 3,
+  "action": "done",
+  "reason": "14/14 checks pass and the inspector agrees: 2,112 kW online with N+1 cooling."
+ },
+ {
+  "seq": 48,
+  "t": 92.65,
+  "type": "log",
+  "agent": "supervisor",
+  "msg": "DONE: 14/14 checks pass and the inspector agrees: 2,112 kW online with N+1 cooling."
+ },
+ {
+  "seq": 49,
+  "t": 93.05,
+  "type": "done",
+  "status": "verified",
+  "iterations": 3,
+  "usage": {
+   "calls": 13,
+   "prompt_tokens": 61400,
+   "completion_tokens": 12800,
+   "cost_usd": 0.0491
+  },
+  "summary": "16 GB200 NVL72 racks, 2,112 kW: one row per busway and per CDU loop, N+1 cooling, every hose within 14 m, all code zones clear.",
+  "usd_path": "runs/demo_hall/final/layout.usda"
+ }
+]
