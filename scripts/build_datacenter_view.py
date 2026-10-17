@@ -7,11 +7,13 @@ Rerun it after any run finishes; it rewrites the file from what is on disk and i
 progress (a run without its final report counts as running while its process is alive, else as stopped).
 Runs whose usage.json shows $0 or whose log or command line says --offline are tests and are skipped.
 Parsing is shared with scripts/collect_results.py (imported, not copied).
+It also writes runs_index (every live run by layer, with its hill-climb series) and reports/RUNS.md.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -241,12 +243,225 @@ def inference_layer(procs: str) -> dict[str, Any]:
             "best": best, "status": layer_status(runs), "summary": summary, "runs": runs, "scatter": points}
 
 
+# ---------------------------------------------------------------- runs index and hill-climb series
+
+# Run-name prefix -> (layer id, benchmark, spec index in cr.CASE_STUDIES). Longest prefix wins.
+PREFIXES = [("datahall-live-", "hall", "DoneTwin data hall", 0),
+            ("qaplib-dc-research-", "placement", "GPU rack placement", 2),
+            ("qaplib-dc-", "placement", "GPU rack placement", 2),
+            ("qaplib-research-", "placement", "QAPLIB", 2),
+            ("qaplib-evolve-", "placement", "QAPLIB", 2),
+            ("kernelbench-live-", "kernels", "KernelBench", 4),
+            ("inference-opt-", "inference", "Crusoe ops Q&A", 5)]
+LAYER_NAMES = {"hall": "Hall layout", "placement": "Equipment placement", "kernels": "GPU kernels",
+               "inference": "Inference cost"}
+RUNNING_WINDOW_S = 180
+
+
+def short_model(name: str | None) -> str | None:
+    if not name:
+        return None
+    return re.sub(r"^(nvidia/)?(NVIDIA-)?", "", name.strip())
+
+
+def log_models(text: str) -> tuple[str | None, str | None]:
+    m = re.search(r"(?:solver|worker) calls \(([^)]+)\).*?reviewer calls \(([^)]+)\)", text)
+    if m:
+        return short_model(m.group(1)), short_model(m.group(2))
+    solver = re.search(r"^v0: (\w+) for every type", text, re.M)
+    reviewer = re.search(r"reviewer (NVIDIA-[\w.-]+|nvidia/[\w.-]+)", text)
+    return (f"{solver.group(1)} (per question type)" if solver else None,
+            short_model(reviewer.group(1)) if reviewer else None)
+
+
+def dev_baseline(layer: str, benchmark: str, text: str) -> tuple[float | None, str | None]:
+    if layer == "hall":
+        m = re.search(r"greedy baseline:.*?dev ([\d.]+)", text)
+        return (float(m.group(1)) / 100, "greedy layout, dev") if m else (None, None)
+    if benchmark == "QAPLIB":
+        names = re.findall(r"(\w+)\(n=\d+\)", (re.search(r"^dev: (.*)$", text, re.M) or [None, ""])[1] or "")
+        inst = (cr.read_json(ROOT / "reports" / "qaplib_baseline.json") or {}).get("instances") or {}
+        scores = [inst[n]["two_swap"]["score"] for n in names if n in inst and "two_swap" in inst[n]]
+        if scores and len(scores) == len(names):
+            return round(sum(scores) / len(scores), 4), "2-swap, dev"
+    return None, None
+
+
+def started_at(log: Path, run_dir: Path) -> float | None:
+    v0 = run_dir / "versions" / "v0.json"
+    stats = [getattr(log.stat(), "st_birthtime", None) if log.exists() else None,
+             v0.stat().st_mtime if v0.exists() else None]
+    stats = [s for s in stats if s]
+    return min(stats) if stats else None
+
+
+def iso(ts: float | None) -> str | None:
+    return None if ts is None else time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
+
+
+def climb_series(ledger: list[dict]) -> dict[str, Any]:
+    research = {e.get("generation"): e for e in ledger if "research_query" in e and "cand_mean" not in e}
+    cands, gens = [], []
+    gens_start = None
+    incumbent, cur_gen, per_gen = None, None, 0
+    for e in ledger:
+        if e.get("cand_mean") is None:
+            continue
+        gen = e.get("generation")
+        if gen != cur_gen:
+            if cur_gen is not None:
+                gens.append({"gen": cur_gen, "start": gens_start, "end": incumbent})
+            cur_gen, per_gen = gen, 0
+            incumbent = e.get("parent_mean") if e.get("parent_mean") is not None else incumbent
+            gens_start = incumbent
+        m = e.get("mutation") if isinstance(e.get("mutation"), dict) else {}
+        paper = e.get("paper") if isinstance(e.get("paper"), dict) else {}
+        claim = paper.get("claim") or m.get("claim") or {}
+        claim = claim if isinstance(claim, dict) else {}
+        target = m.get("key") or m.get("role") or m.get("tool")
+        res = research.get(gen) or (e if e.get("sources") else {})
+        accepted = bool(e.get("accepted"))
+        if accepted and (incumbent is None or e["cand_mean"] > incumbent):
+            incumbent = e["cand_mean"]
+        cands.append({
+            "i": len(cands), "gen": gen, "id": f"g{gen}-c{per_gen}", "parent": e.get("parent"),
+            "type": m.get("type"), "target": target, "change": cr.describe_mutation(m),
+            "rationale": cr.short(m.get("rationale") or claim.get("why") or "", 120),
+            "claim_gain": claim.get("dev_gain") if isinstance(claim.get("dev_gain"), (int, float)) else None,
+            "claim_cost_pct": claim.get("cost_change_pct") if isinstance(claim.get("cost_change_pct"), (int, float)) else None,
+            "score": e.get("cand_mean"), "parent_score": e.get("parent_mean"), "gain": e.get("gain"),
+            "cost": e.get("cand_cost"), "parent_cost": e.get("parent_cost"), "cost_pct": e.get("cost_change_pct"),
+            "n": e.get("n"), "accepted": accepted, "accepted_by": e.get("accepted_by"),
+            "reason": cr.short(e.get("reason") or "", 120), "verdict": paper.get("verdict"),
+            "research_query": cr.short(res.get("research_query") or "", 160) or None,
+            "sources": [s for s in (res.get("sources") or []) if isinstance(s, str) and s.startswith("http")][:6],
+            "incumbent": incumbent})
+        per_gen += 1
+    if cur_gen is not None:
+        gens.append({"gen": cur_gen, "start": gens_start, "end": incumbent})
+    return {"candidates": cands, "generations": gens}
+
+
+def run_status_index(text: str, usage_total: dict, alive: bool, log: Path) -> str:
+    has_usage = bool(re.search(r"^usage: \{", text, re.M)) or (usage_total.get("cost_usd") or 0) > 0
+    if has_usage:
+        return "done"
+    if "Traceback (most recent call last)" in text:
+        return "crashed"
+    if alive or (log.exists() and time.time() - log.stat().st_mtime < RUNNING_WINDOW_S):
+        return "running"
+    return "stopped"
+
+
+def heldout_summary(layer: str, run: dict | None, run_dir: Path) -> dict | None:
+    if not run or run["status"] != "done":
+        return None
+    if layer == "inference":
+        rows = (cr.read_json(run_dir / "reports" / "heldout_cost_latency.json") or {}).get("rows", [])
+        base = next((r for r in rows if "cold" in r.get("config", "") and r.get("cost_per_correct_usd")), None)
+        rest = [r for r in rows if r is not base and r.get("cost_per_correct_usd")]
+        top = min(rest, key=lambda r: r["cost_per_correct_usd"], default=None)
+        if base and top:
+            return {"metric": "$ per correct", "best": top["cost_per_correct_usd"], "baseline": base["cost_per_correct_usd"],
+                    "delta": round(top["cost_per_correct_usd"] - base["cost_per_correct_usd"], 6),
+                    "best_label": top["config"], "baseline_label": base["config"], "lower_is_better": True}
+        return None
+    best = best_of([run])
+    if not best:
+        return None
+    return {"metric": "held-out mean", "best": best["score"], "baseline": best["baseline"], "delta": best["delta"],
+            "best_label": best["label"], "baseline_label": run["baseline"]["name"], "lower_is_better": False}
+
+
+def index_runs(procs: str) -> list[dict[str, Any]]:
+    out = []
+    for d in sorted((ROOT / "runs").iterdir()):
+        if not d.is_dir():
+            continue
+        match = next((p for p in PREFIXES if d.name.startswith(p[0])), None)
+        log = ROOT / "runs" / f"{d.name}.log"
+        if not match or is_offline(d, log):
+            continue
+        _, layer, benchmark, spec_i = match
+        text = cr.read_text(log)
+        usage = cr.read_json(cr.find_file([d], ("usage.json",))) or {}
+        total = usage.get("total") or {}
+        if total and (total.get("cost_usd") or 0) <= 0:
+            continue  # scripted: usage.json shows $0
+        alive = d.name in procs
+        status = run_status_index(text, total, alive, log)
+        spec = dict(cr.CASE_STUDIES[spec_i], id=d.name)
+        run = collect_run(spec, d, log, procs) if status == "done" else None
+        ledger_path = cr.find_file([d], ("version_ledger.jsonl", "ledger.jsonl"))
+        if ledger_path and ledger_path.parent.name == "brain":
+            ledger_path = None
+        series = climb_series(cr.read_jsonl(ledger_path))
+        cands = series["candidates"]
+        solver, reviewer = log_models(text)
+        research = re.search(r"^Research: .*\((on|off)\)", text, re.M)
+        start = started_at(log, d)
+        end = log.stat().st_mtime if log.exists() and status != "running" else None
+        base_dev, base_dev_label = dev_baseline(layer, benchmark, text)
+        held = heldout_summary(layer, run, d)
+        heldout_points = [{"kind": b["kind"], "label": b["label"], "score": b["score"]} for b in (run or {}).get("heldout", [])]
+        if base_dev is None and run and run["baseline"]["score"] is not None:
+            base_dev, base_dev_label = run["baseline"]["score"], f"{run['baseline']['name']}, held-out"
+        out.append({
+            "name": d.name, "layer": layer, "layer_name": LAYER_NAMES[layer], "benchmark": benchmark,
+            "status": status, "started": iso(start), "ended": iso(end), "start_ts": start,
+            "solver": solver, "reviewer": reviewer, "research": bool(research and research.group(1) == "on"),
+            "generations": len(series["generations"]), "candidates": len(cands),
+            "accepted": sum(c["accepted"] for c in cands), "heldout": held,
+            "cost_usd": total.get("cost_usd"), "calls": total.get("calls"),
+            "climb": {"metric": "dev score" if layer != "inference" else "dev accuracy",
+                      "baseline": base_dev, "baseline_label": base_dev_label,
+                      "candidates": cands, "generations": series["generations"], "heldout": heldout_points}})
+    out.sort(key=lambda r: (list(LAYER_NAMES).index(r["layer"]), r["start_ts"] or 0))
+    return out
+
+
+def md_num(x: float | None, d: int = 3) -> str:
+    return "n/a" if x is None else f"{x:.{d}f}"
+
+
+def write_runs_md(runs: list[dict], path: Path, generated: str) -> None:
+    lines = ["# Runs by layer", "",
+             f"Live Crusoe runs only, built by `{COMMAND}` at {generated}. Offline runs and runs with a $0 usage.json "
+             "are left out. Status: done = final usage line written; running = process alive or log written in the "
+             "last 3 min; crashed = Traceback without usage; stopped = none of these.", ""]
+    for layer, name in LAYER_NAMES.items():
+        rows = [r for r in runs if r["layer"] == layer]
+        lines += [f"## {name}", ""]
+        if not rows:
+            lines += ["No live run.", ""]
+            continue
+        lines += ["| Run | Benchmark | Status | Start | End | Solver | Reviewer | Research | Gens | Scored | Accepted "
+                  "| Held-out best | Baseline | Delta | Cost (USD) | Calls |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        for r in rows:
+            h = r["heldout"] or {}
+            d = 6 if layer == "inference" else 3
+            delta = "n/a" if not h else f"{h['delta']:+.{d}f}"
+            lines.append("| " + " | ".join(cr.cell(x) for x in [
+                r["name"], r["benchmark"], r["status"], r["started"] or "n/a", r["ended"] or "n/a",
+                r["solver"] or "n/a", r["reviewer"] or "n/a", "on" if r["research"] else "off", r["generations"],
+                r["candidates"], r["accepted"], md_num(h.get("best"), d), md_num(h.get("baseline"), d), delta,
+                md_num(r["cost_usd"], 4), r["calls"] if r["calls"] is not None else "n/a"]) + " |")
+        lines.append("")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines))
+
+
 def build(root: Path) -> dict[str, Any]:
     global ROOT
     ROOT = cr.ROOT = root
     procs = live_commands()
+    runs = index_runs(procs)
+    for r in runs:
+        r.pop("start_ts", None)
     return {"generated_at": time.strftime("%Y-%m-%d %H:%M:%S %Z"), "command": COMMAND, "pitch": PITCH,
-            "layers": [hall_layer(procs), placement_layer(procs), kernel_layer(), inference_layer(procs)]}
+            "layers": [hall_layer(procs), placement_layer(procs), kernel_layer(), inference_layer(procs)],
+            "runs_index": runs}
 
 
 def main() -> None:
@@ -260,6 +475,7 @@ def main() -> None:
     tmp = out.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(data, indent=1, default=str) + "\n")
     tmp.replace(out)
+    write_runs_md(data["runs_index"], args.root / "reports" / "RUNS.md", data["generated_at"])
     for layer in data["layers"]:
         print(f"{layer['name']}: {layer['status']}; {layer['summary']}")
     print(f"wrote {out}")

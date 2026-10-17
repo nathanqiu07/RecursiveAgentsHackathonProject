@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import './benchmarks.css';
 import './datacenter.css';
+import HillClimb, { RunsByLayer, type IndexedRun } from './HillClimb';
 
 // Written by scripts/build_datacenter_view.py from live run artifacts; see that script for every field.
 type Status = 'done' | 'running' | 'not run';
@@ -19,7 +20,7 @@ type Layer = {
   best: { run: string; label: string; score: number; baseline: number; delta: number } | null;
   status: Status; summary: string; runs: Run[]; settings?: Setting[]; scatter?: Point[];
 };
-type View = { generated_at: string; command: string; pitch: string; layers: Layer[] };
+type View = { generated_at: string; command: string; pitch: string; layers: Layer[]; runs_index?: IndexedRun[] };
 
 const statusLabel: Record<Status, string> = { done: 'Done', running: 'Running', 'not run': 'Not run' };
 const kindLabel: Record<Bar['kind'], string> = {
@@ -245,6 +246,12 @@ function LayerSection({ layer }: { layer: Layer }) {
 export default function DataCenter({ active }: { active: boolean }) {
   const [view, setView] = useState<View | null>(null);
   const [error, setError] = useState('');
+  const [openRun, setOpenRun] = useState<{ name: string; nonce: number } | null>(null);
+  const climbRef = useRef<HTMLElement | null>(null);
+  const open = useCallback((run: IndexedRun) => {
+    setOpenRun({ name: run.name, nonce: Date.now() });
+    climbRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -277,6 +284,8 @@ export default function DataCenter({ active }: { active: boolean }) {
     {!view && !error && <p className="benchmark-loading">Loading…</p>}
     {view && <>
       <div className="dc-cards">{view.layers.map((layer) => <LayerCard key={layer.id} layer={layer} />)}</div>
+      {view.runs_index && <HillClimb runs={view.runs_index} openRun={openRun} sectionRef={climbRef} />}
+      {view.runs_index && <RunsByLayer runs={view.runs_index} onOpen={open} current={openRun?.name ?? null} />}
       {view.layers.map((layer) => <LayerSection key={layer.id} layer={layer} />)}
       <p className="catalog-note">Data: <code>{view.command}</code>, rebuilt from runs/ and reports/; this page reloads it every 30 s.</p>
     </>}
