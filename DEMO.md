@@ -76,7 +76,7 @@ Both outcomes are reportable:
 - **Evolve run 1** (`runs/qaplib-evolve-1/`): crashed on a Crusoe 429 (`max_requests_limit`) before finishing.
 - **Data-center QAP instances** (`benchmarks/qaplib/dc_instances.py`): GPU rack placement in DoneTwin halls, in QAPLIB's format. Facilities are one training job's racks, locations are the hall's rack slots, flow is GB/s between racks, and distance is cable-tray length. There is no published optimum, so the reference is the best of a time-boxed robust tabu search and 2-swap; 1.0 matches it. This is what ties the QAPLIB layer to real data-center data.
 - **Held-out so far (v0 cold → final):**
-  - QAPLIB (`qaplib-research-1`, 6 instances), compared with the best-known solutions (SOTA): mean gap 4.33% (v0 cold) → 3.63% (final); 0 of 6 at best-known. Learned memory alone made v0 worse (15.10% gap); the accepted versions recovered it. A second run, `qaplib-research-2`, did worse: score 0.674 → 0.754, but v0 cold had 1 invalid program, and on mean gap over valid instances it went from 28.1% to 43.6%. If asked, the QAPLIB result does not replicate across runs. State the gap only, never "near SOTA": robust tabu search reaches 0% on instances this size in seconds.
+  - QAPLIB (`qaplib-research-1`, 6 instances), compared with the best-known solutions (SOTA): mean gap 4.33% (v0 cold) → 3.63% (final); 0 of 6 at best-known. Learned memory alone made v0 worse (15.10% gap); the accepted versions recovered it. A second run, `qaplib-research-2`, got worse: the run scored v0 cold 0.674 with 1 program marked invalid, but the dashboard's verifier accepts that answer, which puts v0 cold at 0.805, above the final 0.754. If asked, the QAPLIB result does not replicate across runs. State the gap only, never "near SOTA": robust tabu search reaches 0% on instances this size in seconds.
   - Rack placement (data-center QAP), v0 cold → final, since no published optimum exists:
     - **Headline, `qaplib-dc-research-2`:** 0.597 → 0.845 (+0.248), no invalid placements. Cost per task rose about 3x ($0.00034 → $0.00107).
     - `qaplib-dc-research-1`: 0.477 → 0.802 (+0.325), but v0 cold returned an invalid placement on 1 of 6 (scored 0); on the other 5 it is 0.573 → 0.802 (+0.229). Not used as the headline for that reason.
@@ -158,11 +158,11 @@ Cost, tokens and calls per verified point are also reported on layers 1 to 3.
 
 ## Live demo run-of-show (3 minutes)
 
-**Rule: verify live, replay the climbs.** Nothing on stage waits on a live LLM call. Reasoning calls take 100 to 340 s, and Crusoe returned 429s all day. What runs live is the verifier: the DoneTwin scorer recomputing a layout, and the dashboards reading finished runs.
+**Rule: verify live, replay the climbs.** Nothing on stage waits on a live LLM call; the one live DoneTwin run below has a replay ready behind it. Reasoning calls take 100 to 340 s, and Crusoe returned 429s all day. What runs live is the verifier: the DoneTwin scorer recomputing a layout, and the dashboards reading finished runs.
 
 **Before going on:** open these 4 tabs in order and check each one loads:
 1. http://127.0.0.1:5173, Overview tab;
-2. http://127.0.0.1:8000, DoneTwin, with the chosen held-out hall preloaded;
+2. http://127.0.0.1:8000, DoneTwin, with the **small-10000** hall selected (not "Data hall" or "Robot cell": they take a code path that was not fixed);
 3. http://127.0.0.1:5173, AI Data Center tab, scrolled to the hill climb, with the run selected;
 4. http://127.0.0.1:5173, Library tab, with the matching paper open.
 
@@ -171,18 +171,17 @@ Rebuild the data once after the last run lands (`scripts/build_datacenter_view.p
 | Time | On screen | Say (gist) | Fallback if it breaks |
 |---|---|---|---|
 | 0:00 to 0:20 | Overview tab: the thesis and the loop diagram | "An AI data center is a stack of optimization problems code can check. Our harness turns each one into a Nemotron team on Crusoe that edits itself and keeps a change only when the verifier measures a gain." | Hero screenshot, `docs/demo/hero-*.png` (to capture once the Overview tab ships) |
-| 0:20 to 1:00 | DoneTwin control room: one held-out hall in 3D. Show v0 cold's layout, then the team's best verified layout, and let the scorer recompute live | "This hall was never seen in training. Here is the cold start: [V0_HALL] out of 100. Here is the team's layout: [VN_HALL]. The score is recomputed right now by code: power, aisles, cooling, hose reach. No LLM grades it." If the gain came from the polish tool, add: "the team's gain was choosing to turn on a verifier-guided polish tool." | `docs/demo/donetwin-empty-hall.png` shows the empty hall; the layout shots are still to capture. If there is no hall gain, show the cold layout and say the gate kept nothing on this layer |
+| 0:20 to 1:00 | DoneTwin control room, small-10000. **Press "Hand off to agents" at 0:00**, before switching to the Overview tab, so the run is underway by 0:20: greedy is scored and verified in about 10 s (12/12 checks), and a Nemotron Super proposal arrives about every 50 s. Point at a proposal the verifier rejects (red busway overloads, e.g. BW_A1 1908 / 600 kW) | "Here is a hall. Nemotron proposes layouts; code checks every rule: power, aisles, cooling, hose reach. This proposal overloads a busway, so the verifier rejects it. No LLM grades anything." Then, plainly: "On all 36 unseen halls so far, the team's best verified layout equals the starting layout. This shows the verifier catching bad proposals, not a better layout." | Replay ▾ → `team-vs-greedy-medium-10032` (69.39 vs 69.39, identical layouts). Stills: `docs/demo/donetwin-live-greedy.png`, `donetwin-live-proposal.png`, `donetwin-live-final.png`, `donetwin-replay-final.png` |
 | 1:00 to 1:30 | AI Data Center tab: the four layer cards, v0 cold → final | "Four layers, one harness. Each card is the same team before and after it edits itself, on unseen tasks." | `docs/demo/datacenter-1548.png` (15:48 snapshot from before the v0-cold reframe; re-shoot after the final runs) |
 | 1:30 to 2:10 | Hill climb: best run (currently `qaplib-dc-research-1`), press Replay, then click one green dot | "Each dot is a change the team proposed to itself. Red, the gate refused it. Green, kept. This one: turn reasoning on for the solver. It claimed +0.03. The verifier measured +0.146, but cost went up 93%. The gate shows what it read: You.com sources." | `docs/demo/hillclimb.png`, then `docs/demo/hillclimb-detail.png` |
 | 2:10 to 2:30 | Library tab: the same change written up as a paper, with the gate's verdict attached | "Every change is a paper with a falsifiable claim. The verifier is the reviewer. A claim enters memory only if it reproduces." | Read the claim and verdict from `hillclimb-detail.png` |
-| 2:30 to 3:00 | Back to the AI Data Center tab | Caveats: "On QAPLIB and rack placement a 10 s classical search still scores higher. KernelBench: [KB_STATUS]." Ask: "Bring a verifier, get a team that keeps only what it measures. We want problems from Crusoe's own build-out to run it on." | Same slide, spoken |
+| 2:30 to 3:00 | Back to DoneTwin for 5 s: the live run ends at about 2:40 with "Verified. 1.1 MW online", 70.97 (the starting layout's score), about $0.02. Then the AI Data Center tab | If it finished: "That run just checked itself for two cents." Caveats: "On QAPLIB and rack placement a 10 s classical search still scores higher. KernelBench: [KB_STATUS]." Ask: "Bring a verifier, get a team that keeps only what it measures. We want problems from Crusoe's own build-out to run it on." | If DoneTwin has not finished, skip it and do not mention it. Same slide, spoken |
 
-**Optional live moment.** At 0:00, start a one-hall Nano run in a terminal (`.venv/bin/python scripts/run_datahall.py --live --one`). Return to it at 2:30 only if it has printed its bill. If not, never mention it. It needs `CRUSOE_API_KEY` in that shell, and it competes with any runs still going for Crusoe's concurrency cap.
+**Live run cost and risk.** The DoneTwin hand-off calls Crusoe live (Nemotron Super, about $0.02). A 429 or a slow reasoning call can stall it; the Replay fallback covers that. Do not also start a terminal run: it competes for the same concurrency cap.
 
 **Placeholders to fill at about 5:00 PM** from `reports/RESULTS.md`:
-- [V0_HALL] and [VN_HALL]: one held-out hall from the best hall run.
 - [KB_STATUS]: if an Apple MPS run finished, use "measured on a laptop GPU (Apple MPS), because our Crusoe GPU quota was zero". Otherwise: "built with reward-hack guards, not run: our Crusoe GPU quota was zero".
-- Swap the hill-climb run if a later one beats `qaplib-dc-research-1`.
+- Hill climb: `qaplib-dc-research-1` matches the screenshots and the narrated dot. The rack headline is now `qaplib-dc-research-2` (0.597 → 0.845); switch the replay to it only if it has a comparable green dot, and update the narrated numbers.
 
 ## 60-second demo script
 
