@@ -1,0 +1,8 @@
+FROM nvidia/cuda:12.8.1-base-ubuntu22.04
+RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
+COPY guest_runner.py /usr/local/bin/gpu-job-runner
+COPY gpu_compute_smoke.py /usr/local/bin/gpu-compute-smoke
+RUN sed -i 's/\r$//' /usr/local/bin/gpu-job-runner /usr/local/bin/gpu-compute-smoke && chmod 0755 /usr/local/bin/gpu-job-runner /usr/local/bin/gpu-compute-smoke
+USER 1000:1000
+ENTRYPOINT []
+CMD ["/usr/local/bin/gpu-job-runner"]

@@ -147,3 +147,53 @@ class DirectBridgeTests(unittest.TestCase):
                 common.private_json(path, receipt)
                 with self.assertRaises(RuntimeFailure):
                     RemoteVMRuntime(resource).check_ready()
+
+@unittest.skipIf(RemoteVMRuntime is None, "use ResourceManager virtualenv")
+class DockerBridgeTests(unittest.TestCase):
+    def test_container_requires_matching_enrollment_and_complete_probe(self):
+        import copy
+        import tempfile
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "connection.json"
+            resource = SimpleNamespace(node_manifest=str(path), node_id="docker-a5000")
+            receipt = {
+                "node_id": resource.node_id, "status": "ready",
+                "address": "http://127.0.0.1:18100", "key": "rn_test",
+                "runtime": "docker-wsl2-nvidia", "gpu_uuid": "GPU-enrolled",
+                "target": {"container_image": "sha256:" + "a" * 64},
+            }
+            health = {
+                "node_id": resource.node_id, "status": "ready", "runtime": receipt["runtime"],
+                "verification": {
+                    "container_verified": True, "runner_verified": True,
+                    "gpu_compute_verified": True, "cleanup_confirmed": True,
+                    "boot_verified": False, "image_sha256": "a" * 64,
+                    "gpu": {"uuid": receipt["gpu_uuid"]},
+                },
+            }
+            common.private_json(path, receipt)
+            with patch.object(RemoteVMRuntime, "request", return_value=health):
+                RemoteVMRuntime(resource).check_ready()
+            for field in ("container_verified", "runner_verified", "gpu_compute_verified", "cleanup_confirmed"):
+                for invalid in (False, 1, "true", None):
+                    broken = copy.deepcopy(health)
+                    broken["verification"][field] = invalid
+                    with self.subTest(field=field, value=invalid), patch.object(RemoteVMRuntime, "request", return_value=broken):
+                        with self.assertRaisesRegex(RuntimeFailure, "remote_vm_not_ready"):
+                            RemoteVMRuntime(resource).check_ready()
+            for mutate in (
+                lambda r, h: r.pop("runtime"),
+                lambda r, h: h.update(runtime="libvirt-kvm-vfio", verification={"boot_verified": True}),
+                lambda r, h: h["verification"].update(image_sha256="b" * 64),
+                lambda r, h: h["verification"]["gpu"].update(uuid="GPU-other"),
+                lambda r, h: h["verification"].update(boot_verified=True),
+            ):
+                changed_receipt, changed_health = copy.deepcopy(receipt), copy.deepcopy(health)
+                mutate(changed_receipt, changed_health)
+                common.private_json(path, changed_receipt)
+                with patch.object(RemoteVMRuntime, "request", return_value=changed_health):
+                    with self.assertRaisesRegex(RuntimeFailure, "remote_vm_not_ready"):
+                        RemoteVMRuntime(resource).check_ready()

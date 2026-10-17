@@ -14,6 +14,26 @@ from .queue import JobCancelled
 from .runtime import RuntimeFailure
 
 
+def docker_verified(receipt, health):
+    """Bind authenticated container readiness to the enrolled GPU and image."""
+    verification = health.get("verification") or {}
+    image = verification.get("image_sha256")
+    return (
+        receipt.get("runtime") == health.get("runtime") == "docker-wsl2-nvidia"
+        and all(verification.get(field) is True for field in (
+            "container_verified", "runner_verified", "gpu_compute_verified", "cleanup_confirmed"
+        ))
+        and verification.get("boot_verified") is False
+        and isinstance(image, str)
+        and len(image) == 64
+        and all(character in "0123456789abcdef" for character in image)
+        and (receipt.get("target") or {}).get("container_image") == "sha256:" + image
+        and isinstance(receipt.get("gpu_uuid"), str)
+        and bool(receipt["gpu_uuid"])
+        and (verification.get("gpu") or {}).get("uuid") == receipt["gpu_uuid"]
+    )
+
+
 class RemoteVMRuntime:
     def __init__(self, resource):
         self.resource = resource
@@ -78,7 +98,8 @@ class RemoteVMRuntime:
             health.get("node_id") != self.resource.node_id
             or health.get("status") != "ready"
             or not (
-                (health.get("runtime") == "libvirt-kvm-vfio" and health.get("verification", {}).get("boot_verified"))
+                (health.get("runtime") == "libvirt-kvm-vfio" and receipt.get("runtime", "libvirt-kvm-vfio") == "libvirt-kvm-vfio" and health.get("verification", {}).get("boot_verified"))
+                or docker_verified(receipt, health)
                 or (health.get("runtime") == "direct-host-systemd" and self.receipt.get("runtime") == "direct-host-systemd" and health.get("verification", {}).get("direct_execution_verified") and health.get("verification", {}).get("runner_verified"))
             )
         ):

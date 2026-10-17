@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Maintain local registration only while a verified direct node is reachable."""
+"""Maintain local registration only while a verified GPU node is reachable."""
 import argparse
 import json
 import time
@@ -22,9 +22,13 @@ def main():
             with urllib.request.urlopen(request, timeout=5) as response:
                 health = json.load(response)
             assert health['node_id'] == receipt['node_id']
-            assert health['runtime'] == 'direct-host-systemd'
-            assert health['status'] == 'ready'
-            assert health['verification']['direct_execution_verified']
+            if receipt.get('runtime') == 'docker-wsl2-nvidia':
+                from controller import verify_connection
+                health = verify_connection(receipt)
+            else:
+                assert health['runtime'] == 'direct-host-systemd'
+                assert health['status'] == 'ready'
+                assert health['verification']['direct_execution_verified']
             body = {'id': receipt['node_id'], 'cpus': health['limits']['cpus'], 'memory_mb': health['limits']['memory_mb'], 'status': 'online'}
             request = urllib.request.Request(args.manager + '/nodes/register', data=json.dumps(body).encode(), headers={'Content-Type': 'application/json'})
             with urllib.request.urlopen(request, timeout=5) as response:

@@ -47,9 +47,22 @@ def receipt(node):
         document = json.load(stream)
     if document.get("status") != "ready" or document.get("node_id") != node["id"]:
         raise ValueError("Node has no verified enrollment receipt")
+    enrolled_image(document)
     loopback_url(document["address"], "")
     key_headers(node)  # Validate the locally stored scoped credential, never expose it.
     return document
+
+
+def enrolled_image(document):
+    """Docker is opt-in, and its receipt must pin an immutable image ID."""
+    runtime = document.get("runtime", "libvirt-kvm-vfio")
+    if runtime == "libvirt-kvm-vfio":
+        return document["target"]["guest_image_sha256"]
+    if runtime == "docker-wsl2-nvidia":
+        image = document.get("target", {}).get("container_image", "")
+        if isinstance(image, str) and re.fullmatch(r"sha256:[a-f0-9]{64}", image):
+            return image.removeprefix("sha256:")
+    raise ValueError("Unsupported node runtime or unpinned container image")
 
 
 class NodeClient:
@@ -81,14 +94,22 @@ class NodeClient:
         document = self.request("GET", "health")
         verification = document.get("verification") or {}
         gpu = verification.get("gpu") or {}
+        runtime = self.receipt.get("runtime", "libvirt-kvm-vfio")
+        image = enrolled_image(self.receipt)
+        if runtime == "docker-wsl2-nvidia":
+            verified = verification.get("boot_verified") is False and all(
+                verification.get(field) is True for field in
+                ("container_verified", "runner_verified", "gpu_compute_verified", "cleanup_confirmed"))
+        else:
+            verified = verification.get("boot_verified") is True
         if (document.get("node_id") != self.node["id"] or document.get("status") != "ready"
-                or document.get("runtime") != "libvirt-kvm-vfio"
-                or verification.get("boot_verified") is not True
+                or document.get("runtime") != runtime or not verified
                 or gpu.get("name") != GPU or gpu.get("uuid") != self.receipt.get("gpu_uuid")
+                or not isinstance(gpu.get("uuid"), str) or not gpu["uuid"].startswith("GPU-")
                 or not 24000 <= float(gpu.get("memory_total_mb", 0)) <= 25000):
-            raise ValueError("Node GPU or VM verification is invalid")
-        if verification.get("image_sha256") != self.receipt.get("target", {}).get("guest_image_sha256"):
-            raise ValueError("Node guest image changed after enrollment")
+            raise ValueError("Node GPU or runtime verification is invalid")
+        if verification.get("image_sha256") != image:
+            raise ValueError("Node job image changed after enrollment")
         return document
 
     def start(self, job_id, alias, health, config):
@@ -142,7 +163,11 @@ def inspect_pool(config, client_factory=NodeClient):
                     raise ValueError("GPU configuration drift requires re-enrollment and a new pool identity")
                 node_config = profile(config, node, client.receipt)
                 fingerprint = identity(node_config, gpu_identity(health))
-                return {**node, "status": "busy" if health.get("busy") else "available",
+                status = "busy" if health.get("busy") else "available"
+                if (client.receipt.get("runtime") == "docker-wsl2-nvidia"
+                        and config["reference"] not in client.receipt.get("target", {}).get("deployments", {})):
+                    status = "inference_pending"
+                return {**node, "status": status,
                         "gpu_uuid": client.receipt["gpu_uuid"], "identity": fingerprint,
                         "image_sha256": health["verification"]["image_sha256"]}
             finally:
@@ -165,7 +190,7 @@ def inspect_pool(config, client_factory=NodeClient):
         try:
             document = receipt(node)
             enrolled.append({"id": node["id"], "gpu_uuid": document["gpu_uuid"],
-                             "image_sha256": document["target"]["guest_image_sha256"],
+                             "image_sha256": enrolled_image(document),
                              "gpu": gpu_identity({"verification": document["verification"]})})
         except (OSError, ValueError, KeyError, TypeError):
             enrolled.append({"id": node["id"], "gpu_uuid": None})

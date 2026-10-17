@@ -227,7 +227,13 @@ def connect_receipt(
         or not server.get("key")
     ):
         raise Blocked("server_export_is_not_ready")
-    target = validate_target(server["target"])
+    if server.get("runtime") == "docker-wsl2-nvidia":
+        from docker_host import validate_target as validate_docker_target
+        if resources_dir:
+            raise Blocked("docker_node_requires_explicit_controller_resource_adapter")
+        target = validate_docker_target(server["target"])
+    else:
+        target = validate_target(server["target"])
     target["ssh_host"] = ssh_alias
     if local_port is not None:
         if not 1024 <= local_port <= 65535:

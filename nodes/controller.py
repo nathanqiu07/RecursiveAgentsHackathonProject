@@ -243,17 +243,30 @@ def verify_connection(receipt, *, require_boot=True):
     ):
         raise Blocked("connection_address_must_be_private_local_tunnel")
     result = http(receipt["address"], receipt["key"], "/v1/health")
+    expected_runtime = receipt.get("runtime", "libvirt-kvm-vfio")
+    if expected_runtime not in {"libvirt-kvm-vfio", "docker-wsl2-nvidia"}:
+        raise Blocked("unsupported_receipt_runtime")
     if (
         result.get("node_id") != receipt["node_id"]
-        or result.get("runtime") != "libvirt-kvm-vfio"
+        or result.get("runtime") != expected_runtime
     ):
         raise Blocked("node_identity_or_vm_runtime_mismatch")
     if result.get("status") != "ready":
         raise Blocked("node_readiness_not_verified")
-    if require_boot and (
-        not result.get("verification", {}).get("boot_verified")
-        or result["verification"].get("gpu", {}).get("uuid") != receipt["gpu_uuid"]
+    verification = result.get("verification") or {}
+    if expected_runtime == "docker-wsl2-nvidia" and (
+        "sha256:" + str(verification.get("image_sha256", ""))
+        != receipt.get("target", {}).get("container_image")
     ):
+        raise Blocked("container_image_receipt_mismatch")
+    verified = verification.get("boot_verified") if expected_runtime == "libvirt-kvm-vfio" else (
+        verification.get("container_verified") is True
+        and verification.get("gpu_compute_verified") is True
+        and verification.get("runner_verified") is True
+        and verification.get("cleanup_confirmed") is True
+        and verification.get("boot_verified") is False
+    )
+    if require_boot and (not verified or verification.get("gpu", {}).get("uuid") != receipt["gpu_uuid"]):
         raise Blocked("gpu_boot_readiness_not_verified")
     # The endpoint must actually enforce the scoped key, not accept anonymous/incorrect credentials.
     try:

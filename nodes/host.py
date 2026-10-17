@@ -451,9 +451,20 @@ def validate_job(target, data, disk_mb=0):
 
 
 class Node:
+    target_validator = staticmethod(validate_target)
+    runtime = "libvirt-kvm-vfio"
+
+    @staticmethod
+    def preflight(config):
+        return preflight(config)
+
+    @staticmethod
+    def guest_class(config, job):
+        return VM(config, job)
+
     def __init__(self, config):
         self.config = config
-        self.target = validate_target(config["target"])
+        self.target = self.target_validator(config["target"])
         self.lock = threading.RLock()
         self.jobs = {}
         self.active = None
@@ -470,14 +481,14 @@ class Node:
                     job = json.loads((directory / "job.json").read_text())
                     if str(uuid.UUID(job["id"])) != directory.name:
                         raise ValueError
-                    vm = VM(self.config, job)
+                    vm = self.guest_class(self.config, job)
                     if not vm.cleanup():
                         raise Blocked("orphan_vm_cleanup_unconfirmed")
                 except (OSError, ValueError, KeyError) as exc:
                     raise Blocked(
                         "invalid_orphan_job_state_requires_operator_review"
                     ) from exc
-        result = preflight(self.config)
+        result = self.preflight(self.config)
         self.disk_mb = result["virtual_disk_mb"]
 
     def probe(self):
@@ -492,18 +503,11 @@ class Node:
             "cpus": self.target["guest_vcpus"],
             "timeout_seconds": self.target["boot_timeout_seconds"],
         }
-        vm = VM(self.config, job)
+        vm = self.guest_class(self.config, job)
         try:
-            preflight(self.config)
+            self.preflight(self.config)
             gpu = vm.boot()
-            result = {
-                "gpu": gpu,
-                "vm_isolation": "libvirt-kvm-vfio",
-                "boot_verified": True,
-                "runner_verified": True,
-                "verified_at": time.time(),
-                "image_sha256": self.target["guest_image_sha256"],
-            }
+            result = self.verification(gpu)
         finally:
             cleaned = vm.cleanup()
             with self.lock:
@@ -511,8 +515,19 @@ class Node:
                 self.cleanup_blocked = not cleaned
         if not cleaned:
             raise Blocked("probe_vm_cleanup_unconfirmed")
+        result["cleanup_confirmed"] = True
         self.probe_result = result
         return result
+
+    def verification(self, gpu):
+        return {
+                "gpu": gpu,
+                "vm_isolation": "libvirt-kvm-vfio",
+                "boot_verified": True,
+                "runner_verified": True,
+                "verified_at": time.time(),
+                "image_sha256": self.target["guest_image_sha256"],
+            }
 
     def submit(self, data, request_id=None, deployment_alias=None):
         if request_id is None:
@@ -577,12 +592,12 @@ class Node:
         }
 
     def work(self, job):
-        vm = VM(self.config, job)
+        vm = self.guest_class(self.config, job)
         job["vm"] = vm
         process = None
         deadline = time.monotonic() + job["timeout_seconds"]
         try:
-            preflight(self.config)
+            self.preflight(self.config)
             vm.boot()
             if job["cancel"].is_set():
                 raise Blocked("job_cancelled")
@@ -752,6 +767,8 @@ def make_handler(node):
             try:
                 url = urllib.parse.urlsplit(self.path)
                 path = url.path
+                if self.command == "GET" and path == "/v1/compatibility" and hasattr(node, "compatibility"):
+                    return self.send_json(node.compatibility())
                 if path in {"/v1/models", "/v1/completions", "/v1/chat/completions"}:
                     return self.proxy(path)
                 if self.command == "GET" and path == "/v1/health":
@@ -790,7 +807,7 @@ def make_handler(node):
                         {
                             "fresh": True,
                             "gpu": gpu,
-                            "image_sha256": node.target.get("guest_image_sha256"),
+                            "image_sha256": node.target.get("guest_image_sha256", node.target.get("container_image", "").removeprefix("sha256:") or None),
                             "deployment": deployment["metadata"]
                             if deployment
                             else None,

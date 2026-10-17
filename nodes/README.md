@@ -1,5 +1,32 @@
 # Existing A5000 servers → resource nodes
 
+## Explicit Windows/WSL Docker alternative
+
+`docker_host.py` and `docker_setup.py` provide an operator-selected Docker alternative
+for a Windows host exposing its GPU through WSL. This is **not KVM/VFIO isolation**.
+Its runtime is `docker-wsl2-nvidia`, with `boot_verified: false`,
+`container_verified: true`, and a real CUDA kernel probe. VM-only consumers must
+continue rejecting this runtime unless deliberately extended by their operator.
+
+Build `nodes/Dockerfile.gpu-node` on the WSL Docker Engine and pin the resulting
+immutable image ID in the private Docker target. The generic image includes the
+bounded JSONL runner and CUDA smoke test, not inference runtimes or model weights.
+Jobs have no network, read-only roots, a non-root user, dropped capabilities,
+CPU/RAM/PID limits, bounded writable scratch, and no host/socket/credential mounts.
+The service permits one job at a time; GPU access is shared with the Windows host.
+
+Install using `python3 nodes/docker_setup.py --help`. The installer reuses its
+private scoped key on identical reruns and verifies real container CUDA execution,
+runner self-test, teardown, and wrong-key rejection before writing readiness.
+Only the API hash is installed with the service; receipts and SSH credentials stay
+outside Git. The node API listens on loopback. SSH should permit forwarding only
+to that API port. `server_setup.py connect` can import an explicit Docker receipt
+without `--resources-dir`. ResourceManager and the verifier accept explicitly labeled Docker receipts only after checking container, CUDA, runner, cleanup, GPU and pinned-image identity. Inference remains pending until a reference deployment is configured.
+
+This alternative does not assert native NVFP4 support or readiness of the pinned
+Nemotron deployments. Those require separate installation and real inference
+validation. Do not mark generic CUDA resource readiness as inference readiness.
+
 These tools enroll **existing NVIDIA RTX A5000 servers**, not a fleet of 5,000 servers. They do not purchase cloud capacity. Each server runs a small private resource service; each job gets a fresh **libvirt/QEMU/KVM VM with the dedicated GPU passed through using VFIO**. Agent harness orchestration, benchmark scheduling, quality checks and verifier services run on your local computer. Codex already running on each server can provision it directly using [the ready-to-paste server prompt](SERVER_CODEX_PROMPT.md).
 
 No hosts have been supplied or brought online in this workspace. `examples/inventory.json` is deliberately empty and returns a machine-readable `blocked` result. The templates contain `REPLACE_...` values and are not live capacity.
@@ -184,3 +211,7 @@ boundary per job. Scratch capacity is admission metadata, not a disk quota.
 The current direct mode supports the JSONL experiment executor; approved inference
 deployments for verifier submissions are not yet configured. GPU availability does
 not claim model fit or measured benchmark results.
+
+## Persistent controller connection
+
+The controller can supervise a private SSH forward and `direct_heartbeat.py` with launchd. The heartbeat advertises capacity only after authenticated node readiness passes; a disconnected node expires from the scheduler. The Windows/WSL node supervises its outbound reverse connection with systemd. No VPN account or public node API is required. Keep receipt keys, host keys and machine-specific launch configurations outside Git.

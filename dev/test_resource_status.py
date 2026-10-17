@@ -127,6 +127,53 @@ class ResourceStatusTests(unittest.TestCase):
             server.server_close()
             thread.join()
 
+    def test_container_discovery_requires_matching_gpu_image_and_complete_verification(self):
+        import copy
+        import io
+
+        receipt = {
+            "node_id": "gpu-one", "status": "ready", "key": "rn_scoped",
+            "address": "http://127.0.0.1:18100", "runtime": "docker-wsl2-nvidia",
+            "gpu_uuid": "GPU-enrolled", "target": {"container_image": "sha256:" + "a" * 64},
+        }
+        health = {
+            "node_id": "gpu-one", "status": "ready", "busy": False,
+            "runtime": "docker-wsl2-nvidia", "verification": {
+                "container_verified": True, "runner_verified": True,
+                "gpu_compute_verified": True, "cleanup_confirmed": True,
+                "boot_verified": False, "image_sha256": "a" * 64,
+                "gpu": {"uuid": "GPU-enrolled"},
+            },
+        }
+
+        def state(enrolled, live):
+            self.path.write_text(json.dumps(enrolled))
+            self.path.chmod(0o600)
+            response = io.BytesIO(json.dumps(live).encode())
+            opener = SimpleNamespace(open=lambda *_args, **_kwargs: response)
+            with patch.object(discovery.urllib.request, "build_opener", return_value=opener):
+                return discovery.remote_state(self.resource)
+
+        self.assertEqual(state(receipt, health), {"status": "available"})
+        health["busy"] = True
+        self.assertEqual(state(receipt, health), {"status": "busy"})
+        for field in ("container_verified", "runner_verified", "gpu_compute_verified", "cleanup_confirmed"):
+            for invalid in (False, 1, "true", None):
+                broken = copy.deepcopy(health)
+                broken["verification"][field] = invalid
+                with self.subTest(field=field, value=invalid):
+                    self.assertEqual(state(receipt, broken), {"status": "unavailable"})
+        for mutate in (
+            lambda r, h: r.pop("runtime"),
+            lambda r, h: h.update(runtime="libvirt-kvm-vfio", verification={"boot_verified": True}),
+            lambda r, h: h["verification"].update(image_sha256="b" * 64),
+            lambda r, h: h["verification"]["gpu"].update(uuid="GPU-other"),
+            lambda r, h: h["verification"].update(boot_verified=True),
+        ):
+            changed_receipt, changed_health = copy.deepcopy(receipt), copy.deepcopy(health)
+            mutate(changed_receipt, changed_health)
+            self.assertEqual(state(changed_receipt, changed_health), {"status": "unavailable"})
+
     def test_held_cleanup_reservations_remain_busy_even_when_daemon_is_idle(self):
         queue = Queue()
         queue.db.execute("INSERT INTO compute_jobs VALUES('gpu-one',2,2048,1)")
