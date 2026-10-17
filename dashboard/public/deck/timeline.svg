@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 430" role="img"><title>Deck snapshot: research papers by round</title><style>text{font-family:ui-monospace,monospace} :root{--body:system-ui,sans-serif}</style><defs><marker id="ta" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#cfc8f2"/></marker></defs><line x1="70" x2="70" y1="44" y2="408" stroke="#cfc8f2" stroke-opacity=".5" stroke-width="2" marker-end="url(#ta)"/><text x="14" y="226" fill="#cfc8f2" font-size="14" transform="rotate(-90 14 226)" text-anchor="middle">← time</text><text x="60" y="105" fill="#cfc8f2" font-size="14" text-anchor="end">R0</text><line x1="70" x2="640" y1="100" y2="100" stroke="#cfc8f2" stroke-opacity=".1"/><text x="60" y="235" fill="#cfc8f2" font-size="14" text-anchor="end">R1</text><line x1="70" x2="640" y1="230" y2="230" stroke="#cfc8f2" stroke-opacity=".1"/><text x="60" y="365" fill="#cfc8f2" font-size="14" text-anchor="end">R2</text><line x1="70" x2="640" y1="360" y2="360" stroke="#cfc8f2" stroke-opacity=".1"/><text x="246" y="30" fill="#22d3ee" font-size="15" text-anchor="middle">Data hall</text><line x1="132" x2="132" y1="44" y2="408" stroke="#22d3ee" stroke-opacity=".18" stroke-dasharray="4 6"/><line x1="246" x2="246" y1="44" y2="408" stroke="#22d3ee" stroke-opacity=".18" stroke-dasharray="4 6"/><line x1="360" x2="360" y1="44" y2="408" stroke="#22d3ee" stroke-opacity=".18" stroke-dasharray="4 6"/><text x="478" y="30" fill="#ffc93c" font-size="15" text-anchor="middle">QAPLIB</text><line x1="478" x2="478" y1="44" y2="408" stroke="#ffc93c" stroke-opacity=".18" stroke-dasharray="4 6"/><text x="586" y="30" fill="#ff6a2b" font-size="15" text-anchor="middle">ALE</text><line x1="586" x2="586" y1="44" y2="408" stroke="#ff6a2b" stroke-opacity=".18" stroke-dasharray="4 6"/><text x="478" y="224" fill="#cfc8f2" fill-opacity=".7" font-size="12" text-anchor="middle">stopped</text><text x="478" y="242" fill="#cfc8f2" fill-opacity=".7" font-size="12" text-anchor="middle">(rate limit)</text><text x="586" y="224" fill="#cfc8f2" fill-opacity=".7" font-size="12" text-anchor="middle">stopped</text><text x="586" y="242" fill="#cfc8f2" fill-opacity=".7" font-size="12" text-anchor="middle">(rate limit)</text><g class="dot" style="animation-delay:0s">
+      <rect x="78" y="66" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="87" y="86" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">Capacity-check</text>
+      <text x="87" y="102" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">step</text>
+      <text x="87" y="122" fill="#22d3ee" font-size="11.5">too long</text></g><g class="dot" style="animation-delay:0.12s">
+      <rect x="192" y="66" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="201" y="86" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">Enable</text>
+      <text x="201" y="102" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">capacity_calc</text>
+      <text x="201" y="122" fill="#22d3ee" font-size="11.5">−0.0006</text></g><g class="dot" style="animation-delay:0.24s">
+      <rect x="306" y="66" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="315" y="86" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">Planner budget</text>
+      <text x="315" y="102" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">prompt</text>
+      <text x="315" y="122" fill="#22d3ee" font-size="11.5">−0.0006</text></g><g class="dot" style="animation-delay:0.36s">
+      <rect x="428" y="66" width="100" height="68" rx="10" fill="#ffc93c" fill-opacity=".14" stroke="#ffc93c" stroke-width="1.5"/>
+      <text x="437" y="86" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">Error-handling</text>
+      <text x="437" y="102" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">prompt</text>
+      <text x="437" y="122" fill="#ffc93c" font-size="11.5">−0.137</text></g><g class="dot" style="animation-delay:0.48s">
+      <rect x="536" y="66" width="100" height="68" rx="10" fill="#ff6a2b" fill-opacity=".14" stroke="#ff6a2b" stroke-width="1.5"/>
+      <text x="545" y="86" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">Multi-scale</text>
+      <text x="545" y="102" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">grid step</text>
+      <text x="545" y="122" fill="#ff6a2b" font-size="11.5">too long</text></g><g class="dot" style="animation-delay:0.6s">
+      <rect x="78" y="196" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="87" y="216" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">capacity_calc</text>
+      <text x="87" y="232" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">config</text>
+      <text x="87" y="252" fill="#22d3ee" font-size="11.5">+0.000</text></g><g class="dot" style="animation-delay:0.72s">
+      <rect x="192" y="196" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="201" y="216" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">CDU hose-reach</text>
+      <text x="201" y="232" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">step</text>
+      <text x="201" y="252" fill="#22d3ee" font-size="11.5">+0.000</text></g><g class="dot" style="animation-delay:0.84s">
+      <rect x="306" y="196" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="315" y="216" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">2N dual-feed</text>
+      <text x="315" y="232" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">prompt</text>
+      <text x="315" y="252" fill="#22d3ee" font-size="11.5">+0.000</text></g><g class="dot" style="animation-delay:0.96s">
+      <rect x="78" y="326" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="87" y="346" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">Examples</text>
+      <text x="87" y="362" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">lookup step</text>
+      <text x="87" y="382" fill="#22d3ee" font-size="11.5">too long</text></g><g class="dot" style="animation-delay:1.08s">
+      <rect x="192" y="326" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="201" y="346" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">capacity_calc</text>
+      <text x="201" y="362" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">config</text>
+      <text x="201" y="382" fill="#22d3ee" font-size="11.5">+0.000</text></g><g class="dot" style="animation-delay:1.2s">
+      <rect x="306" y="326" width="108" height="68" rx="10" fill="#22d3ee" fill-opacity=".14" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="315" y="346" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">Planner capacity</text>
+      <text x="315" y="362" fill="#f5f1ff" font-size="12.5" style="font-family:var(--body);font-weight:600">step</text>
+      <text x="315" y="382" fill="#22d3ee" font-size="11.5">+0.000</text></g><text x="70" y="428" fill="#cfc8f2" font-size="13">one box per paper · number = measured dev gain</text></svg>

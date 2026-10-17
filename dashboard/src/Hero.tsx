@@ -192,6 +192,13 @@ export default function Hero({ active, onOpenLayers, onOpenBenchmarks }: { activ
       </div>
       <EvolutionGraphic />
     </header>
+    <section className="home-visualizations" aria-labelledby="home-visualizations-title">
+      <div className="home-section-heading"><div><p className="home-eyebrow">FROM THE DECK</p><h2 id="home-visualizations-title">The ideas. The evidence.</h2></div><p>Recorded runs from the presentation.<br />These charts are a snapshot, not a live feed.</p></div>
+      <div className="home-viz-grid">
+        <figure><figcaption><h3>Benchmarks: the hill-climb</h3><p>What the agents predicted, what the verifier measured, and which changes were blocked.</p></figcaption><a href="/deck/chart.svg" target="_blank" rel="noreferrer" aria-label="Open benchmark improvement chart at full size"><img src="/deck/chart.svg" alt="Eleven proposed changes across Data hall, QAPLIB and ALE. QAPLIB claimed a 0.070 gain but measured a 0.137 drop. No change clears the keep line." /></a><span>Measured gain · claim · rejected before scoring</span></figure>
+        <figure><figcaption><h3>Research papers, round by round</h3><p>Each card is an agent-authored proposal, placed in the round it was written.</p></figcaption><a href="/deck/timeline.svg" target="_blank" rel="noreferrer" aria-label="Open research paper timeline at full size"><img src="/deck/timeline.svg" alt="Eleven research proposals over rounds zero to two. Data hall continues across all rounds; QAPLIB and ALE stop after round zero due to rate limits." /></a><span>One card per proposal · measured development gain</span></figure>
+      </div>
+    </section>
     <section className="home-loop" id="home-loop" aria-labelledby="home-loop-title">
       <div className="home-section-heading"><div><p className="home-eyebrow">THE METHOD</p><h2 id="home-loop-title">Every version earns its place.</h2></div><p>A shared memory of findings.<br />An independent check on every claim.</p></div>
       <div className="home-steps">{LOOP.map(([number, title, description]) => <article key={number}><span className="home-step-number">{number}</span><h3>{title}<span aria-hidden="true">↗</span></h3><p>{description}</p></article>)}</div>
