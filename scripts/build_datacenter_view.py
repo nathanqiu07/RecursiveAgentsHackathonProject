@@ -245,12 +245,50 @@ def placement_layer(procs: str) -> dict[str, Any]:
             "best": best, "status": layer_status(runs), "summary": summary + progress_note(runs), "runs": runs}
 
 
-def kernel_layer() -> dict[str, Any]:
-    return {"id": "kernels", "name": "GPU kernels", "problem": "KernelBench mini: write faster CUDA kernels.",
-            "verified": cr.CASE_STUDIES[4]["verifier"], "score_label": "kernel speedup", "digits": 2,
-            "baseline": {"name": "v0 cold", "score": None}, "best": None, "status": "not run",
-            "summary": "Not run: our Crusoe project has zero GPU quota, so there is no live result to show.",
-            "runs": []}
+def kernel_rows(text: str) -> dict[str, dict]:
+    """The final held-out table in a KernelBench run log: fast_1, correct %, mean speedup of correct kernels."""
+    out: dict[str, dict] = {}
+    for m in re.finditer(r"^\| (v\d+ \+ [^|]+?) \| (\d+%) \| (\d+%) \| ([\d.]+x|n/a) \| ([\d.]+) \|", text, re.M):
+        out.setdefault(run_kind(m.group(1)), {"fast_1": m.group(2), "correct": m.group(3), "speedup": m.group(4)})
+    if "final" not in out and "brain" in out:
+        out["final"] = out["brain"]  # no version change passed the gate: final is v0 + final brain
+    return out
+
+
+def kernel_layer(procs: str) -> dict[str, Any]:
+    spec = dict(cr.CASE_STUDIES[4])
+    runs, device = [], None
+    for p in sorted((ROOT / "runs").glob("kernelbench-mps-*")):
+        log = ROOT / "runs" / f"{p.name}.log"
+        r = collect_run(dict(spec, id=p.name), p, log, procs) if p.is_dir() else None
+        if not r:
+            continue
+        text = cr.read_text(log)
+        m = re.search(r"GPU evaluator: \w+ \(([^,]+),", text)
+        r["device"] = m.group(1) if m else "Apple GPU (MPS)"
+        r["family"] = f"timed on {r['device']}"
+        r["kernel"] = kernel_rows(text)
+        device = device or r["device"]
+        runs.append(r)
+    best = best_of(runs)
+    summary, caveats = "Not run: our Crusoe project has zero GPU quota, so there is no live result to show.", []
+    if best:
+        k = next((r["kernel"] for r in runs if r["id"] == best["run"]), {})
+        cold, fin = k.get("cold") or {}, k.get("final") or {}
+        summary = lead(best, "problems")
+        if cold.get("correct") and fin.get("correct"):
+            caveats.append(f"correct kernels {cold['correct']} → {fin['correct']}")
+        fast = fin.get("fast_1")
+        caveats.append((f"no kernel beat PyTorch eager yet (fast_1 {fast})" if fast == "0%" else
+                        f"fast_1 {fast or 'n/a'} (correct and faster than PyTorch eager)")
+                       + "; MPS timings are not comparable to CUDA")
+    elif runs:
+        summary = "Running: no held-out result yet." + progress_note(runs)
+    return {"id": "kernels", "name": "GPU kernels", "problem": "KernelBench mini: write faster GPU kernels.",
+            "verified": spec["verifier"], "score_label": "KernelBench score (mean)", "digits": 3,
+            "device": device, "baseline": {"name": "v0 cold", "score": best["baseline"] if best else None},
+            "best": best, "status": layer_status(runs) if runs else "not run", "caveats": caveats,
+            "summary": summary + (progress_note(runs) if best else ""), "runs": runs}
 
 
 def inference_caveats(points: list[dict], base: dict, top: dict) -> list[str]:
@@ -329,6 +367,7 @@ PREFIXES = [("datahall-live-", "hall", "DoneTwin data hall", 0),
             ("qaplib-research-", "placement", "QAPLIB", 2),
             ("qaplib-evolve-", "placement", "QAPLIB", 2),
             ("kernelbench-live-", "kernels", "KernelBench", 4),
+            ("kernelbench-mps-", "kernels", "KernelBench (Apple GPU, MPS)", 4),
             ("inference-opt-", "inference", "Crusoe ops Q&A", 5)]
 LAYER_NAMES = {"hall": "Hall layout", "placement": "Equipment placement", "kernels": "GPU kernels",
                "inference": "Inference cost"}
@@ -541,7 +580,7 @@ def build(root: Path) -> dict[str, Any]:
     for r in runs:
         r.pop("start_ts", None)
     return {"generated_at": time.strftime("%Y-%m-%d %H:%M:%S %Z"), "command": COMMAND, "pitch": PITCH,
-            "layers": [hall_layer(procs), placement_layer(procs), kernel_layer(), inference_layer(procs)],
+            "layers": [hall_layer(procs), placement_layer(procs), kernel_layer(procs), inference_layer(procs)],
             "runs_index": runs}
 
 

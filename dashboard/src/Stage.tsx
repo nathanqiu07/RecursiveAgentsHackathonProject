@@ -407,7 +407,7 @@ function Replay({ t, run, runs, layer, pickRun, speed, setSpeed, selected, onSel
               <circle cx={x(i)} cy={y(cand.score)} r={30} className="stage-cand-hit" />
               <circle cx={x(i)} cy={y(cand.score)} r={11 * p} className="stage-cand-dot" style={{ fillOpacity: stamp > 0 ? 1 : 0.25 }} />
               <text x={i === 0 ? x(i) - 14 : i === plan.n - 1 && plan.n > 1 ? x(i) + 14 : x(i)} y={labelY}
-                textAnchor={i === 0 ? 'start' : i === plan.n - 1 && plan.n > 1 ? 'end' : 'middle'} className="stage-cand-label" style={{ opacity: p }}>{shortChange(cand.change, plan.n > 5 ? 18 : 24)}</text>
+                textAnchor={i === 0 ? 'start' : i === plan.n - 1 && plan.n > 1 ? 'end' : 'middle'} className="stage-cand-label" style={{ opacity: p }}>{shortChange(cand.change, plan.n > 5 ? 15 : 24)}</text>
             </g>;
           })}
         </svg>
@@ -431,7 +431,7 @@ function Replay({ t, run, runs, layer, pickRun, speed, setSpeed, selected, onSel
               <p className="stage-verdict-reason" style={{ opacity: phase(shownU, 0.45, 0.2) }}>Gate: {shown.reason || 'n/a'}{shown.verdict ? `. Verdict: ${shown.verdict}` : ''}</p>
               <p className="stage-verdict-hint">Click any candidate for detail</p>
             </>;
-          })() : <p className="stage-verdict-wait">Waiting for the first candidate</p>}
+          })() : <p className="stage-verdict-wait">Waiting for candidate 1</p>}
         </div>
         <div className="stage-sources">
           {sourcesNow.length > 0 && <p className="stage-sources-head">Reviewer read, You.com</p>}

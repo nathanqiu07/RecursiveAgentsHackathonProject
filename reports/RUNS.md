@@ -1,6 +1,6 @@
 # Runs by layer
 
-Live Crusoe runs only, built by `.venv/bin/python scripts/build_datacenter_view.py` at 2026-10-17 16:30:45 PDT. Offline runs and runs with a $0 usage.json are left out. Status: done = final usage line written; running = process alive or log written in the last 3 min; crashed = Traceback without usage; stopped = none of these.
+Live Crusoe runs only, built by `.venv/bin/python scripts/build_datacenter_view.py` at 2026-10-17 16:34:19 PDT. Offline runs and runs with a $0 usage.json are left out. Status: done = final usage line written; running = process alive or log written in the last 3 min; crashed = Traceback without usage; stopped = none of these.
 
 ## Hall layout
 
@@ -26,11 +26,14 @@ Live Crusoe runs only, built by `.venv/bin/python scripts/build_datacenter_view.
 | qaplib-dc-research-1 | GPU rack placement | done | 2026-10-17 15:51 | 2026-10-17 16:00 | Nano | Nano | on | 2 | 4 | 3 | 0.477 | 0.802 | +0.325 | 0.0208 | 89 |
 | qaplib-dc-research-2 | GPU rack placement | done | 2026-10-17 16:04 | 2026-10-17 16:25 | Nano | Nano | on | 3 | 6 | 4 | 0.597 | 0.845 | +0.248 | 0.0477 | 112 |
 | qaplib-research-2 | QAPLIB | done | 2026-10-17 16:04 | 2026-10-17 16:19 | Nano | Nano | on | 2 | 6 | 1 | 0.674 | 0.754 | +0.080 | 0.0208 | 102 |
-| qaplib-dc-research-3 | GPU rack placement | running | 2026-10-17 16:26 | n/a | Nano | Nano | on | 1 | 3 | 1 | n/a | n/a | n/a | n/a | n/a |
+| qaplib-dc-research-3 | GPU rack placement | running | 2026-10-17 16:26 | n/a | Nano | Nano | on | 2 | 4 | 2 | n/a | n/a | n/a | n/a | n/a |
 
 ## GPU kernels
 
-No live run.
+| Run | Benchmark | Status | Start | End | Solver | Reviewer | Research | Gens | Scored | Accepted | v0 cold | Final | Δ vs v0 | Cost (USD) | Calls |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| kernelbench-mps-1 | KernelBench (Apple GPU, MPS) | done | 2026-10-17 16:21 | 2026-10-17 16:29 | n/a | n/a | on | 0 | 0 | 0 | 0.091 | 0.284 | +0.193 | 0.1045 | 50 |
+| kernelbench-mps-2 | KernelBench (Apple GPU, MPS) | running | 2026-10-17 16:29 | n/a | n/a | n/a | on | 0 | 0 | 0 | n/a | n/a | n/a | n/a | n/a |
 
 ## Inference cost
 

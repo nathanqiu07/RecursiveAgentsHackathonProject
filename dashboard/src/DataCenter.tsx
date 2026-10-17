@@ -17,7 +17,7 @@ type Point = { run: string; label: string; accuracy: number; cost_per_correct_us
 type Layer = {
   id: string; name: string; problem: string; verified: string; score_label: string; digits: number;
   baseline: { name: string; score: number | null };
-  note?: string; caveats?: string[]; sota?: { run: string; headline: string; secondary: string } | null;
+  note?: string; caveats?: string[]; device?: string | null; sota?: { run: string; headline: string; secondary: string } | null;
   best: { run: string; label: string; score: number; baseline: number; delta: number } | null;
   status: Status; summary: string; runs: Run[]; settings?: Setting[]; scatter?: Point[];
 };
@@ -216,6 +216,7 @@ function LayerCard({ layer }: { layer: Layer }) {
         {best ? (isCost ? <span className="dc-dd-text">{best.delta < 0 ? `${Math.round(-best.delta * 100)}% less per correct answer` : `${Math.round(best.delta * 100)}% more per correct answer`}</span>
           : signed(best.delta, layer.digits)) : layer.status === 'running' ? 'running' : 'n/a'}</dd></div>
     </dl>
+    {layer.device && <p className="dc-card-note">Runs on: {layer.device}</p>}
     {layer.note && <p className="dc-card-note">{layer.note}</p>}
     {layer.caveats?.map((caveat) => <p key={caveat} className="dc-card-note">{caveat}</p>)}
     {layer.sota && <p className="dc-card-sota"><strong>QAPLIB: {layer.sota.headline}</strong> <span>{layer.sota.secondary}</span></p>}
@@ -228,7 +229,8 @@ function LayerSection({ layer }: { layer: Layer }) {
   const doneRuns = layer.runs.filter((run) => run.status === 'done' && run.heldout.length);
   const devRuns = layer.runs.filter((run) => run.dev.length || run.candidates.length);
   const running = layer.runs.filter((run) => run.status === 'running');
-  const unit = layer.id === 'hall' ? 'DoneTwin score / 100' : layer.id === 'inference' ? 'accuracy' : 'best-known / cost';
+  const unit = layer.id === 'hall' ? 'DoneTwin score / 100' : layer.id === 'inference' ? 'accuracy'
+    : layer.id === 'kernels' ? 'KernelBench score' : 'best-known / cost';
   const barDigits = layer.id === 'inference' ? 3 : layer.digits;
   return <section className="dc-layer" aria-labelledby={`dc-${layer.id}`}>
     <div className="section-heading"><div>
