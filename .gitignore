@@ -20,3 +20,9 @@ data/
 .vinext/
 .next/
 sites/
+
+# Separate local components excluded from this repository for now.
+/Library/
+/ResourceManager/
+/Resources/
+/verification api/

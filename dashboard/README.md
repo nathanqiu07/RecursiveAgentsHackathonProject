@@ -114,7 +114,7 @@ If `DASHBOARD_API_KEY` is enabled, include its bearer authentication header on t
 
 ## Database ownership
 
-The dashboard owns `data/dashboard.sqlite`, independent of the sibling Library and Verification API databases. It persists these tables:
+The dashboard owns its local `data/dashboard.sqlite` database. It persists these tables:
 
 | Table | Contents |
 | --- | --- |

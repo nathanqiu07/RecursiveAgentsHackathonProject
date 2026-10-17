@@ -47,12 +47,8 @@ A solver is an external person, agent, or program. It reads the benchmark prompt
 | --- | --- |
 | `dashboard/` | Benchmark and resource dashboard, persistent API, verifier worker, instructions |
 | `hosting/` | Deployed Cloudflare Worker/D1 version, including persistent schema migrations |
-| `Library/` | Paper intake, LLM planning, restricted verification access, and verdicts |
-| `ResourceManager/` | Generic compute queue, reservations, and opaque job channels |
-| `Resources/` | Operator-owned resource inventory; example disabled by default |
-| `verification api/` | Git submodule: separate Git-pinned runner service and execution nodes |
 
-Clone with `git clone --recurse-submodules` to include the separate Verification API. The dashboard's endpoint-based benchmark verification runs independently of the paper-verification services.
+Benchmark verification uses the external HTTP endpoints configured for each benchmark.
 
 ## Checks
 
