@@ -29,7 +29,7 @@
 
 **How a change is accepted.** The candidate and the current version answer the same 3 dev halls. A change is kept if it cuts mean cost per hall by 15% or more with no drop in accuracy and no lost passes (`MIN_COST_CUT = 0.15` in `team/evolve.py`), or if it raises accuracy by 0.05 or more. The final report runs on the 4 held-out halls, which the team never saw.
 
-**Result.** Same accuracy at [INF_COST_PCT]% of the cost. The live run is `runs/inference-opt-1/` (about 44 team runs, at most 528 calls), and the result is pending.
+**Result (held-out, 4 halls, 48 questions).** v0 got 47 of 48 held-out answers right at $0.00109 per correct answer; the final version got 48 of 48 at $0.00075, 31% less per correct answer (30% less per hall). The accepted change was one paper: batch 3 questions per call (claimed −55% cost, measured −31.8% on dev, verdict reproduced). Calls per hall fell from 12 to 4 and hall wall time from 163 s to 77 s, but median call latency rose from 9.7 s to 19.0 s. Source: `reports/inference_opt_2/`. One extra correct answer is within noise, so the claim is the cost cut, not an accuracy gain.
 
 **Limits.**
 - This is our own workload, not a public benchmark, so there are no outside records to compare against.

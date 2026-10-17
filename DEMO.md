@@ -100,9 +100,9 @@ Both outcomes are reportable:
 - **Starting point:** v0 is deliberately expensive: Super for every type, reasoning on, max_tokens 4000, one question per call.
 - **Knobs:** model per type (Super, Nano, Lightning), reasoning per type, token caps, batch size 1 to 12, temperature, prompts and playbooks.
 - **Gate:** a version is kept if mean cost per hall falls by 15% or more with no loss in accuracy and no lost passes, or if accuracy rises by 0.05 or more.
-- **Live run 1** (`runs/inference-opt-1/`): on dev, batch_size 3 cut cost by 30.5% at 100% accuracy. There is no held-out result yet, so it is not a headline. Run 2 (`inference-opt-2`) is running.
+- **Live run 2, held-out (4 halls, 48 questions):** v0 got 47 of 48 held-out answers right at $0.00109 per correct answer; the final version got 48 of 48 at $0.00075, 31% less per correct answer (30% less per hall). The accepted change was one paper: batch 3 questions per call (claimed −55% cost, measured −31.8% on dev, verdict reproduced). Calls per hall fell from 12 to 4 and hall wall time from 163 s to 77 s, but median call latency rose from 9.7 s to 19.0 s. Source: `reports/inference_opt_2/`. Run 1 found the same change on dev (−30.5%).
 - **Limits:** this is our own workload, so there are no outside records. It tunes how we call the model, not Crusoe's serving stack (GPU scheduling, KV cache, quantization).
-- **Headline:** same accuracy at [INF_COST_PCT]% of the cost.
+- **Headline:** 31% less per correct answer on unseen halls, with no answer lost (47/48 → 48/48; one question is within noise, so we claim no accuracy gain).
 
 **Measured live on 2026-10-17, which motivates this layer:**
 - Nano is about 11x cheaper per call than Super, at 0.55 s per small call.
