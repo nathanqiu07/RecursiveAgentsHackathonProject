@@ -53,6 +53,14 @@ def run_kind(config: str | None) -> str:
     return "final"
 
 
+def vs_v0(bars: list[dict]) -> dict[str, Any]:
+    """The headline pair: v0 cold vs final on the same held-out tasks. v0 cold is the only baseline shown."""
+    k = {b["kind"]: b for b in bars}
+    v0, fin = k.get("cold"), k.get("final")
+    return {"v0": v0 and v0["score"], "final": fin and fin["score"], "final_label": fin and fin["label"],
+            "delta": round(fin["score"] - v0["score"], 4) if v0 and fin else None}
+
+
 def collect_run(spec: dict, run_dir: Path, log: Path | None, procs: str) -> dict[str, Any] | None:
     if not run_dir.exists() or is_offline(run_dir, log):
         return None
@@ -64,7 +72,8 @@ def collect_run(spec: dict, run_dir: Path, log: Path | None, procs: str) -> dict
         return None  # crashed, stopped or blocked: not a result, and not in progress
     bars, seen = [], set()
     for row in r["heldout"]:
-        kind = run_kind(row["config"]) if not row["is_baseline"] else "baseline"
+        kind = run_kind(row["config"]) if not row["is_baseline"] else (
+            "ablation" if "polish" in (row["config"] or "").lower() else "baseline")
         if kind in seen or row["mean_score"] is None:
             continue
         seen.add(kind)
@@ -75,7 +84,7 @@ def collect_run(spec: dict, run_dir: Path, log: Path | None, procs: str) -> dict
         brain = next((b for b in bars if b["kind"] == "brain"), None)
         if brain:
             bars.append(dict(brain, kind="final", label="final (v0: no change passed the gate)"))
-    order = {"baseline": 0, "cold": 1, "brain": 2, "final": 3}
+    order = {"baseline": 0, "ablation": 1, "cold": 2, "brain": 3, "final": 4}
     bars.sort(key=lambda b: order[b["kind"]])
     ledger_path = cr.find_file([run_dir], ("version_ledger.jsonl", "ledger.jsonl"))
     if ledger_path and ledger_path.parent.name == "brain":
@@ -85,11 +94,16 @@ def collect_run(spec: dict, run_dir: Path, log: Path | None, procs: str) -> dict
                    "change": cr.describe_mutation(e.get("mutation") if isinstance(e.get("mutation"), dict) else {})}
                   for e in cr.read_jsonl(ledger_path) if e.get("cand_mean") is not None]
     dev = [{"gen": h["gen"], "score": h["dev_mean"]} for h in r["history"] if h.get("dev_mean") is not None]
-    if bars and bars[0]["kind"] == "baseline" and r["baseline"]["score"] is not None:
+    if (bars and bars[0]["kind"] == "baseline" and r["baseline"]["score"] is not None
+            and r["baseline"].get("name") == bars[0]["label"]):
         bars[0]["score"] = r["baseline"]["score"]  # unrounded; the markdown table rounds to 3 digits
     total = (r.get("totals") or {})
+    # No-LLM heuristics (greedy, 2-swap, greedy + polish) are left out: v0 cold is the only baseline on this tab.
+    bars = [b for b in bars if b["kind"] in ("cold", "brain", "final")]
+    head = vs_v0(bars)
     return {"id": run_dir.name, "status": r["status"], "status_detail": r["status_detail"],
-            "baseline": r["baseline"], "heldout": bars, "dev": dev, "candidates": candidates,
+            "baseline": {"name": "v0 cold", "score": head["v0"]}, "vs_v0": head, "heldout": bars, "dev": dev,
+            "candidates": candidates,
             "cost_usd": total.get("cost_usd"), "calls": total.get("calls"), "last_update": r["last_update"],
             "n_heldout": bars[0]["n"] if bars else None}
 
@@ -103,17 +117,25 @@ def layer_status(runs: list[dict]) -> str:
 
 
 def best_of(runs: list[dict]) -> dict | None:
-    out = None
-    for r in runs:
-        base = r["baseline"]["score"]
-        for b in r["heldout"]:
-            if b["kind"] == "baseline" or base is None:
-                continue
-            cand = {"run": r["id"], "label": b["label"], "score": b["score"], "baseline": base,
-                    "delta": round(b["score"] - base, 4)}
-            if out is None or cand["delta"] > out["delta"]:
-                out = cand
+    """The finished run with the largest final - v0 cold on its held-out tasks, preferring runs whose v0 cold had no
+    invalid result (a 0 there inflates the delta); ties go to the latest."""
+    out, out_key = None, None
+    for r in sorted(runs, key=lambda r: str(r.get("last_update") or "")):
+        g = r.get("vs_v0") or {}
+        if r["status"] != "done" or g.get("delta") is None:
+            continue
+        invalid = (qaplib_rows(r["id"]).get("cold") or {}).get("invalid") or 0
+        cand = {"run": r["id"], "label": g["final_label"], "score": g["final"], "baseline": g["v0"],
+                "delta": g["delta"], "n": r["n_heldout"], "family": r.get("family"), "v0_invalid": invalid}
+        key = (invalid == 0, cand["delta"])
+        if out_key is None or key >= out_key:
+            out, out_key = cand, key
     return out
+
+
+def lead(best: dict, noun: str, d: int = 3) -> str:
+    return (f"From v0 {fmt(best['baseline'], d)} to {fmt(best['score'], d)} ({signed(best['delta'], d)}) "
+            f"on {best['n']} unseen {noun}.")
 
 
 def fmt(x: float | None, d: int = 3) -> str:
@@ -137,7 +159,8 @@ def hall_layer(procs: str) -> dict[str, Any]:
     spec = dict(cr.CASE_STUDIES[0])
     runs = []
     for d, log in [(ROOT / "reports" / "datahall_live_1", ROOT / "reports" / "datahall_live_1" / "run.log")] + [
-            (p, ROOT / "runs" / f"{p.name}.log") for p in sorted((ROOT / "runs").glob("datahall-live-2*")) if p.is_dir()]:
+            (p, ROOT / "runs" / f"{p.name}.log") for p in sorted((ROOT / "runs").glob("datahall-live-*"))
+            if p.is_dir() and p.name != "datahall-live-1"]:
         r = collect_run(dict(spec, id=d.name), d, log, procs)
         if r:
             r["id"] = "datahall-live-1" if d.name == "datahall_live_1" else r["id"]
@@ -149,58 +172,110 @@ def hall_layer(procs: str) -> dict[str, Any]:
                  "halls": g["halls"], "cost_usd": g["cost_usd"]}
                 for g in ms.get("groups", []) if g["cost_usd"] > 0 and g["attempts"] > 0]
     best = best_of(runs)
-    done = [r for r in runs if r["status"] == "done"]
-    halls = sum(r["n_heldout"] or 0 for r in done)
     summary = "No finished live run yet."
     if best:
-        summary = (f"On {halls} held-out halls across {len(done)} finished runs, the team's best layouts score "
-                   f"{signed(best['delta'] * 100, 2)} points vs greedy.")
-    top = max(settings, key=lambda s: s["gain_pts"], default=None)
-    off = [s for s in settings if "reasoning off" in s["label"]]
-    if top and top["gain_pts"] > 0:
-        summary += (f" With {top['label']}, it beat greedy by {top['gain_pts']:.2f} points on {top['halls']} train halls"
-                    + ("; with reasoning off no layout was feasible." if off and not any(s["feasible"] for s in off)
-                       else "."))
+        summary = lead(best, "halls")
+    settings = []  # the model-settings sweep is scored against greedy, a no-LLM reference: not shown on this tab
     return {"id": "hall", "name": "Hall layout", "problem": "Place racks, CDUs and power in a data hall (DoneTwin).",
             "verified": spec["verifier"], "score_label": "DoneTwin score / 100", "digits": 3,
-            "baseline": {"name": "greedy layout (no LLM)", "score": best["baseline"] if best else (
-                runs[0]["baseline"]["score"] if runs else None)},
+            "baseline": {"name": "v0 cold", "score": best["baseline"] if best else None},
+            "note": "v0 starts from the greedy layout, so v0 cold equals greedy here.",
             "best": best, "status": layer_status(runs), "summary": summary + progress_note(runs),
             "runs": runs, "settings": settings}
+
+
+def qaplib_rows(run_id: str) -> dict[str, dict]:
+    rows = cr.read_json(ROOT / "runs" / run_id / "reports" / "qaplib_rows.json") or []
+    out: dict[str, dict] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if isinstance(row, dict) and row.get("version") is not None:
+            out.setdefault(run_kind(row.get("config")), row)
+    return out
+
+
+def qaplib_sota(runs: list[dict]) -> dict | None:
+    """QAPLIB best-known solutions are the published SOTA: report the finished run whose final is closest to them."""
+    best = None
+    for r in runs:
+        rows = qaplib_rows(r["id"])
+        fin, cold = rows.get("final") or rows.get("brain"), rows.get("cold")
+        if not fin or not cold or fin.get("mean_gap_pct") is None or cold.get("mean_gap_pct") is None:
+            continue
+        if best is None or fin["mean_gap_pct"] <= best["final_gap"]:
+            best = {"run": r["id"], "n": fin.get("n"), "final_gap": fin["mean_gap_pct"], "v0_gap": cold["mean_gap_pct"]}
+    if best:
+        best["headline"] = (f"{best['final_gap']:.1f}% from best-known solutions (SOTA) on {best['n']} unseen instances "
+                            f"({best['run']} final).")
+        best["secondary"] = f"v0 cold: {best['v0_gap']:.1f}% from best-known."
+    return best
+
+
+def invalid_note(best: dict) -> str | None:
+    """A v0 cold row with invalid placements (scored 0) drags its mean down; say so next to the delta."""
+    cold = qaplib_rows(best["run"]).get("cold") or {}
+    k, n = cold.get("invalid") or 0, cold.get("n") or 0
+    if not k or n <= k or best.get("baseline") is None:
+        return None
+    rest = best["baseline"] * n / (n - k)
+    return (f"v0 cold produced an invalid placement on {k} of {n} instances (scored 0). On the other {n - k}, v0 averages "
+            f"{rest:.3f}; final is {best['score']:.3f} over all {n} ({signed(best['score'] - rest)}).")
 
 
 def placement_layer(procs: str) -> dict[str, Any]:
     spec = dict(cr.CASE_STUDIES[2])
     dirs = [p for p in sorted((ROOT / "runs").glob("qaplib-evolve-*")) if p.is_dir() and p.name != "qaplib-evolve-1"]
+    dirs += [p for p in sorted((ROOT / "runs").glob("qaplib-research-*")) if p.is_dir()]
     dirs += [p for p in sorted((ROOT / "runs").glob("qaplib-dc-*")) if p.is_dir()]
     runs = [r for p in dirs if (r := collect_run(dict(spec, id=p.name), p, ROOT / "runs" / f"{p.name}.log", procs))]
     for r in runs:
         r["family"] = "GPU rack placement" if r["id"].startswith("qaplib-dc") else "QAPLIB"
     best = best_of(runs)
     summary = "No finished live run yet."
-    done = [r for r in runs if r["status"] == "done"]
-    if done:
-        r = done[-1]
-        k = {b["kind"]: b["score"] for b in r["heldout"]}
-        summary = (f"On {r['n_heldout']} held-out QAPLIB instances, 2-swap scores {fmt(k.get('baseline'))}. "
-                   f"The team went from {fmt(k.get('cold'))} cold to {fmt(k.get('brain'))} with the shared brain, "
-                   f"still {abs(best['delta']) * 100:.1f} points below 2-swap." if best and best["delta"] < 0 else
-                   f"On {r['n_heldout']} held-out instances the best team score is {fmt(best and best['score'])} "
-                   f"vs 2-swap {fmt(k.get('baseline'))}.")
+    if best:
+        summary = lead(best, "rack placements" if best["family"] == "GPU rack placement" else "QAPLIB instances")
+    sota = qaplib_sota([r for r in runs if r["family"] == "QAPLIB" and r["status"] == "done"])
+    if sota:
+        summary += f" QAPLIB: {sota['headline'][:-1]}; {sota['secondary']}"
+    notes = [n for n in [best and invalid_note(best)] if n]
     return {"id": "placement", "name": "Equipment placement",
             "problem": "Quadratic assignment: put equipment in slots to cut flow x distance.",
             "verified": spec["verifier"], "score_label": "best-known / cost", "digits": 3,
-            "baseline": {"name": "2-swap local search (no LLM)",
-                         "score": best["baseline"] if best else (runs[0]["baseline"]["score"] if runs else None)},
+            "baseline": {"name": "v0 cold", "score": best["baseline"] if best else None},
+            "sota": sota, "caveats": notes,
             "best": best, "status": layer_status(runs), "summary": summary + progress_note(runs), "runs": runs}
 
 
 def kernel_layer() -> dict[str, Any]:
     return {"id": "kernels", "name": "GPU kernels", "problem": "KernelBench mini: write faster CUDA kernels.",
-            "verified": cr.CASE_STUDIES[4]["verifier"], "score_label": "speedup vs PyTorch eager", "digits": 2,
-            "baseline": {"name": "PyTorch eager", "score": 1.0}, "best": None, "status": "not run",
+            "verified": cr.CASE_STUDIES[4]["verifier"], "score_label": "kernel speedup", "digits": 2,
+            "baseline": {"name": "v0 cold", "score": None}, "best": None, "status": "not run",
             "summary": "Not run: our Crusoe project has zero GPU quota, so there is no live result to show.",
             "runs": []}
+
+
+def inference_caveats(points: list[dict], base: dict, top: dict) -> list[str]:
+    """Small print for the inference card: a one-question accuracy change is noise, and the latency trade."""
+    out = []
+    q = base.get("questions")
+    if base.get("correct") is not None and top.get("correct") is not None and q:
+        gap = top["correct"] - base["correct"]
+        if abs(gap) <= 1:
+            out.append(f"{base['correct']}/{q} to {top['correct']}/{q} is {'one question' if gap else 'no change'}, "
+                       "so no accuracy gain is claimed.")
+    data = cr.read_json(ROOT / "runs" / top["run"] / "reports" / "heldout_cost_latency.json") or {}
+    rows = {r.get("config"): r for r in data.get("rows", [])}
+    a, b = rows.get(base["label"]) or {}, rows.get(top["label"]) or {}
+
+    def moved(x: float | None, y: float | None, unit: str, d: int) -> str | None:
+        if not x or y is None:
+            return None
+        word = "doubled" if y / x >= 1.8 else "halved" if y / x <= 0.55 else "went"
+        return f"{word} ({x:.{d}f} {unit} to {y:.{d}f} {unit})"
+    lat = moved(a.get("p50_call_latency_s"), b.get("p50_call_latency_s"), "s", 1)
+    wall = moved(a.get("p50_task_wall_s"), b.get("p50_task_wall_s"), "s", 0)
+    if lat and wall:
+        out.append(f"Median call latency {lat}; time per hall {wall}.")
+    return out
 
 
 def inference_layer(procs: str) -> dict[str, Any]:
@@ -222,7 +297,7 @@ def inference_layer(procs: str) -> dict[str, Any]:
                            "cost_per_correct_usd": row["cost_per_correct_usd"], "correct": row.get("correct"),
                            "questions": row.get("questions"), "baseline": "cold" in row["config"]})
     base = next((pt for pt in points if pt["baseline"]), None)
-    best = None
+    best, caveats = None, []
     summary = ("Running: no held-out result yet." if runs else "No live run yet.") + progress_note(runs)
     if base:
         final = [pt for pt in points if not pt["baseline"] and pt["accuracy"] >= base["accuracy"] - 0.02]
@@ -232,14 +307,16 @@ def inference_layer(procs: str) -> dict[str, Any]:
             best = {"run": top["run"], "label": top["label"], "score": top["cost_per_correct_usd"],
                     "baseline": base["cost_per_correct_usd"], "delta": round(ratio - 1, 4),
                     "accuracy": top["accuracy"], "baseline_accuracy": base["accuracy"]}
-            summary = (f"Held-out cost per correct answer went from ${base['cost_per_correct_usd']:.6f} to "
-                       f"${top['cost_per_correct_usd']:.6f} ({ratio:.0%} of v0) at accuracy "
-                       f"{base['accuracy']:.3f} (v0) and {top['accuracy']:.3f} (best).")
+            summary = (f"From v0 ${base['cost_per_correct_usd']:.6f} to ${top['cost_per_correct_usd']:.6f} per correct "
+                       f"answer, {1 - ratio:.0%} less, on {base.get('questions') or '?'} unseen questions. "
+                       "v0 is the expensive starting setup.")
+            caveats = inference_caveats(points, base, top)
     return {"id": "inference", "name": "Inference cost",
             "problem": "Answer exact data-center ops questions on Crusoe for the least $ per correct answer.",
             "verified": spec["verifier"], "score_label": "$ per correct answer (lower is better)", "digits": 6,
-            "baseline": {"name": "v0: Super, reasoning on, 4000 tokens, 1 question per call",
+            "baseline": {"name": "v0 cold: Super, reasoning on, 4000 tokens, 1 question per call",
                          "score": base["cost_per_correct_usd"] if base else None},
+            "caveats": caveats,
             "best": best, "status": layer_status(runs), "summary": summary, "runs": runs, "scatter": points}
 
 
@@ -261,6 +338,9 @@ RUNNING_WINDOW_S = 180
 def short_model(name: str | None) -> str | None:
     if not name:
         return None
+    for key in ("Nano", "Super", "Lightning", "Ultra"):
+        if key.lower() in name.lower():
+            return key
     return re.sub(r"^(nvidia/)?(NVIDIA-)?", "", name.strip())
 
 
@@ -268,10 +348,10 @@ def log_models(text: str) -> tuple[str | None, str | None]:
     m = re.search(r"(?:solver|worker) calls \(([^)]+)\).*?reviewer calls \(([^)]+)\)", text)
     if m:
         return short_model(m.group(1)), short_model(m.group(2))
-    solver = re.search(r"^v0: (\w+) for every type", text, re.M)
-    reviewer = re.search(r"reviewer (NVIDIA-[\w.-]+|nvidia/[\w.-]+)", text)
-    return (f"{solver.group(1)} (per question type)" if solver else None,
-            short_model(reviewer.group(1)) if reviewer else None)
+    solver = re.search(r"^v0: (\w+) for every type", text, re.M) or re.search(r"--solver-model[= ](\S+)", text)
+    reviewer = (re.search(r"reviewer (NVIDIA-[\w.-]+|nvidia/[\w.-]+)", text)
+                or re.search(r"--reviewer-model[= ](\S+)", text))
+    return (short_model(solver.group(1)) if solver else None, short_model(reviewer.group(1)) if reviewer else None)
 
 
 def dev_baseline(layer: str, benchmark: str, text: str) -> tuple[float | None, str | None]:
@@ -362,15 +442,16 @@ def heldout_summary(layer: str, run: dict | None, run_dir: Path) -> dict | None:
         rest = [r for r in rows if r is not base and r.get("cost_per_correct_usd")]
         top = min(rest, key=lambda r: r["cost_per_correct_usd"], default=None)
         if base and top:
-            return {"metric": "$ per correct", "best": top["cost_per_correct_usd"], "baseline": base["cost_per_correct_usd"],
+            return {"metric": "$ per correct", "final": top["cost_per_correct_usd"], "v0": base["cost_per_correct_usd"],
                     "delta": round(top["cost_per_correct_usd"] - base["cost_per_correct_usd"], 6),
-                    "best_label": top["config"], "baseline_label": base["config"], "lower_is_better": True}
+                    "final_label": top["config"], "lower_is_better": True}
         return None
-    best = best_of([run])
-    if not best:
+    g = run.get("vs_v0") or {}
+    if g.get("delta") is None:
         return None
-    return {"metric": "held-out mean", "best": best["score"], "baseline": best["baseline"], "delta": best["delta"],
-            "best_label": best["label"], "baseline_label": run["baseline"]["name"], "lower_is_better": False}
+    return {"metric": "held-out mean", "final": g["final"], "v0": g["v0"], "delta": g["delta"],
+            "final_label": g["final_label"], "lower_is_better": False,
+            "v0_invalid": (qaplib_rows(run["id"]).get("cold") or {}).get("invalid") or 0}
 
 
 def index_runs(procs: str) -> list[dict[str, Any]]:
@@ -401,11 +482,11 @@ def index_runs(procs: str) -> list[dict[str, Any]]:
         research = re.search(r"^Research: .*\((on|off)\)", text, re.M)
         start = started_at(log, d)
         end = log.stat().st_mtime if log.exists() and status != "running" else None
-        base_dev, base_dev_label = dev_baseline(layer, benchmark, text)
         held = heldout_summary(layer, run, d)
         heldout_points = [{"kind": b["kind"], "label": b["label"], "score": b["score"]} for b in (run or {}).get("heldout", [])]
-        if base_dev is None and run and run["baseline"]["score"] is not None:
-            base_dev, base_dev_label = run["baseline"]["score"], f"{run['baseline']['name']}, held-out"
+        # The dashed baseline is v0 itself: its dev score at generation 0, as the gate measured it.
+        base_dev = next((c["parent_score"] for c in cands if c["parent_score"] is not None), None)
+        base_dev_label = "v0 at gen 0, dev" if base_dev is not None else None
         out.append({
             "name": d.name, "layer": layer, "layer_name": LAYER_NAMES[layer], "benchmark": benchmark,
             "status": status, "started": iso(start), "ended": iso(end), "start_ts": start,
@@ -436,16 +517,16 @@ def write_runs_md(runs: list[dict], path: Path, generated: str) -> None:
             lines += ["No live run.", ""]
             continue
         lines += ["| Run | Benchmark | Status | Start | End | Solver | Reviewer | Research | Gens | Scored | Accepted "
-                  "| Held-out best | Baseline | Delta | Cost (USD) | Calls |",
+                  "| v0 cold | Final | Δ vs v0 | Cost (USD) | Calls |",
                   "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for r in rows:
             h = r["heldout"] or {}
             d = 6 if layer == "inference" else 3
-            delta = "n/a" if not h else f"{h['delta']:+.{d}f}"
+            delta = "n/a" if h.get("delta") is None else f"{h['delta']:+.{d}f}"
             lines.append("| " + " | ".join(cr.cell(x) for x in [
                 r["name"], r["benchmark"], r["status"], r["started"] or "n/a", r["ended"] or "n/a",
                 r["solver"] or "n/a", r["reviewer"] or "n/a", "on" if r["research"] else "off", r["generations"],
-                r["candidates"], r["accepted"], md_num(h.get("best"), d), md_num(h.get("baseline"), d), delta,
+                r["candidates"], r["accepted"], md_num(h.get("v0"), d), md_num(h.get("final"), d), delta,
                 md_num(r["cost_usd"], 4), r["calls"] if r["calls"] is not None else "n/a"]) + " |")
         lines.append("")
     path.parent.mkdir(parents=True, exist_ok=True)

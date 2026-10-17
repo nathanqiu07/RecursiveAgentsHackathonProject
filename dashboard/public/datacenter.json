@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-17 16:05:39 PDT",
+ "generated_at": "2026-10-17 16:30:45 PDT",
  "command": ".venv/bin/python scripts/build_datacenter_view.py",
  "pitch": "Every layer of an AI data center as a verifiable optimization problem.",
  "layers": [
@@ -11,37 +11,38 @@
    "score_label": "DoneTwin score / 100",
    "digits": 3,
    "baseline": {
-    "name": "greedy layout (no LLM)",
-    "score": 0.71
+    "name": "v0 cold",
+    "score": 0.6879
    },
+   "note": "v0 starts from the greedy layout, so v0 cold equals greedy here.",
    "best": {
-    "run": "datahall-live-1",
-    "label": "v0 + empty brain (cold)",
-    "score": 0.71,
-    "baseline": 0.71,
-    "delta": 0.0
+    "run": "datahall-live-3",
+    "label": "final (v0: no change passed the gate)",
+    "score": 0.6879,
+    "baseline": 0.6879,
+    "delta": 0.0,
+    "n": 6,
+    "family": null,
+    "v0_invalid": 0
    },
    "status": "done",
-   "summary": "On 27 held-out halls across 3 finished runs, the team's best layouts score +0.00 points vs greedy. With Nano 30B, reasoning on, max 32k tokens, it beat greedy by 2.66 points on 4 train halls; with reasoning off no layout was feasible.",
+   "summary": "From v0 0.688 to 0.688 (+0.000) on 6 unseen halls. datahall-live-4 is running: 0 candidate changes scored on dev so far, 0 accepted.",
    "runs": [
     {
      "id": "datahall-live-1",
      "status": "done",
      "status_detail": "final report and live usage written",
      "baseline": {
-      "name": "greedy baseline (no LLM)",
-      "score": 0.71,
-      "source": "final held-out table"
+      "name": "v0 cold",
+      "score": 0.71
+     },
+     "vs_v0": {
+      "v0": 0.71,
+      "final": 0.71,
+      "final_label": "final (v0: no change passed the gate)",
+      "delta": 0.0
      },
      "heldout": [
-      {
-       "label": "greedy baseline (no LLM)",
-       "kind": "baseline",
-       "score": 0.71,
-       "pass_rate": 1.0,
-       "n": 15,
-       "cost_usd": 0.0
-      },
       {
        "label": "v0 + empty brain (cold)",
        "kind": "cold",
@@ -149,19 +150,16 @@
      "status": "done",
      "status_detail": "final report and live usage written",
      "baseline": {
-      "name": "greedy baseline (no LLM)",
-      "score": 0.688,
-      "source": "final held-out table"
+      "name": "v0 cold",
+      "score": 0.6879
+     },
+     "vs_v0": {
+      "v0": 0.6879,
+      "final": 0.6879,
+      "final_label": "final (v0: no change passed the gate)",
+      "delta": 0.0
      },
      "heldout": [
-      {
-       "label": "greedy baseline (no LLM)",
-       "kind": "baseline",
-       "score": 0.688,
-       "pass_rate": 1.0,
-       "n": 6,
-       "cost_usd": 0.0
-      },
       {
        "label": "v0 + empty brain (cold)",
        "kind": "cold",
@@ -229,19 +227,16 @@
      "status": "done",
      "status_detail": "final report and live usage written",
      "baseline": {
-      "name": "greedy baseline (no LLM)",
-      "score": 0.688,
-      "source": "final held-out table"
+      "name": "v0 cold",
+      "score": 0.6879
+     },
+     "vs_v0": {
+      "v0": 0.6879,
+      "final": 0.6879,
+      "final_label": "final (v0: no change passed the gate)",
+      "delta": 0.0
      },
      "heldout": [
-      {
-       "label": "greedy baseline (no LLM)",
-       "kind": "baseline",
-       "score": 0.688,
-       "pass_rate": 1.0,
-       "n": 6,
-       "cost_usd": 0.0
-      },
       {
        "label": "v0 + empty brain (cold)",
        "kind": "cold",
@@ -303,134 +298,157 @@
      "calls": 109,
      "last_update": "15:49 PDT",
      "n_heldout": 6
+    },
+    {
+     "id": "datahall-live-3",
+     "status": "done",
+     "status_detail": "final report and live usage written",
+     "baseline": {
+      "name": "v0 cold",
+      "score": 0.6879
+     },
+     "vs_v0": {
+      "v0": 0.6879,
+      "final": 0.6879,
+      "final_label": "final (v0: no change passed the gate)",
+      "delta": 0.0
+     },
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.007542
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.005832
+      },
+      {
+       "label": "final (v0: no change passed the gate)",
+       "kind": "final",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.005832
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.6916
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost +4% misses the -15% cut",
+       "change": "Layout step: Reassign each rack to the nearest CDU with remaining capacity, usin..."
+      },
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost -3% misses the -15% cut",
+       "change": "models.Layout = {\"nvidia/NVIDIA-Nemotron-3-Super-120B-A12B\": [0.3, 2.4]}"
+      },
+      {
+       "gen": 0,
+       "score": 0.6925,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.001 < 0.02; cost +167% misses the -15% cut",
+       "change": "capacity_calc = {\"enabled\": true}"
+      }
+     ],
+     "cost_usd": 0.038516,
+     "calls": 129,
+     "last_update": "16:04 PDT",
+     "n_heldout": 6
+    },
+    {
+     "id": "datahall-live-4",
+     "status": "running",
+     "status_detail": "1 candidate scored on dev, generation 0; started 16:25 PDT, last write 16:29 PDT",
+     "baseline": {
+      "name": "v0 cold",
+      "score": null
+     },
+     "vs_v0": {
+      "v0": null,
+      "final": null,
+      "final_label": null,
+      "delta": null
+     },
+     "heldout": [],
+     "dev": [],
+     "candidates": [],
+     "cost_usd": null,
+     "calls": null,
+     "last_update": "16:29 PDT",
+     "n_heldout": null
     }
    ],
-   "settings": [
-    {
-     "label": "Nano 30B, reasoning off, max 6k tokens",
-     "tag": "main",
-     "variant": "A",
-     "gain_pts": 0.0,
-     "score": 0.6949,
-     "greedy": 0.6949,
-     "feasible": 0,
-     "attempts": 12,
-     "halls": 4,
-     "cost_usd": 0.005607
-    },
-    {
-     "label": "Nano 30B, reasoning on, max 16k tokens",
-     "tag": "main",
-     "variant": "B",
-     "gain_pts": 1.345,
-     "score": 0.7084,
-     "greedy": 0.6949,
-     "feasible": 1,
-     "attempts": 12,
-     "halls": 4,
-     "cost_usd": 0.039392
-    },
-    {
-     "label": "Nano 30B, reasoning on, max 16k tokens",
-     "tag": "rep",
-     "variant": "B",
-     "gain_pts": 0.0,
-     "score": 0.6949,
-     "greedy": 0.6949,
-     "feasible": 0,
-     "attempts": 12,
-     "halls": 4,
-     "cost_usd": 0.040405
-    },
-    {
-     "label": "Nano 30B, reasoning on, max 32k tokens",
-     "tag": "rep",
-     "variant": "B32",
-     "gain_pts": 2.663,
-     "score": 0.7216,
-     "greedy": 0.6949,
-     "feasible": 3,
-     "attempts": 12,
-     "halls": 4,
-     "cost_usd": 0.071866
-    },
-    {
-     "label": "Super 120B, reasoning off, max 6k tokens",
-     "tag": "main",
-     "variant": "C",
-     "gain_pts": 0.0,
-     "score": 0.6949,
-     "greedy": 0.6949,
-     "feasible": 0,
-     "attempts": 12,
-     "halls": 4,
-     "cost_usd": 0.045938
-    },
-    {
-     "label": "Super 120B, reasoning on, max 16k tokens",
-     "tag": "main",
-     "variant": "D",
-     "gain_pts": 0.0,
-     "score": 0.6981,
-     "greedy": 0.6981,
-     "feasible": 0,
-     "attempts": 1,
-     "halls": 1,
-     "cost_usd": 0.039054
-    },
-    {
-     "label": "Nano 30B, reasoning off, max 6k tokens, small-edit playbook",
-     "tag": "pb",
-     "variant": "G",
-     "gain_pts": 0.0,
-     "score": 0.6949,
-     "greedy": 0.6949,
-     "feasible": 0,
-     "attempts": 12,
-     "halls": 4,
-     "cost_usd": 0.004759
-    }
-   ]
+   "settings": []
   },
   {
    "id": "placement",
    "name": "Equipment placement",
    "problem": "Quadratic assignment: put equipment in slots to cut flow x distance.",
-   "verified": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
+   "verified": "DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible",
    "score_label": "best-known / cost",
    "digits": 3,
    "baseline": {
-    "name": "2-swap local search (no LLM)",
-    "score": 0.9954
+    "name": "v0 cold",
+    "score": 0.5973
    },
+   "sota": {
+    "run": "qaplib-research-1",
+    "n": 6,
+    "final_gap": 3.629,
+    "v0_gap": 4.332,
+    "headline": "3.6% from best-known solutions (SOTA) on 6 unseen instances (qaplib-research-1 final).",
+    "secondary": "v0 cold: 4.3% from best-known."
+   },
+   "caveats": [],
    "best": {
-    "run": "qaplib-evolve-3",
-    "label": "v0 + final brain",
-    "score": 0.93,
-    "baseline": 0.9954,
-    "delta": -0.0654
+    "run": "qaplib-dc-research-2",
+    "label": "v3 + final brain",
+    "score": 0.8452,
+    "baseline": 0.5973,
+    "delta": 0.2479,
+    "n": 6,
+    "family": "GPU rack placement",
+    "v0_invalid": 0
    },
    "status": "done",
-   "summary": "On 6 held-out QAPLIB instances, 2-swap scores 0.967. The team went from 0.477 cold to 0.713 with the shared brain, still 6.5 points below 2-swap. qaplib-dc-research-2 is running: 0 candidate changes scored on dev so far, 0 accepted.",
+   "summary": "From v0 0.597 to 0.845 (+0.248) on 6 unseen rack placements. QAPLIB: 3.6% from best-known solutions (SOTA) on 6 unseen instances (qaplib-research-1 final); v0 cold: 4.3% from best-known. qaplib-dc-research-3 is running: 3 candidate changes scored on dev so far, 1 accepted.",
    "runs": [
     {
      "id": "qaplib-evolve-3",
      "status": "done",
      "status_detail": "final report and live usage written",
      "baseline": {
-      "name": "2-swap baseline (no LLM, 10 s restarts)",
-      "score": 0.9954,
-      "source": "final held-out table"
+      "name": "v0 cold",
+      "score": 0.8529
+     },
+     "vs_v0": {
+      "v0": 0.8529,
+      "final": 0.93,
+      "final_label": "final (v0: no change passed the gate)",
+      "delta": 0.0771
      },
      "heldout": [
-      {
-       "label": "2-swap baseline (no LLM, 10 s restarts)",
-       "kind": "baseline",
-       "score": 0.9954,
-       "pass_rate": 0.8333,
-       "n": 6,
-       "cost_usd": 0.0
-      },
       {
        "label": "v0 + empty brain (cold)",
        "kind": "cold",
@@ -474,23 +492,216 @@
      "family": "QAPLIB"
     },
     {
+     "id": "qaplib-research-1",
+     "status": "done",
+     "status_detail": "final report and live usage written",
+     "baseline": {
+      "name": "v0 cold",
+      "score": 0.9593
+     },
+     "vs_v0": {
+      "v0": 0.9593,
+      "final": 0.9662,
+      "final_label": "v2 + final brain",
+      "delta": 0.0069
+     },
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.9593,
+       "pass_rate": 0.3333,
+       "n": 6,
+       "cost_usd": 0.002109
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.8738,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.002083
+      },
+      {
+       "label": "v2 + final brain",
+       "kind": "final",
+       "score": 0.9662,
+       "pass_rate": 0.3333,
+       "n": 6,
+       "cost_usd": 0.003329
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.8868
+      },
+      {
+       "gen": 1,
+       "score": 0.9122
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.8048,
+       "parent_score": 0.8868,
+       "accepted": false,
+       "reason": "gain -0.082 < 0.003",
+       "change": "models.solver = \"nvidia/NVIDIA-Nemotron-3-Super-120B-A12B\""
+      },
+      {
+       "gen": 0,
+       "score": 0.9596,
+       "parent_score": 0.8868,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "thinking.solver = true"
+      },
+      {
+       "gen": 1,
+       "score": 0.901,
+       "parent_score": 0.9122,
+       "accepted": false,
+       "reason": "gain -0.011 < 0.003",
+       "change": "max_tokens = 8000"
+      },
+      {
+       "gen": 1,
+       "score": 0.9487,
+       "parent_score": 0.9122,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "temperature = 0.2"
+      }
+     ],
+     "cost_usd": 0.016293,
+     "calls": 89,
+     "last_update": "16:03 PDT",
+     "n_heldout": 6,
+     "family": "QAPLIB"
+    },
+    {
+     "id": "qaplib-research-2",
+     "status": "done",
+     "status_detail": "final report and live usage written",
+     "baseline": {
+      "name": "v0 cold",
+      "score": 0.6741
+     },
+     "vs_v0": {
+      "v0": 0.6741,
+      "final": 0.7537,
+      "final_label": "v1 + final brain",
+      "delta": 0.0796
+     },
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.6741,
+       "pass_rate": 0.1667,
+       "n": 6,
+       "cost_usd": 0.001962
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.6825,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.002566
+      },
+      {
+       "label": "v1 + final brain",
+       "kind": "final",
+       "score": 0.7537,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.002807
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.9211
+      },
+      {
+       "gen": 1,
+       "score": 0.8992
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.9492,
+       "parent_score": 0.9211,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "solver step: Add a verification step that checks the permutation satisfies the Q..."
+      },
+      {
+       "gen": 0,
+       "score": 0.8233,
+       "parent_score": 0.9211,
+       "accepted": false,
+       "reason": "gain -0.098 < 0.003",
+       "change": "max_tokens = 8000"
+      },
+      {
+       "gen": 0,
+       "score": 0.5015,
+       "parent_score": 0.9211,
+       "accepted": false,
+       "reason": "gain -0.420 < 0.003",
+       "change": "temperature = 0.1"
+      },
+      {
+       "gen": 1,
+       "score": 0.8945,
+       "parent_score": 0.8992,
+       "accepted": false,
+       "reason": "gain -0.005 < 0.003",
+       "change": "solver step: Add a verification step that checks the permutation satisfies the Q..."
+      },
+      {
+       "gen": 1,
+       "score": 0.4311,
+       "parent_score": 0.8992,
+       "accepted": false,
+       "reason": "gain -0.468 < 0.003",
+       "change": "max_tokens = 4000"
+      },
+      {
+       "gen": 1,
+       "score": 0.8644,
+       "parent_score": 0.8992,
+       "accepted": false,
+       "reason": "gain -0.035 < 0.003",
+       "change": "temperature = 0.2"
+      }
+     ],
+     "cost_usd": 0.020776,
+     "calls": 102,
+     "last_update": "16:25 PDT",
+     "n_heldout": 6,
+     "family": "QAPLIB"
+    },
+    {
      "id": "qaplib-dc-1",
      "status": "done",
      "status_detail": "final report and live usage written",
      "baseline": {
-      "name": "2-swap baseline (no LLM, 10 s restarts)",
-      "score": 0.9666,
-      "source": "final held-out table"
+      "name": "v0 cold",
+      "score": 0.5042
+     },
+     "vs_v0": {
+      "v0": 0.5042,
+      "final": 0.6394,
+      "final_label": "v1 + final brain",
+      "delta": 0.1352
      },
      "heldout": [
-      {
-       "label": "2-swap baseline (no LLM, 10 s restarts)",
-       "kind": "baseline",
-       "score": 0.9666,
-       "pass_rate": 0.1667,
-       "n": 6,
-       "cost_usd": 0.0
-      },
       {
        "label": "v0 + empty brain (cold)",
        "kind": "cold",
@@ -579,19 +790,16 @@
      "status": "done",
      "status_detail": "final report and live usage written",
      "baseline": {
-      "name": "2-swap baseline (no LLM, 10 s restarts)",
-      "score": 0.9666,
-      "source": "final held-out table"
+      "name": "v0 cold",
+      "score": 0.4773
+     },
+     "vs_v0": {
+      "v0": 0.4773,
+      "final": 0.802,
+      "final_label": "v2 + final brain",
+      "delta": 0.3247
      },
      "heldout": [
-      {
-       "label": "2-swap baseline (no LLM, 10 s restarts)",
-       "kind": "baseline",
-       "score": 0.9666,
-       "pass_rate": 0.1667,
-       "n": 6,
-       "cost_usd": 0.0
-      },
       {
        "label": "v0 + empty brain (cold)",
        "kind": "cold",
@@ -669,19 +877,164 @@
     },
     {
      "id": "qaplib-dc-research-2",
-     "status": "running",
-     "status_detail": "3 candidates scored on dev, generation 0; started 16:04 PDT, last write 16:05 PDT",
+     "status": "done",
+     "status_detail": "final report and live usage written",
      "baseline": {
-      "name": "2-swap local search, 10 s restarts (no LLM)",
-      "score": 0.9887,
-      "source": "reports/qaplib_baseline.json, all held-out instances"
+      "name": "v0 cold",
+      "score": 0.5973
+     },
+     "vs_v0": {
+      "v0": 0.5973,
+      "final": 0.8452,
+      "final_label": "v3 + final brain",
+      "delta": 0.2479
+     },
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.5973,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.002053
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.6454,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.002704
+      },
+      {
+       "label": "v3 + final brain",
+       "kind": "final",
+       "score": 0.8452,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.006415
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.7129
+      },
+      {
+       "gen": 1,
+       "score": 0.8561
+      },
+      {
+       "gen": 2,
+       "score": 0.8561
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.8047,
+       "parent_score": 0.7129,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "thinking = {\"solver\": true}"
+      },
+      {
+       "gen": 1,
+       "score": 0.8506,
+       "parent_score": 0.8179,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "max_tokens = 4000"
+      },
+      {
+       "gen": 1,
+       "score": 0.4845,
+       "parent_score": 0.8561,
+       "accepted": false,
+       "reason": "gain -0.372 < 0.003",
+       "change": "temperature = 0.1"
+      },
+      {
+       "gen": 1,
+       "score": 0.8412,
+       "parent_score": 0.8561,
+       "accepted": false,
+       "reason": "gain -0.015 < 0.003",
+       "change": "attempts = 1"
+      },
+      {
+       "gen": 2,
+       "score": 0.9309,
+       "parent_score": 0.8561,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "max_tokens = 8000"
+      },
+      {
+       "gen": 2,
+       "score": 0.9004,
+       "parent_score": 0.8561,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "solver step: if runtime_error: abort after 0.9s and fallback to 2\u2011swap"
+      }
+     ],
+     "cost_usd": 0.047689,
+     "calls": 112,
+     "last_update": "16:25 PDT",
+     "n_heldout": 6,
+     "family": "GPU rack placement"
+    },
+    {
+     "id": "qaplib-dc-research-3",
+     "status": "running",
+     "status_detail": "4 candidates scored on dev, generation 0; started 16:26 PDT, last write 16:30 PDT",
+     "baseline": {
+      "name": "v0 cold",
+      "score": null
+     },
+     "vs_v0": {
+      "v0": null,
+      "final": null,
+      "final_label": null,
+      "delta": null
      },
      "heldout": [],
-     "dev": [],
-     "candidates": [],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.8039
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.6946,
+       "parent_score": 0.8039,
+       "accepted": false,
+       "reason": "gain -0.109 < 0.003",
+       "change": "solver step: Add a pre\u2011run sanity check that validates the permutation syntax an..."
+      },
+      {
+       "gen": 0,
+       "score": 0.3629,
+       "parent_score": 0.8039,
+       "accepted": false,
+       "reason": "gain -0.441 < 0.003",
+       "change": "solver step: Replace Simulated annealing with a hybrid Tabu\u2011Search + 2\u2011opt local..."
+      },
+      {
+       "gen": 0,
+       "score": 0.8453,
+       "parent_score": 0.8039,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "thinking = {\"solver\": true}"
+      }
+     ],
      "cost_usd": null,
      "calls": null,
-     "last_update": "16:05 PDT",
+     "last_update": "16:30 PDT",
      "n_heldout": null,
      "family": "GPU rack placement"
     }
@@ -691,12 +1044,12 @@
    "id": "kernels",
    "name": "GPU kernels",
    "problem": "KernelBench mini: write faster CUDA kernels.",
-   "verified": "compile, correctness on 5 signed input sets plus a held-back seed, CUDA-event timing; score = speedup over torch eager if correct (cap 10), else 0",
-   "score_label": "speedup vs PyTorch eager",
+   "verified": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
+   "score_label": "kernel speedup",
    "digits": 2,
    "baseline": {
-    "name": "PyTorch eager",
-    "score": 1.0
+    "name": "v0 cold",
+    "score": null
    },
    "best": null,
    "status": "not run",
@@ -707,36 +1060,111 @@
    "id": "inference",
    "name": "Inference cost",
    "problem": "Answer exact data-center ops questions on Crusoe for the least $ per correct answer.",
-   "verified": "exact numeric answers checked in code within a stated tolerance; score = accuracy, pass = accuracy >= 0.9; cost = Crusoe billed tokens x team.crusoe.PRICES (the run's goal is the same accuracy at lower cost; see reports/inference_opt_2/heldout_cost_latency.md)",
+   "verified": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
    "score_label": "$ per correct answer (lower is better)",
    "digits": 6,
    "baseline": {
-    "name": "v0: Super, reasoning on, 4000 tokens, 1 question per call",
-    "score": null
+    "name": "v0 cold: Super, reasoning on, 4000 tokens, 1 question per call",
+    "score": 0.00109203
    },
-   "best": null,
-   "status": "running",
-   "summary": "Running: no held-out result yet. inference-opt-2 is running: 0 candidate changes scored on dev so far, 0 accepted.",
+   "caveats": [
+    "47/48 to 48/48 is one question, so no accuracy gain is claimed.",
+    "Median call latency doubled (9.7 s to 19.0 s); time per hall halved (163 s to 77 s)."
+   ],
+   "best": {
+    "run": "inference-opt-2",
+    "label": "v1 + final brain (final)",
+    "score": 0.00075277,
+    "baseline": 0.00109203,
+    "delta": -0.3107,
+    "accuracy": 1.0,
+    "baseline_accuracy": 0.9792
+   },
+   "status": "done",
+   "summary": "From v0 $0.001092 to $0.000753 per correct answer, 31% less, on 48 unseen questions. v0 is the expensive starting setup.",
    "runs": [
     {
      "id": "inference-opt-2",
-     "status": "running",
-     "status_detail": "1 candidate scored on dev, generation 0; started 15:59 PDT, last write 16:04 PDT",
+     "status": "done",
+     "status_detail": "final report and live usage written",
      "baseline": {
-      "name": "v0: Super, reasoning on, one call per question",
-      "score": null,
-      "source": "1.0 by definition of the score"
+      "name": "v0 cold",
+      "score": 0.9792
      },
-     "heldout": [],
-     "dev": [],
-     "candidates": [],
-     "cost_usd": null,
-     "calls": null,
-     "last_update": "16:04 PDT",
-     "n_heldout": null
+     "vs_v0": {
+      "v0": 0.9792,
+      "final": 1.0,
+      "final_label": "v1 + final brain",
+      "delta": 0.0208
+     },
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.9792,
+       "pass_rate": 1.0,
+       "n": 4,
+       "cost_usd": 0.051325
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.9792,
+       "pass_rate": 1.0,
+       "n": 4,
+       "cost_usd": 0.055247
+      },
+      {
+       "label": "v1 + final brain",
+       "kind": "final",
+       "score": 1.0,
+       "pass_rate": 1.0,
+       "n": 4,
+       "cost_usd": 0.036133
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 1.0
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 1.0,
+       "parent_score": 1.0,
+       "accepted": true,
+       "reason": "cheaper at equal score: cost -32%",
+       "change": "batch_size = 3"
+      }
+     ],
+     "cost_usd": 0.26496,
+     "calls": 208,
+     "last_update": "16:14 PDT",
+     "n_heldout": 4
     }
    ],
-   "scatter": []
+   "scatter": [
+    {
+     "run": "inference-opt-2",
+     "label": "v0 (cold brain)",
+     "accuracy": 0.9792,
+     "cost_per_correct_usd": 0.00109203,
+     "correct": 47,
+     "questions": 48,
+     "baseline": true
+    },
+    {
+     "run": "inference-opt-2",
+     "label": "v1 + final brain (final)",
+     "accuracy": 1.0,
+     "cost_per_correct_usd": 0.00075277,
+     "correct": 48,
+     "questions": 48,
+     "baseline": false
+    }
+   ]
   }
  ],
  "runs_index": [
@@ -748,27 +1176,27 @@
    "status": "done",
    "started": "2026-10-17 14:30",
    "ended": "2026-10-17 14:53",
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "solver": "Nano",
+   "reviewer": "Super",
    "research": false,
    "generations": 3,
    "candidates": 7,
    "accepted": 0,
    "heldout": {
     "metric": "held-out mean",
-    "best": 0.71,
-    "baseline": 0.71,
+    "final": 0.71,
+    "v0": 0.71,
     "delta": 0.0,
-    "best_label": "v0 + empty brain (cold)",
-    "baseline_label": "greedy baseline (no LLM)",
-    "lower_is_better": false
+    "final_label": "final (v0: no change passed the gate)",
+    "lower_is_better": false,
+    "v0_invalid": 0
    },
    "cost_usd": 0.173016,
    "calls": 475,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.7028,
-    "baseline_label": "greedy layout, dev",
+    "baseline": 0.7034,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -972,11 +1400,6 @@
     ],
     "heldout": [
      {
-      "kind": "baseline",
-      "label": "greedy baseline (no LLM)",
-      "score": 0.71
-     },
-     {
       "kind": "cold",
       "label": "v0 + empty brain (cold)",
       "score": 0.71
@@ -1002,27 +1425,27 @@
    "status": "done",
    "started": "2026-10-17 15:23",
    "ended": "2026-10-17 15:32",
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "solver": "Nano",
+   "reviewer": "Super",
    "research": false,
    "generations": 1,
    "candidates": 3,
    "accepted": 0,
    "heldout": {
     "metric": "held-out mean",
-    "best": 0.6879,
-    "baseline": 0.688,
-    "delta": -0.0001,
-    "best_label": "v0 + empty brain (cold)",
-    "baseline_label": "greedy baseline (no LLM)",
-    "lower_is_better": false
+    "final": 0.6879,
+    "v0": 0.6879,
+    "delta": 0.0,
+    "final_label": "final (v0: no change passed the gate)",
+    "lower_is_better": false,
+    "v0_invalid": 0
    },
    "cost_usd": 0.04334,
    "calls": 128,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.6917,
-    "baseline_label": "greedy layout, dev",
+    "baseline": 0.6916,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -1112,11 +1535,6 @@
     ],
     "heldout": [
      {
-      "kind": "baseline",
-      "label": "greedy baseline (no LLM)",
-      "score": 0.688
-     },
-     {
       "kind": "cold",
       "label": "v0 + empty brain (cold)",
       "score": 0.6879
@@ -1142,27 +1560,27 @@
    "status": "done",
    "started": "2026-10-17 15:30",
    "ended": "2026-10-17 15:49",
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Nano-30B-A3B",
+   "solver": "Nano",
+   "reviewer": "Nano",
    "research": false,
    "generations": 1,
    "candidates": 3,
    "accepted": 0,
    "heldout": {
     "metric": "held-out mean",
-    "best": 0.6879,
-    "baseline": 0.688,
-    "delta": -0.0001,
-    "best_label": "v0 + empty brain (cold)",
-    "baseline_label": "greedy baseline (no LLM)",
-    "lower_is_better": false
+    "final": 0.6879,
+    "v0": 0.6879,
+    "delta": 0.0,
+    "final_label": "final (v0: no change passed the gate)",
+    "lower_is_better": false,
+    "v0_invalid": 0
    },
    "cost_usd": 0.079376,
    "calls": 109,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.6917,
-    "baseline_label": "greedy layout, dev",
+    "baseline": 0.6916,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -1252,11 +1670,6 @@
     ],
     "heldout": [
      {
-      "kind": "baseline",
-      "label": "greedy baseline (no LLM)",
-      "score": 0.688
-     },
-     {
       "kind": "cold",
       "label": "v0 + empty brain (cold)",
       "score": 0.6879
@@ -1282,27 +1695,27 @@
    "status": "done",
    "started": "2026-10-17 15:54",
    "ended": "2026-10-17 16:04",
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Nano-30B-A3B",
+   "solver": "Nano",
+   "reviewer": "Nano",
    "research": true,
    "generations": 1,
    "candidates": 3,
    "accepted": 0,
    "heldout": {
     "metric": "held-out mean",
-    "best": 0.6879,
-    "baseline": 0.688,
-    "delta": -0.0001,
-    "best_label": "v0 + empty brain (cold)",
-    "baseline_label": "greedy baseline (no LLM)",
-    "lower_is_better": false
+    "final": 0.6879,
+    "v0": 0.6879,
+    "delta": 0.0,
+    "final_label": "final (v0: no change passed the gate)",
+    "lower_is_better": false,
+    "v0_invalid": 0
    },
    "cost_usd": 0.038516,
    "calls": 129,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.6917,
-    "baseline_label": "greedy layout, dev",
+    "baseline": 0.6916,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -1404,11 +1817,6 @@
     ],
     "heldout": [
      {
-      "kind": "baseline",
-      "label": "greedy baseline (no LLM)",
-      "score": 0.688
-     },
-     {
       "kind": "cold",
       "label": "v0 + empty brain (cold)",
       "score": 0.6879
@@ -1427,6 +1835,32 @@
    }
   },
   {
+   "name": "datahall-live-4",
+   "layer": "hall",
+   "layer_name": "Hall layout",
+   "benchmark": "DoneTwin data hall",
+   "status": "running",
+   "started": "2026-10-17 16:25",
+   "ended": null,
+   "solver": "Nano",
+   "reviewer": "Nano",
+   "research": true,
+   "generations": 0,
+   "candidates": 0,
+   "accepted": 0,
+   "heldout": null,
+   "cost_usd": null,
+   "calls": null,
+   "climb": {
+    "metric": "dev score",
+    "baseline": null,
+    "baseline_label": null,
+    "candidates": [],
+    "generations": [],
+    "heldout": []
+   }
+  },
+  {
    "name": "qaplib-evolve-1",
    "layer": "placement",
    "layer_name": "Equipment placement",
@@ -1434,8 +1868,8 @@
    "status": "crashed",
    "started": "2026-10-17 14:56",
    "ended": "2026-10-17 15:04",
-   "solver": "Nemotron-3-Super-120B-A12B",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "solver": "Super",
+   "reviewer": "Super",
    "research": false,
    "generations": 1,
    "candidates": 1,
@@ -1445,8 +1879,8 @@
    "calls": null,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9924,
-    "baseline_label": "2-swap, dev",
+    "baseline": 0.9373,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -1493,8 +1927,8 @@
    "status": "crashed",
    "started": "2026-10-17 15:16",
    "ended": "2026-10-17 15:21",
-   "solver": "Nemotron-3-Super-120B-A12B",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "solver": "Super",
+   "reviewer": "Super",
    "research": false,
    "generations": 0,
    "candidates": 0,
@@ -1504,8 +1938,8 @@
    "calls": null,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9924,
-    "baseline_label": "2-swap, dev",
+    "baseline": null,
+    "baseline_label": null,
     "candidates": [],
     "generations": [],
     "heldout": []
@@ -1519,35 +1953,30 @@
    "status": "done",
    "started": "2026-10-17 15:25",
    "ended": "2026-10-17 15:31",
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Nano-30B-A3B",
+   "solver": "Nano",
+   "reviewer": "Nano",
    "research": false,
    "generations": 0,
    "candidates": 0,
    "accepted": 0,
    "heldout": {
     "metric": "held-out mean",
-    "best": 0.93,
-    "baseline": 0.9954,
-    "delta": -0.0654,
-    "best_label": "v0 + final brain",
-    "baseline_label": "2-swap baseline (no LLM, 10 s restarts)",
-    "lower_is_better": false
+    "final": 0.93,
+    "v0": 0.8529,
+    "delta": 0.0771,
+    "final_label": "final (v0: no change passed the gate)",
+    "lower_is_better": false,
+    "v0_invalid": 0
    },
    "cost_usd": 0.011061,
    "calls": 54,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9924,
-    "baseline_label": "2-swap, dev",
+    "baseline": null,
+    "baseline_label": null,
     "candidates": [],
     "generations": [],
     "heldout": [
-     {
-      "kind": "baseline",
-      "label": "2-swap baseline (no LLM, 10 s restarts)",
-      "score": 0.9954
-     },
      {
       "kind": "cold",
       "label": "v0 + empty brain (cold)",
@@ -1574,8 +2003,8 @@
    "status": "stopped",
    "started": "2026-10-17 15:31",
    "ended": "2026-10-17 15:38",
-   "solver": "Nemotron-3-Super-120B-A12B",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "solver": "Super",
+   "reviewer": "Super",
    "research": false,
    "generations": 0,
    "candidates": 0,
@@ -1585,8 +2014,8 @@
    "calls": null,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9924,
-    "baseline_label": "2-swap, dev",
+    "baseline": null,
+    "baseline_label": null,
     "candidates": [],
     "generations": [],
     "heldout": []
@@ -1597,11 +2026,11 @@
    "layer": "placement",
    "layer_name": "Equipment placement",
    "benchmark": "QAPLIB",
-   "status": "running",
+   "status": "stopped",
    "started": "2026-10-17 15:38",
-   "ended": null,
-   "solver": "Nemotron-3-Super-120B-A12B",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "ended": "2026-10-17 16:04",
+   "solver": "Super",
+   "reviewer": "Super",
    "research": false,
    "generations": 2,
    "candidates": 3,
@@ -1611,8 +2040,8 @@
    "calls": null,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9924,
-    "baseline_label": "2-swap, dev",
+    "baseline": 0.9864,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -1716,27 +2145,27 @@
    "status": "done",
    "started": "2026-10-17 15:41",
    "ended": "2026-10-17 15:51",
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Nano-30B-A3B",
+   "solver": "Nano",
+   "reviewer": "Nano",
    "research": false,
    "generations": 2,
    "candidates": 5,
    "accepted": 1,
    "heldout": {
     "metric": "held-out mean",
-    "best": 0.6394,
-    "baseline": 0.9666,
-    "delta": -0.3272,
-    "best_label": "v1 + final brain",
-    "baseline_label": "2-swap baseline (no LLM, 10 s restarts)",
-    "lower_is_better": false
+    "final": 0.6394,
+    "v0": 0.5042,
+    "delta": 0.1352,
+    "final_label": "v1 + final brain",
+    "lower_is_better": false,
+    "v0_invalid": 0
    },
    "cost_usd": 0.016814,
    "calls": 96,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9666,
-    "baseline_label": "2-swap baseline (no LLM, 10 s restarts), held-out",
+    "baseline": 0.8041,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -1883,11 +2312,6 @@
     ],
     "heldout": [
      {
-      "kind": "baseline",
-      "label": "2-swap baseline (no LLM, 10 s restarts)",
-      "score": 0.9666
-     },
-     {
       "kind": "cold",
       "label": "v0 + empty brain (cold)",
       "score": 0.5042
@@ -1913,27 +2337,27 @@
    "status": "done",
    "started": "2026-10-17 15:51",
    "ended": "2026-10-17 16:00",
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Nano-30B-A3B",
+   "solver": "Nano",
+   "reviewer": "Nano",
    "research": true,
    "generations": 2,
    "candidates": 4,
    "accepted": 2,
    "heldout": {
     "metric": "held-out mean",
-    "best": 0.9662,
-    "baseline": 0.9954,
-    "delta": -0.0292,
-    "best_label": "v2 + final brain",
-    "baseline_label": "2-swap baseline (no LLM, 10 s restarts)",
-    "lower_is_better": false
+    "final": 0.9662,
+    "v0": 0.9593,
+    "delta": 0.0069,
+    "final_label": "v2 + final brain",
+    "lower_is_better": false,
+    "v0_invalid": 0
    },
    "cost_usd": 0.016293,
    "calls": 89,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9924,
-    "baseline_label": "2-swap, dev",
+    "baseline": 0.8868,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -2070,11 +2494,6 @@
     ],
     "heldout": [
      {
-      "kind": "baseline",
-      "label": "2-swap baseline (no LLM, 10 s restarts)",
-      "score": 0.9954
-     },
-     {
       "kind": "cold",
       "label": "v0 + empty brain (cold)",
       "score": 0.9593
@@ -2100,27 +2519,27 @@
    "status": "done",
    "started": "2026-10-17 15:51",
    "ended": "2026-10-17 16:00",
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Nano-30B-A3B",
+   "solver": "Nano",
+   "reviewer": "Nano",
    "research": true,
    "generations": 2,
    "candidates": 4,
    "accepted": 3,
    "heldout": {
     "metric": "held-out mean",
-    "best": 0.802,
-    "baseline": 0.9666,
-    "delta": -0.1646,
-    "best_label": "v2 + final brain",
-    "baseline_label": "2-swap baseline (no LLM, 10 s restarts)",
-    "lower_is_better": false
+    "final": 0.802,
+    "v0": 0.4773,
+    "delta": 0.3247,
+    "final_label": "v2 + final brain",
+    "lower_is_better": false,
+    "v0_invalid": 1
    },
    "cost_usd": 0.020835,
    "calls": 89,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9666,
-    "baseline_label": "2-swap baseline (no LLM, 10 s restarts), held-out",
+    "baseline": 0.5707,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -2257,11 +2676,6 @@
     ],
     "heldout": [
      {
-      "kind": "baseline",
-      "label": "2-swap baseline (no LLM, 10 s restarts)",
-      "score": 0.9666
-     },
-     {
       "kind": "cold",
       "label": "v0 + empty brain (cold)",
       "score": 0.4773
@@ -2284,25 +2698,246 @@
    "layer": "placement",
    "layer_name": "Equipment placement",
    "benchmark": "GPU rack placement",
-   "status": "running",
+   "status": "done",
    "started": "2026-10-17 16:04",
-   "ended": null,
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Nano-30B-A3B",
+   "ended": "2026-10-17 16:25",
+   "solver": "Nano",
+   "reviewer": "Nano",
    "research": true,
-   "generations": 0,
-   "candidates": 0,
-   "accepted": 0,
-   "heldout": null,
-   "cost_usd": null,
-   "calls": null,
+   "generations": 3,
+   "candidates": 6,
+   "accepted": 4,
+   "heldout": {
+    "metric": "held-out mean",
+    "final": 0.8452,
+    "v0": 0.5973,
+    "delta": 0.2479,
+    "final_label": "v3 + final brain",
+    "lower_is_better": false,
+    "v0_invalid": 0
+   },
+   "cost_usd": 0.047689,
+   "calls": 112,
    "climb": {
     "metric": "dev score",
-    "baseline": null,
-    "baseline_label": null,
-    "candidates": [],
-    "generations": [],
-    "heldout": []
+    "baseline": 0.7129,
+    "baseline_label": "v0 at gen 0, dev",
+    "candidates": [
+     {
+      "i": 0,
+      "gen": 0,
+      "id": "g0-c0",
+      "parent": 0,
+      "type": "config_set",
+      "target": "thinking",
+      "change": "thinking = {\"solver\": true}",
+      "rationale": "Enabling thinking for solver adds reasoning that can catch budget mis\u2011configurations early, improving dev score by ~1...",
+      "claim_gain": 0.015,
+      "claim_cost_pct": -18.0,
+      "score": 0.8047,
+      "parent_score": 0.7129,
+      "gain": 0.0918,
+      "cost": 0.00107613,
+      "parent_cost": 0.00038917,
+      "cost_pct": 176.52,
+      "n": 3,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "accepted, effect smaller than claimed",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 runtime dc medium 1381 runtime",
+      "sources": [
+       "https://arxiv.org/html/1009.4880v1",
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP%20MultiStart%20IEEE.pdf",
+       "https://www.researchgate.net/publication/224396129_Multistart_Tabu_Search_and_Diversification_Strategies_for_the_Quadratic_Assignment_Problem"
+      ],
+      "incumbent": 0.8047
+     },
+     {
+      "i": 1,
+      "gen": 1,
+      "id": "g1-c0",
+      "parent": 1,
+      "type": "config_set",
+      "target": "max_tokens",
+      "change": "max_tokens = 4000",
+      "rationale": "Reducing max_tokens from 6000 to 4000 cuts token cost and may improve speed, while still allowing enough tokens for f...",
+      "claim_gain": 0.015,
+      "claim_cost_pct": -0.25,
+      "score": 0.8506,
+      "parent_score": 0.8179,
+      "gain": 0.0327,
+      "cost": 0.0012159,
+      "parent_cost": 0.00128168,
+      "cost_pct": -5.13,
+      "n": 2,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc large 7825 gap",
+      "sources": [
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33",
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/224396129_Multistart_Tabu_Search_and_Diversification_Strategies_for_the_Quadratic_Assignment_Problem"
+      ],
+      "incumbent": 0.8506
+     },
+     {
+      "i": 2,
+      "gen": 1,
+      "id": "g1-c1",
+      "parent": 1,
+      "type": "config_set",
+      "target": "temperature",
+      "change": "temperature = 0.1",
+      "rationale": "Lower temperature reduces stochastic variation and may improve consistency of heuristic generation; modest dev gain e...",
+      "claim_gain": 0.012,
+      "claim_cost_pct": -0.15,
+      "score": 0.4845,
+      "parent_score": 0.8561,
+      "gain": -0.3716,
+      "cost": 0.001365,
+      "parent_cost": 0.00123872,
+      "cost_pct": 10.19,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.372 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc large 7825 gap",
+      "sources": [
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33",
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/224396129_Multistart_Tabu_Search_and_Diversification_Strategies_for_the_Quadratic_Assignment_Problem"
+      ],
+      "incumbent": 0.8506
+     },
+     {
+      "i": 3,
+      "gen": 1,
+      "id": "g1-c2",
+      "parent": 1,
+      "type": "config_set",
+      "target": "attempts",
+      "change": "attempts = 1",
+      "rationale": "Running only one attempt cuts cost per task by ~33% while keeping dev gain minimal as the best verified attempt is al...",
+      "claim_gain": 0.008,
+      "claim_cost_pct": -0.33,
+      "score": 0.8412,
+      "parent_score": 0.8561,
+      "gain": -0.015,
+      "cost": 0.00042023,
+      "parent_cost": 0.00123872,
+      "cost_pct": -66.08,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.015 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc large 7825 gap",
+      "sources": [
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33",
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/224396129_Multistart_Tabu_Search_and_Diversification_Strategies_for_the_Quadratic_Assignment_Problem"
+      ],
+      "incumbent": 0.8506
+     },
+     {
+      "i": 4,
+      "gen": 2,
+      "id": "g2-c0",
+      "parent": 2,
+      "type": "config_set",
+      "target": "max_tokens",
+      "change": "max_tokens = 8000",
+      "rationale": "Doubling max_tokens to 8000 allows full reasoning traces without truncation, improving solution quality by ~2.5% and...",
+      "claim_gain": 0.025,
+      "claim_cost_pct": -0.12,
+      "score": 0.9309,
+      "parent_score": 0.8561,
+      "gain": 0.0748,
+      "cost": 0.00124418,
+      "parent_cost": 0.00103793,
+      "cost_pct": 19.87,
+      "n": 3,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "accepted, effect smaller than claimed",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.9309
+     },
+     {
+      "i": 5,
+      "gen": 2,
+      "id": "g2-c1",
+      "parent": 2,
+      "type": "playbook_add",
+      "target": "solver",
+      "change": "solver step: if runtime_error: abort after 0.9s and fallback to 2\u2011swap",
+      "rationale": "Adds early abort logic for runtime errors to prevent wasting the full 10s budget on invalid programs; based on Tabu S...",
+      "claim_gain": 0.018,
+      "claim_cost_pct": -0.15,
+      "score": 0.9004,
+      "parent_score": 0.8561,
+      "gain": 0.0443,
+      "cost": 0.00115733,
+      "parent_cost": 0.00103793,
+      "cost_pct": 11.5,
+      "n": 3,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "accepted, effect smaller than claimed",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.9309
+     }
+    ],
+    "generations": [
+     {
+      "gen": 0,
+      "start": 0.7129,
+      "end": 0.8047
+     },
+     {
+      "gen": 1,
+      "start": 0.8179,
+      "end": 0.8506
+     },
+     {
+      "gen": 2,
+      "start": 0.8561,
+      "end": 0.9309
+     }
+    ],
+    "heldout": [
+     {
+      "kind": "cold",
+      "label": "v0 + empty brain (cold)",
+      "score": 0.5973
+     },
+     {
+      "kind": "brain",
+      "label": "v0 + final brain",
+      "score": 0.6454
+     },
+     {
+      "kind": "final",
+      "label": "v3 + final brain",
+      "score": 0.8452
+     }
+    ]
    }
   },
   {
@@ -2310,24 +2945,363 @@
    "layer": "placement",
    "layer_name": "Equipment placement",
    "benchmark": "QAPLIB",
-   "status": "running",
+   "status": "done",
    "started": "2026-10-17 16:04",
-   "ended": null,
-   "solver": "Nemotron-3-Nano-30B-A3B",
-   "reviewer": "Nemotron-3-Nano-30B-A3B",
+   "ended": "2026-10-17 16:19",
+   "solver": "Nano",
+   "reviewer": "Nano",
    "research": true,
-   "generations": 0,
-   "candidates": 0,
-   "accepted": 0,
+   "generations": 2,
+   "candidates": 6,
+   "accepted": 1,
+   "heldout": {
+    "metric": "held-out mean",
+    "final": 0.7537,
+    "v0": 0.6741,
+    "delta": 0.0796,
+    "final_label": "v1 + final brain",
+    "lower_is_better": false,
+    "v0_invalid": 1
+   },
+   "cost_usd": 0.020776,
+   "calls": 102,
+   "climb": {
+    "metric": "dev score",
+    "baseline": 0.9211,
+    "baseline_label": "v0 at gen 0, dev",
+    "candidates": [
+     {
+      "i": 0,
+      "gen": 0,
+      "id": "g0-c0",
+      "parent": 0,
+      "type": "playbook_add",
+      "target": "solver",
+      "change": "solver step: Add a verification step that checks the permutation satisfies the Q...",
+      "rationale": "Implementing a constraint check (as described in [2]) reduces failed runs and improves mean score by ~2% while keepin...",
+      "claim_gain": 0.02,
+      "claim_cost_pct": -0.1,
+      "score": 0.9492,
+      "parent_score": 0.9211,
+      "gain": 0.0282,
+      "cost": 0.00050747,
+      "parent_cost": 0.00034027,
+      "cost_pct": 49.14,
+      "n": 3,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "accepted, effect smaller than claimed",
+      "research_query": "quadratic assignment problem heuristic tabu search robust els19 gap 29 45 els19 gap 42 45",
+      "sources": [
+       "https://arxiv.org/html/1009.4880v1",
+       "https://www.sciencedirect.com/science/article/pii/0166218X94900140",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.9492
+     },
+     {
+      "i": 1,
+      "gen": 0,
+      "id": "g0-c1",
+      "parent": 0,
+      "type": "config_set",
+      "target": "max_tokens",
+      "change": "max_tokens = 8000",
+      "rationale": "Increasing max_tokens to 8000 (within the 256\u201132768 range) gives the model more space for reasoning and constraint ch...",
+      "claim_gain": 0.015,
+      "claim_cost_pct": -0.12,
+      "score": 0.8233,
+      "parent_score": 0.9211,
+      "gain": -0.0977,
+      "cost": 0.00037275,
+      "parent_cost": 0.00034027,
+      "cost_pct": 9.55,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.098 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem heuristic tabu search robust els19 gap 29 45 els19 gap 42 45",
+      "sources": [
+       "https://arxiv.org/html/1009.4880v1",
+       "https://www.sciencedirect.com/science/article/pii/0166218X94900140",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.9492
+     },
+     {
+      "i": 2,
+      "gen": 0,
+      "id": "g0-c2",
+      "parent": 0,
+      "type": "config_set",
+      "target": "temperature",
+      "change": "temperature = 0.1",
+      "rationale": "Lowering temperature to 0.1 makes outputs more deterministic, improving correctness on verification tasks ([1]) and r...",
+      "claim_gain": 0.018,
+      "claim_cost_pct": -0.08,
+      "score": 0.5015,
+      "parent_score": 0.9211,
+      "gain": -0.4195,
+      "cost": 0.00035518,
+      "parent_cost": 0.00034027,
+      "cost_pct": 4.38,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.420 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem heuristic tabu search robust els19 gap 29 45 els19 gap 42 45",
+      "sources": [
+       "https://arxiv.org/html/1009.4880v1",
+       "https://www.sciencedirect.com/science/article/pii/0166218X94900140",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.9492
+     },
+     {
+      "i": 3,
+      "gen": 1,
+      "id": "g1-c0",
+      "parent": 1,
+      "type": "playbook_add",
+      "target": "solver",
+      "change": "solver step: Add a verification step that checks the permutation satisfies the Q...",
+      "rationale": "Based on v1 recent change [1] which reported a dev gain of +0.028 and a cost reduction of at least 15% when adding ve...",
+      "claim_gain": 0.028,
+      "claim_cost_pct": -0.15,
+      "score": 0.8945,
+      "parent_score": 0.8992,
+      "gain": -0.0046,
+      "cost": 0.00042585,
+      "parent_cost": 0.00046833,
+      "cost_pct": -9.07,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.005 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem heuristic tabu search robust ste36a gap 7 92 els19 gap 0 94",
+      "sources": [
+       "https://arxiv.org/html/1009.4880v1",
+       "https://library.biblioboard.com/ext/api/media/2256625c-e045-4322-9e0e-61d3ae9dff72/assets/external_content.pdf",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.8992
+     },
+     {
+      "i": 4,
+      "gen": 1,
+      "id": "g1-c1",
+      "parent": 1,
+      "type": "config_set",
+      "target": "max_tokens",
+      "change": "max_tokens = 4000",
+      "rationale": "Reducing max_tokens from 6000 to 4000 cuts token cost while preserving solution quality as shown in QAP literature [3...",
+      "claim_gain": 0.015,
+      "claim_cost_pct": -0.12,
+      "score": 0.4311,
+      "parent_score": 0.8992,
+      "gain": -0.468,
+      "cost": 0.00045888,
+      "parent_cost": 0.00046833,
+      "cost_pct": -2.02,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.468 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem heuristic tabu search robust ste36a gap 7 92 els19 gap 0 94",
+      "sources": [
+       "https://arxiv.org/html/1009.4880v1",
+       "https://library.biblioboard.com/ext/api/media/2256625c-e045-4322-9e0e-61d3ae9dff72/assets/external_content.pdf",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.8992
+     },
+     {
+      "i": 5,
+      "gen": 1,
+      "id": "g1-c2",
+      "parent": 1,
+      "type": "config_set",
+      "target": "temperature",
+      "change": "temperature = 0.2",
+      "rationale": "Lowering temperature to 0.2 reduces stochastic variation, improving consistency of verified solutions; literature [1]...",
+      "claim_gain": 0.012,
+      "claim_cost_pct": -0.08,
+      "score": 0.8644,
+      "parent_score": 0.8992,
+      "gain": -0.0348,
+      "cost": 0.0004997,
+      "parent_cost": 0.00046833,
+      "cost_pct": 6.7,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.035 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem heuristic tabu search robust ste36a gap 7 92 els19 gap 0 94",
+      "sources": [
+       "https://arxiv.org/html/1009.4880v1",
+       "https://library.biblioboard.com/ext/api/media/2256625c-e045-4322-9e0e-61d3ae9dff72/assets/external_content.pdf",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.8992
+     }
+    ],
+    "generations": [
+     {
+      "gen": 0,
+      "start": 0.9211,
+      "end": 0.9492
+     },
+     {
+      "gen": 1,
+      "start": 0.8992,
+      "end": 0.8992
+     }
+    ],
+    "heldout": [
+     {
+      "kind": "cold",
+      "label": "v0 + empty brain (cold)",
+      "score": 0.6741
+     },
+     {
+      "kind": "brain",
+      "label": "v0 + final brain",
+      "score": 0.6825
+     },
+     {
+      "kind": "final",
+      "label": "v1 + final brain",
+      "score": 0.7537
+     }
+    ]
+   }
+  },
+  {
+   "name": "qaplib-dc-research-3",
+   "layer": "placement",
+   "layer_name": "Equipment placement",
+   "benchmark": "GPU rack placement",
+   "status": "running",
+   "started": "2026-10-17 16:26",
+   "ended": null,
+   "solver": "Nano",
+   "reviewer": "Nano",
+   "research": true,
+   "generations": 1,
+   "candidates": 3,
+   "accepted": 1,
    "heldout": null,
    "cost_usd": null,
    "calls": null,
    "climb": {
     "metric": "dev score",
-    "baseline": 0.9924,
-    "baseline_label": "2-swap, dev",
-    "candidates": [],
-    "generations": [],
+    "baseline": 0.8039,
+    "baseline_label": "v0 at gen 0, dev",
+    "candidates": [
+     {
+      "i": 0,
+      "gen": 0,
+      "id": "g0-c0",
+      "parent": 0,
+      "type": "playbook_add",
+      "target": "solver",
+      "change": "solver step: Add a pre\u2011run sanity check that validates the permutation syntax an...",
+      "rationale": "Fixes the dc-medium-1381 UnboundLocalError failures, reducing wasted runs and cutting cost per task by ~15% while imp...",
+      "claim_gain": 0.02,
+      "claim_cost_pct": -0.15,
+      "score": 0.6946,
+      "parent_score": 0.8039,
+      "gain": -0.1092,
+      "cost": 0.00039757,
+      "parent_cost": 0.00036397,
+      "cost_pct": 9.23,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.109 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 runtime dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP%20MultiStart%20IEEE.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem"
+      ],
+      "incumbent": 0.8039
+     },
+     {
+      "i": 1,
+      "gen": 0,
+      "id": "g0-c1",
+      "parent": 0,
+      "type": "playbook_add",
+      "target": "solver",
+      "change": "solver step: Replace Simulated annealing with a hybrid Tabu\u2011Search + 2\u2011opt local...",
+      "rationale": "Hybrid approach improves gap percentages (targeting ~12% gap vs 2\u2011swap 2.89%) and reduces token usage, yielding highe...",
+      "claim_gain": 0.04,
+      "claim_cost_pct": -0.12,
+      "score": 0.3629,
+      "parent_score": 0.8039,
+      "gain": -0.441,
+      "cost": 0.00049397,
+      "parent_cost": 0.00036397,
+      "cost_pct": 35.72,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.441 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 runtime dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP%20MultiStart%20IEEE.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem"
+      ],
+      "incumbent": 0.8039
+     },
+     {
+      "i": 2,
+      "gen": 0,
+      "id": "g0-c2",
+      "parent": 0,
+      "type": "config_set",
+      "target": "thinking",
+      "change": "thinking = {\"solver\": true}",
+      "rationale": "Enabling reasoning for the solver role adds systematic exploration, expected to raise dev score and lower cost per ta...",
+      "claim_gain": 0.015,
+      "claim_cost_pct": -0.1,
+      "score": 0.8453,
+      "parent_score": 0.8039,
+      "gain": 0.0414,
+      "cost": 0.00091005,
+      "parent_cost": 0.00036397,
+      "cost_pct": 150.04,
+      "n": 3,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "accepted, effect smaller than claimed",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 runtime dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP%20MultiStart%20IEEE.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem"
+      ],
+      "incumbent": 0.8453
+     }
+    ],
+    "generations": [
+     {
+      "gen": 0,
+      "start": 0.8039,
+      "end": 0.8453
+     }
+    ],
     "heldout": []
    }
   },
@@ -2339,8 +3313,8 @@
    "status": "stopped",
    "started": "2026-10-17 15:31",
    "ended": "2026-10-17 15:48",
-   "solver": "super (per question type)",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "solver": "Super",
+   "reviewer": "Super",
    "research": false,
    "generations": 0,
    "candidates": 0,
@@ -2365,8 +3339,8 @@
    "status": "stopped",
    "started": "2026-10-17 15:48",
    "ended": "2026-10-17 15:59",
-   "solver": "super (per question type)",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "solver": "Super",
+   "reviewer": "Super",
    "research": false,
    "generations": 1,
    "candidates": 1,
@@ -2376,8 +3350,8 @@
    "calls": null,
    "climb": {
     "metric": "dev accuracy",
-    "baseline": null,
-    "baseline_label": null,
+    "baseline": 1.0,
+    "baseline_label": "v0 at gen 0, dev",
     "candidates": [
      {
       "i": 0,
@@ -2421,25 +3395,85 @@
    "layer": "inference",
    "layer_name": "Inference cost",
    "benchmark": "Crusoe ops Q&A",
-   "status": "running",
+   "status": "done",
    "started": "2026-10-17 15:59",
-   "ended": null,
-   "solver": "super (per question type)",
-   "reviewer": "Nemotron-3-Super-120B-A12B",
+   "ended": "2026-10-17 16:14",
+   "solver": "Super",
+   "reviewer": "Super",
    "research": true,
-   "generations": 0,
-   "candidates": 0,
-   "accepted": 0,
-   "heldout": null,
-   "cost_usd": null,
-   "calls": null,
+   "generations": 1,
+   "candidates": 1,
+   "accepted": 1,
+   "heldout": {
+    "metric": "$ per correct",
+    "final": 0.00075277,
+    "v0": 0.00109203,
+    "delta": -0.000339,
+    "final_label": "v1 + final brain (final)",
+    "lower_is_better": true
+   },
+   "cost_usd": 0.26496,
+   "calls": 208,
    "climb": {
     "metric": "dev accuracy",
-    "baseline": null,
-    "baseline_label": null,
-    "candidates": [],
-    "generations": [],
-    "heldout": []
+    "baseline": 1.0,
+    "baseline_label": "v0 at gen 0, dev",
+    "candidates": [
+     {
+      "i": 0,
+      "gen": 0,
+      "id": "g0-c0",
+      "parent": 0,
+      "type": "config_set",
+      "target": "batch_size",
+      "change": "batch_size = 3",
+      "rationale": "Increasing batch_size from 1 to 3 reduces the number of API calls per task by grouping multiple questions of the same...",
+      "claim_gain": 0.0,
+      "claim_cost_pct": -55.0,
+      "score": 1.0,
+      "parent_score": 1.0,
+      "gain": 0.0,
+      "cost": 0.0094181,
+      "parent_cost": 0.0138029,
+      "cost_pct": -31.77,
+      "n": 3,
+      "accepted": true,
+      "accepted_by": "cost",
+      "reason": "cheaper at equal score: cost -32%",
+      "verdict": "reproduced",
+      "research_query": "LLM inference serving optimization batching quantization throughput wrong rack fit",
+      "sources": [
+       "https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/",
+       "https://www.runpod.io/articles/guides/llm-inference-optimization-playbook",
+       "https://carteakey.dev/blog/local-inference/local-llm-optimization/"
+      ],
+      "incumbent": 1.0
+     }
+    ],
+    "generations": [
+     {
+      "gen": 0,
+      "start": 1.0,
+      "end": 1.0
+     }
+    ],
+    "heldout": [
+     {
+      "kind": "cold",
+      "label": "v0 + empty brain (cold)",
+      "score": 0.9792
+     },
+     {
+      "kind": "brain",
+      "label": "v0 + final brain",
+      "score": 0.9792
+     },
+     {
+      "kind": "final",
+      "label": "v1 + final brain",
+      "score": 1.0
+     }
+    ]
    }
   }
  ]

@@ -104,11 +104,13 @@ function summarizeV0(entries: LeaderboardEntry[]) {
 }
 // Board facts from the verifier's feedback or the run files, keyed by benchmark id. QAPLIB is the one board where a
 // state-of-the-art comparison is meaningful (best-known solutions), so its summary leads with the gap to them.
-const BOARD_NOTES: Record<string, { lead?: string; note?: string }> = {
+// "text" replaces the computed v0 cold to final sentence when a board's headline run is not the top-ranked pair.
+const BOARD_NOTES: Record<string, { lead?: string; text?: string; note?: string }> = {
   '721ba51c-b868-405a-8c34-b9ed4e8beb39': {
     lead: 'Final is 3.6% from best-known solutions (SOTA) on 6 unseen instances, vs 4.3% for v0 cold (qaplib-research-1).',
   },
   'f3b46e60-0b04-463f-a9b0-c16b23aec2da': {
+    text: 'v0 cold 0.597 to final 0.845 (+0.248) on qaplib-dc-research-2, 6 unseen instances.',
     note: 'On qaplib-dc-research-1, v0 cold produced an invalid placement on 1 of 6 instances; on the other 5 the gain is '
       + '0.573 to 0.802 (+0.229).',
   },
@@ -117,8 +119,8 @@ function summarize(allEntries: LeaderboardEntry[], direction: 'higher' | 'lower'
   const entries = visibleEntries(allEntries);
   const result = summarizeScores(entries, direction);
   const note = result.best ? runNote(result.best.title) : null;
-  const text = note ? note.summary : result.text;
   const board = result.best ? BOARD_NOTES[boardId] : undefined;
+  const text = board?.text ?? (note ? note.summary : result.text);
   return { ...result, text: [board?.lead, text, board?.note].filter(Boolean).join(' ') };
 }
 function summarizeScores(entries: LeaderboardEntry[], direction: 'higher' | 'lower') {

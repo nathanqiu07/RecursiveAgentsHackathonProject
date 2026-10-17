@@ -10,8 +10,10 @@
 .dc-card h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -0.2px; }
 .dc-card-problem { margin: 6px 0 14px; font-size: 12px; line-height: 1.6; color: #71717a; }
 .dc-card-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 12px 0; border-top: 1px solid #e4e4e7; border-bottom: 1px solid #e4e4e7; }
+.dc-card-numbers > div { display: flex; flex-direction: column; justify-content: space-between; }
 .dc-card-numbers dt { font-size: 11px; color: #71717a; margin-bottom: 4px; }
 .dc-card-numbers dd { margin: 0; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; color: #18181b; overflow-wrap: anywhere; }
+.dc-card-numbers .dc-dd-text { display: block; font-size: 12px; line-height: 1.35; }
 .dc-card-numbers .dc-up { color: #166534; }
 .dc-card-numbers .dc-down { color: #b91c1c; }
 .dc-card-baseline { margin: 10px 0 0; font-size: 11px; color: #71717a; line-height: 1.5; }
@@ -33,12 +35,26 @@
 .dc-axis-title { fill: #a1a1aa; font-size: 10px; }
 .dc-value { fill: #27272a; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .dc-setting-label { fill: #3f3f46; font-size: 11px; }
-.dc-bar-baseline { fill: #e4e4e7; }
-.dc-bar-cold { fill: #d4d4d8; }
-.dc-bar-brain { fill: #71717a; }
-.dc-bar-final { fill: #18181b; }
+/* Team bars are blue (v0 cold -> final); the no-LLM reference and ablation are gray, outside the climb. */
+.dc-bar-baseline { fill: #e4e4e7; stroke: #a1a1aa; stroke-width: 1; stroke-dasharray: 2 2; }
+.dc-bar-ablation { fill: #f4f4f5; stroke: #a1a1aa; stroke-width: 1; stroke-dasharray: 2 2; }
+.dc-bar-cold { fill: #bfdbfe; }
+.dc-bar-brain { fill: #60a5fa; }
+.dc-bar-final { fill: #1d4ed8; }
 .dc-bar-track { fill: #f4f4f5; }
 .dc-reference { stroke: #d97706; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.dc-baseline { stroke: #d97706; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.dc-ref-line { stroke: #a1a1aa; stroke-width: 1.5; stroke-dasharray: 1.5 3; stroke-linecap: round; }
+.dc-value-ref, .dc-axis-ref { fill: #a1a1aa; }
+.dc-delta { fill: #52525b; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dc-delta-up { fill: #166534; }
+.dc-delta-down { fill: #b91c1c; }
+.dc-card-reference { margin: 10px 0 0; font-size: 11px; color: #a1a1aa; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.dc-card-note { margin: 4px 0 0; font-size: 11px; color: #a1a1aa; line-height: 1.5; }
+.dc-card-sota { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: #27272a; }
+.dc-card-sota strong { font-weight: 600; }
+.dc-card-sota span { color: #71717a; font-size: 11px; }
+.dc-sota-label { fill: #52525b; font-size: 10px; font-weight: 500; }
 .dc-step { fill: none; stroke: #18181b; stroke-width: 1.5; }
 .dc-dev-dot { fill: #18181b; }
 .dc-accepted { fill: #16a34a; stroke: #fff; stroke-width: 1; }
@@ -93,10 +109,15 @@
 .hc-dot:focus-visible .hc-hit { fill: rgba(24, 24, 27, 0.08); }
 .hc-selected { stroke: #18181b; stroke-width: 2; }
 .hc-held { stroke: #fff; stroke-width: 1; }
-.hc-held-baseline { fill: #fff; stroke: #d97706; stroke-width: 2; }
-.hc-held-cold { fill: #a1a1aa; }
-.hc-held-brain { fill: #52525b; }
-.hc-held-final { fill: #18181b; }
+.hc-held-baseline { fill: #fff; stroke: #a1a1aa; stroke-width: 2; }
+.hc-held-ablation { fill: #f4f4f5; stroke: #a1a1aa; stroke-width: 1.5; }
+.hc-held-cold { fill: #93c5fd; }
+.hc-held-brain { fill: #3b82f6; }
+.hc-held-final { fill: #1d4ed8; }
+.hc-ref-label { fill: #a1a1aa; font-size: 10px; }
+.hc-ref-cell { color: #a1a1aa; }
+.hc-table td.hc-ref-cell { color: #a1a1aa; }
+.hc-key-ref::before { display: inline-block; width: 14px; margin-right: 6px; vertical-align: 3px; border-top: 1.5px dotted #a1a1aa; content: ''; }
 .hc-overlay-step { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.85; }
 .hc-overlay-acc { fill: currentColor; }
 .hc-overlay-rej { fill: #fff; stroke: currentColor; stroke-width: 1.2; opacity: 0.7; }

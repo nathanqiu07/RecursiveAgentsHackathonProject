@@ -9,12 +9,13 @@ export type ClimbCandidate = {
   cost_pct: number | null; n: number | null; accepted: boolean; accepted_by: string | null; reason: string;
   verdict: string | null; research_query: string | null; sources: string[]; incumbent: number | null;
 };
-type HeldoutPoint = { kind: 'baseline' | 'cold' | 'brain' | 'final'; label: string; score: number };
+type HeldoutPoint = { kind: 'baseline' | 'ablation' | 'cold' | 'brain' | 'final'; label: string; score: number };
 export type IndexedRun = {
   name: string; layer: string; layer_name: string; benchmark: string; status: RunStatus;
   started: string | null; ended: string | null; solver: string | null; reviewer: string | null; research: boolean;
   generations: number; candidates: number; accepted: number;
-  heldout: { metric: string; best: number; baseline: number; delta: number; best_label: string; baseline_label: string; lower_is_better: boolean } | null;
+  // v0 = v0 cold on the held-out tasks, the only baseline; final = the last version on the same tasks.
+  heldout: { metric: string; v0: number; final: number; delta: number; final_label: string; lower_is_better: boolean; v0_invalid?: number } | null;
   cost_usd: number | null; calls: number | null;
   climb: { metric: string; baseline: number | null; baseline_label: string | null; candidates: ClimbCandidate[];
     generations: { gen: number; start: number | null; end: number | null }[]; heldout: HeldoutPoint[] };
@@ -26,7 +27,7 @@ const LAYERS = [
 ];
 const OVERLAY_COLORS = ['#18181b', '#2563eb', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#71717a'];
 const statusText: Record<RunStatus, string> = { done: 'Done', running: 'Running', crashed: 'Crashed', stopped: 'Stopped' };
-const kindText: Record<HeldoutPoint['kind'], string> = { baseline: 'base', cold: 'cold', brain: 'brain', final: 'final' };
+const kindText: Record<HeldoutPoint['kind'], string> = { baseline: 'ref', ablation: 'polish', cold: 'v0', brain: 'brain', final: 'final' };
 const num = (value: number | null | undefined, digits = 3) => value == null ? 'n/a' : value.toFixed(digits);
 const plus = (value: number | null | undefined, digits = 3) => value == null ? 'n/a' : `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(digits)}`;
 const pct = (value: number | null | undefined) => value == null ? 'n/a' : `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(1)}%`;
@@ -77,12 +78,13 @@ function SingleChart({ run, selected, onSelect, upto }: {
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const cands = run.climb.candidates;
-  const held = run.climb.heldout;
+  const held = run.climb.heldout.filter((h) => h.kind === 'cold' || h.kind === 'brain' || h.kind === 'final');
   const base = run.climb.baseline;
   const height = 280;
   const right = held.length ? Math.min(170, Math.max(120, width * 0.3)) : 12;
   const margin = { top: 26, right, bottom: 50, left: 46 };
-  const values = [...cands.map((c) => c.score), ...cands.map((c) => c.parent_score ?? c.score), ...held.map((h) => h.score), ...(base != null ? [base] : [])];
+  const values = [...cands.map((c) => c.score), ...cands.map((c) => c.parent_score ?? c.score), ...held.map((h) => h.score),
+    ...(base != null ? [base] : [])];
   let low = Math.min(...values);
   let high = Math.max(...values);
   const pad = Math.max(0.01, (high - low) * 0.12);
@@ -107,9 +109,10 @@ function SingleChart({ run, selected, onSelect, upto }: {
         <text className="dc-axis" x={x(c.i - 0.5) + 4} y={margin.top - 12}>gen {c.gen}</text>
       </g>)}
       {base != null && <g>
-        <line className="dc-reference" x1={margin.left} x2={plotRight} y1={y(base)} y2={y(base)} />
-        <text className="hc-base-label" x={plotRight - 4} y={y(base) - 5} textAnchor="end">baseline {base.toFixed(3)}</text>
+        <line className="dc-baseline" x1={margin.left} x2={plotRight} y1={y(base)} y2={y(base)} />
+        <text className="hc-base-label" x={plotRight - 4} y={y(base) - 5} textAnchor="end">v0 baseline {base.toFixed(3)}</text>
       </g>}
+      {run.benchmark === 'QAPLIB' && <text className="dc-sota-label" x={4} y={10}>1.0 = best-known (SOTA)</text>}
       <path className="dc-step" d={stepPath(cands, upto, x, y)} />
       {shown.map((c) => <g key={c.id} className="hc-dot" tabIndex={0} role="button"
         aria-label={`${c.id}: ${c.change}, dev ${c.score.toFixed(3)}, ${c.accepted ? 'accepted' : 'rejected'}`}
@@ -137,7 +140,8 @@ function OverlayChart({ runs }: { runs: IndexedRun[] }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const height = 280;
   const margin = { top: 20, right: 12, bottom: 40, left: 50 };
-  const series = runs.map((run) => ({ run, ref0: run.climb.baseline ?? run.climb.candidates[0]?.parent_score ?? 0 }));
+  // Normalise every run to its own v0 (dev score at generation 0), so the y axis reads as delta vs v0.
+  const series = runs.map((run) => ({ run, ref0: run.climb.baseline ?? run.climb.candidates[0]?.parent_score ?? run.climb.candidates[0]?.score ?? 0 }));
   const values = series.flatMap(({ run, ref0 }) => run.climb.candidates.flatMap((c) => [c.score - ref0, (c.incumbent ?? c.score) - ref0, before(run.climb.candidates, c.i) - ref0]));
   let low = Math.min(0, ...values);
   let high = Math.max(0, ...values);
@@ -147,18 +151,18 @@ function OverlayChart({ runs }: { runs: IndexedRun[] }) {
   const x = (index: number) => margin.left + (width - margin.left - margin.right) * ((index + 0.5) / count);
   const y = (value: number) => margin.top + (height - margin.top - margin.bottom) * (1 - (value - low) / (high - low));
   return <div ref={ref} className="hc-plot">
-    <svg width={width} height={height} role="img" aria-label={`Overlay of ${runs.length} runs, dev score minus baseline`}>
+    <svg width={width} height={height} role="img" aria-label={`Overlay of ${runs.length} runs, dev score minus v0`}>
       {ticks(low, high).map((tick) => <g key={tick}>
         <line className="dc-grid" x1={margin.left} x2={width - margin.right} y1={y(tick)} y2={y(tick)} />
         <text className="dc-axis" x={margin.left - 6} y={y(tick) + 3} textAnchor="end">{plus(tick, high - low < 0.06 ? 3 : 2)}</text>
       </g>)}
-      <line className="dc-reference" x1={margin.left} x2={width - margin.right} y1={y(0)} y2={y(0)} />
+      <line className="dc-baseline" x1={margin.left} x2={width - margin.right} y1={y(0)} y2={y(0)} />
       {series.map(({ run, ref0 }, index) => <g key={run.name} style={{ color: OVERLAY_COLORS[index % OVERLAY_COLORS.length] }}>
         <path className="hc-overlay-step" d={stepPath(run.climb.candidates, run.climb.candidates.length - 1, x, y, ref0)} />
         {run.climb.candidates.map((c) => <circle key={c.id} cx={x(c.i)} cy={y(c.score - ref0)} r={3.5}
-          className={c.accepted ? 'hc-overlay-acc' : 'hc-overlay-rej'}><title>{`${run.name} ${c.id}: ${plus(c.score - ref0)} vs baseline`}</title></circle>)}
+          className={c.accepted ? 'hc-overlay-acc' : 'hc-overlay-rej'}><title>{`${run.name} ${c.id}: ${plus(c.score - ref0)} vs v0`}</title></circle>)}
       </g>)}
-      <text className="dc-axis-title" x={margin.left} y={height - 8}>x: candidate in gate order; y: dev score minus the run's baseline</text>
+      <text className="dc-axis-title" x={margin.left} y={height - 8}>x: candidate in gate order; y: dev score minus the run's v0 at gen 0 (dashed = v0)</text>
     </svg>
     <div className="dc-legend">{series.map(({ run }, index) => <span key={run.name} className="hc-swatch"
       style={{ color: OVERLAY_COLORS[index % OVERLAY_COLORS.length] }}><i />{run.name}</span>)}</div>
@@ -205,7 +209,8 @@ export function RunsByLayer({ runs, onOpen, current }: { runs: IndexedRun[]; onO
         {!rows.length ? <p className="dc-empty">No live run.</p> : <div className="hc-table-wrap"><table className="hc-table">
           <thead><tr><th>Run</th><th>Status</th><th>Benchmark</th><th>Start</th><th>End</th><th>Solver / reviewer</th>
             <th>Research</th><th className="num">Gens</th><th className="num">Scored</th><th className="num">Accepted</th>
-            <th className="num">Held-out best</th><th className="num">Baseline</th><th className="num">Delta</th><th className="num">$</th><th className="num">Calls</th></tr></thead>
+            <th className="num">v0 cold</th><th className="num">Final</th><th className="num">Δ vs v0</th>
+            <th className="num">$</th><th className="num">Calls</th></tr></thead>
           <tbody>{rows.map((run) => {
             const digits = run.layer === 'inference' ? 6 : 3;
             const good = run.heldout && (run.heldout.lower_is_better ? run.heldout.delta < 0 : run.heldout.delta > 0);
@@ -216,9 +221,9 @@ export function RunsByLayer({ runs, onOpen, current }: { runs: IndexedRun[]; onO
               <td>{clock(run.started)}</td><td>{clock(run.ended)}</td>
               <td className="hc-models">{run.solver ?? 'n/a'}<br /><span className="muted">{run.reviewer ?? 'n/a'}</span></td>
               <td>{run.research ? 'on' : 'off'}</td><td className="num">{run.generations}</td><td className="num">{run.candidates}</td>
-              <td className="num">{run.accepted}</td><td className="num">{num(run.heldout?.best, digits)}</td>
-              <td className="num">{num(run.heldout?.baseline, digits)}</td>
-              <td className={`num ${good ? 'dc-up' : bad ? 'dc-down' : ''}`}>{run.heldout ? plus(run.heldout.delta, digits) : 'n/a'}</td>
+              <td className="num">{run.accepted}</td><td className="num">{run.status === 'running' ? 'running' : num(run.heldout?.v0, digits)}</td>
+              <td className="num">{run.status === 'running' ? 'running' : num(run.heldout?.final, digits)}</td>
+              <td className={`num ${good ? 'dc-up' : bad ? 'dc-down' : ''}`}>{run.heldout ? plus(run.heldout.delta, digits) : 'n/a'}{run.heldout?.v0_invalid ? <><br /><span className="muted hc-invalid">v0: {run.heldout.v0_invalid} invalid, scored 0</span></> : null}</td>
               <td className="num">{run.cost_usd == null ? 'n/a' : run.cost_usd.toFixed(4)}</td><td className="num">{run.calls ?? 'n/a'}</td>
             </tr>;
           })}</tbody>
@@ -240,12 +245,16 @@ export default function HillClimb({ runs, openRun, sectionRef }: {
   const [upto, setUpto] = useState(Number.MAX_SAFE_INTEGER);
   const [playing, setPlaying] = useState(false);
 
+  // Only a new table click (openRun) may switch the run. The 30 s poll hands us a new `runs` array each time,
+  // and depending on it snapped the view back to the last table-clicked run over the user's own pick.
+  const runsRef = useRef(runs);
+  runsRef.current = runs;
   useEffect(() => {
     if (!openRun) return;
-    const run = runs.find((item) => item.name === openRun.name);
+    const run = runsRef.current.find((item) => item.name === openRun.name);
     if (!run) return;
     setLayer(run.layer); setRunName(run.name); setSelected(null); setOverlay(false); setPlaying(false); setUpto(Number.MAX_SAFE_INTEGER);
-  }, [openRun, runs]);
+  }, [openRun]);
 
   const layerRuns = withClimb(layer);
   const run = layerRuns.find((item) => item.name === runName) ?? layerRuns.find((item) => item.candidates > 0) ?? layerRuns[0];
@@ -294,8 +303,7 @@ export default function HillClimb({ runs, openRun, sectionRef }: {
           <div className="hc-stats">
             <span><b>{run.candidates}</b> scored</span><span><b>{run.accepted}</b> accepted</span>
             <span>dev <b>{num(start)}</b> → <b>{num(best?.score ?? start)}</b></span>
-            {run.heldout && <span>held-out <b>{num(run.heldout.best, run.layer === 'inference' ? 6 : 3)}</b> vs <b>{num(run.heldout.baseline, run.layer === 'inference' ? 6 : 3)}</b></span>}
-            {run.cost_usd != null && <span><b>${run.cost_usd.toFixed(4)}</b>, {run.calls} calls</span>}
+            {run.heldout && <span>held-out v0 <b>{num(run.heldout.v0, run.layer === 'inference' ? 6 : 3)}</b> → final <b>{num(run.heldout.final, run.layer === 'inference' ? 6 : 3)}</b> ({plus(run.heldout.delta, run.layer === 'inference' ? 6 : 3)})</span>}            {run.cost_usd != null && <span><b>${run.cost_usd.toFixed(4)}</b>, {run.calls} calls</span>}
           </div>
           <div className="hc-actions">
             <label className="hc-toggle"><input type="checkbox" checked={overlay} disabled={climbing.length < 2}

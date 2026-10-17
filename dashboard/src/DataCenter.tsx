@@ -5,7 +5,7 @@ import HillClimb, { RunsByLayer, type IndexedRun } from './HillClimb';
 
 // Written by scripts/build_datacenter_view.py from live run artifacts; see that script for every field.
 type Status = 'done' | 'running' | 'not run';
-type Bar = { label: string; kind: 'baseline' | 'cold' | 'brain' | 'final'; score: number; n: number | null };
+type Bar = { label: string; kind: 'baseline' | 'ablation' | 'cold' | 'brain' | 'final'; score: number; n: number | null };
 type Candidate = { gen: number; score: number; accepted: boolean; reason: string; change: string };
 type Run = {
   id: string; status: 'done' | 'running'; status_detail: string; family?: string;
@@ -17,6 +17,7 @@ type Point = { run: string; label: string; accuracy: number; cost_per_correct_us
 type Layer = {
   id: string; name: string; problem: string; verified: string; score_label: string; digits: number;
   baseline: { name: string; score: number | null };
+  note?: string; caveats?: string[]; sota?: { run: string; headline: string; secondary: string } | null;
   best: { run: string; label: string; score: number; baseline: number; delta: number } | null;
   status: Status; summary: string; runs: Run[]; settings?: Setting[]; scatter?: Point[];
 };
@@ -24,7 +25,10 @@ type View = { generated_at: string; command: string; pitch: string; layers: Laye
 
 const statusLabel: Record<Status, string> = { done: 'Done', running: 'Running', 'not run': 'Not run' };
 const kindLabel: Record<Bar['kind'], string> = {
-  baseline: 'Baseline', cold: 'v0 cold', brain: 'v0 + shared brain', final: 'Final',
+  baseline: 'no-LLM reference', ablation: 'greedy + polish', cold: 'v0 cold', brain: 'v0 + shared brain', final: 'Final',
+};
+const barLines: Record<Bar['kind'], string[]> = {
+  baseline: ['no-LLM', 'reference'], ablation: ['greedy +', 'polish'], cold: ['v0 cold'], brain: ['v0 + brain'], final: ['final'],
 };
 const fixed = (value: number | null | undefined, digits: number) => value == null ? 'n/a' : value.toFixed(digits);
 const signed = (value: number, digits: number) => `${value > 0 ? '+' : value < 0 ? '-' : '±'}${Math.abs(value).toFixed(digits)}`;
@@ -55,12 +59,14 @@ function Chart({ title, note, children }: { title: string; note?: string; childr
   </figure>;
 }
 
-function HeldoutBars({ run, digits, unit }: { run: Run; digits: number; unit: string }) {
+function HeldoutBars({ run, digits, unit, showDelta = true }: { run: Run; digits: number; unit: string; showDelta?: boolean }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const height = 210;
-  const margin = { top: 22, right: 8, bottom: 38, left: 40 };
-  const bars = run.heldout;
-  const base = run.baseline.score;
+  const margin = { top: 36, right: 8, bottom: 50, left: 40 };
+  // v0 cold on the same held-out tasks is the only baseline; no-LLM heuristic rows are not drawn.
+  const bars = run.heldout.filter((bar) => bar.kind === 'cold' || bar.kind === 'brain' || bar.kind === 'final');
+  const base = bars.find((bar) => bar.kind === 'cold')?.score ?? null;
+  const final = bars.find((bar) => bar.kind === 'final');
   const max = Math.max(1, ...bars.map((bar) => bar.score));
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
@@ -79,14 +85,19 @@ function HeldoutBars({ run, digits, unit }: { run: Run; digits: number; unit: st
         return <g key={bar.kind}>
           <rect className={`dc-bar dc-bar-${bar.kind}`} x={x} y={y(bar.score)} width={barWidth}
             height={Math.max(0, y(0) - y(bar.score))} rx={2}><title>{bar.label}</title></rect>
-          <text className="dc-value" x={x + barWidth / 2} y={y(bar.score) - 5} textAnchor="middle">{fixed(bar.score, digits)}</text>
-          <text className="dc-axis" x={x + barWidth / 2} y={height - margin.bottom + 15} textAnchor="middle">
-            {bar.kind === 'brain' ? 'v0 + brain' : kindLabel[bar.kind]}</text>
+          <text className={`dc-value${bar.kind === 'baseline' || bar.kind === 'ablation' ? ' dc-value-ref' : ''}`}
+            x={x + barWidth / 2} y={y(bar.score) - 5} textAnchor="middle">{fixed(bar.score, digits)}</text>
+          {showDelta && bar === final && base != null && <text className={`dc-delta ${bar.score > base ? 'dc-delta-up' : bar.score < base ? 'dc-delta-down' : ''}`}
+            x={x + barWidth / 2} y={y(bar.score) - 19} textAnchor="middle">{signed(bar.score - base, digits)} vs v0</text>}
+          <text className={`dc-axis${bar.kind === 'baseline' || bar.kind === 'ablation' ? ' dc-axis-ref' : ''}`}
+            x={x + barWidth / 2} y={height - margin.bottom + 14} textAnchor="middle">
+            {barLines[bar.kind].map((line, i) => <tspan key={line} x={x + barWidth / 2} dy={i ? 11 : 0}>{line}</tspan>)}</text>
         </g>;
       })}
       {base != null && <g>
-        <line className="dc-reference" x1={margin.left} x2={width - margin.right} y1={y(base)} y2={y(base)} />
+        <line className="dc-baseline" x1={margin.left} x2={width - margin.right} y1={y(base)} y2={y(base)} />
       </g>}
+      {run.family === 'QAPLIB' && <text className="dc-sota-label" x={margin.left - 34} y={12}>1.0 = best-known (SOTA)</text>}
       <text className="dc-axis-title" x={margin.left} y={height - 6}>{unit}, mean of {run.n_heldout ?? '?'} held-out tasks</text>
     </svg>
   </div>;
@@ -98,7 +109,7 @@ function DevChart({ run, digits }: { run: Run; digits: number }) {
   const margin = { top: 16, right: 14, bottom: 38, left: 46 };
   const values = [...run.dev.map((point) => point.score), ...run.candidates.map((point) => point.score)];
   const gens = [...run.dev.map((point) => point.gen), ...run.candidates.map((point) => point.gen)];
-  const lastGen = Math.max(1, ...gens);
+  const lastGen = Math.max(0, ...gens);
   let low = Math.min(...values);
   let high = Math.max(...values);
   const pad = Math.max(0.005, (high - low) * 0.25);
@@ -108,7 +119,8 @@ function DevChart({ run, digits }: { run: Run; digits: number }) {
   const sorted = [...run.dev].sort((a, b) => a.gen - b.gen);
   const step = sorted.map((point, index) => {
     const next = sorted[index + 1];
-    return `${index ? 'L' : 'M'}${x(point.gen)},${y(point.score)}${next ? ` L${x(next.gen)},${y(point.score)}` : ''}`;
+    // The last point runs to the right edge, so a 1-generation run (one dev point) still draws a line.
+    return `${index ? 'L' : 'M'}${x(point.gen)},${y(point.score)} L${next ? x(next.gen) : width - margin.right},${y(point.score)}`;
   }).join(' ');
   const accepted = run.candidates.filter((candidate) => candidate.accepted).length;
   return <div ref={ref}>
@@ -198,12 +210,16 @@ function LayerCard({ layer }: { layer: Layer }) {
       <span className={`benchmark-status dc-status-${layer.status.replace(' ', '-')}`}>{statusLabel[layer.status]}</span></div>
     <p className="dc-card-problem">{layer.problem}</p>
     <dl className="dc-card-numbers">
-      <div><dt>Baseline</dt><dd>{isCost && layer.baseline.score != null ? `$${fixed(layer.baseline.score, 6)}` : fixed(layer.baseline.score, layer.digits)}</dd></div>
-      <div><dt>Best</dt><dd>{best ? (isCost ? `$${fixed(best.score, 6)}` : fixed(best.score, layer.digits)) : 'n/a'}</dd></div>
-      <div><dt>Delta</dt><dd className={best && best.delta !== 0 ? (best.delta > 0 !== isCost ? 'dc-up' : 'dc-down') : ''}>
-        {best ? (isCost ? `${signed(best.delta * 100, 0)}%` : signed(best.delta, layer.digits)) : 'n/a'}</dd></div>
+      <div><dt>Baseline (v0 cold)</dt><dd>{layer.baseline.score == null ? (layer.status === 'running' ? 'running' : 'n/a') : isCost ? `$${fixed(layer.baseline.score, 6)}` : fixed(layer.baseline.score, layer.digits)}</dd></div>
+      <div><dt>Best (final)</dt><dd>{best ? (isCost ? `$${fixed(best.score, 6)}` : fixed(best.score, layer.digits)) : layer.status === 'running' ? 'running' : 'n/a'}</dd></div>
+      <div><dt>Delta vs v0</dt><dd className={best && best.delta !== 0 ? (best.delta > 0 !== isCost ? 'dc-up' : 'dc-down') : ''}>
+        {best ? (isCost ? <span className="dc-dd-text">{best.delta < 0 ? `${Math.round(-best.delta * 100)}% less per correct answer` : `${Math.round(best.delta * 100)}% more per correct answer`}</span>
+          : signed(best.delta, layer.digits)) : layer.status === 'running' ? 'running' : 'n/a'}</dd></div>
     </dl>
-    <p className="dc-card-baseline">{layer.baseline.name} · {layer.score_label}</p>
+    {layer.note && <p className="dc-card-note">{layer.note}</p>}
+    {layer.caveats?.map((caveat) => <p key={caveat} className="dc-card-note">{caveat}</p>)}
+    {layer.sota && <p className="dc-card-sota"><strong>QAPLIB: {layer.sota.headline}</strong> <span>{layer.sota.secondary}</span></p>}
+    <p className="dc-card-baseline">{layer.score_label}</p>
     <p className="dc-card-summary">{firstSentence(layer.summary)}</p>
   </article>;
 }
@@ -222,11 +238,10 @@ function LayerSection({ layer }: { layer: Layer }) {
     <p className="dc-summary">{layer.summary}</p>
     {layer.status === 'not run' && !layer.runs.length ? <div className="dc-not-run">
       <strong>No chart: no live run.</strong>
-      <span>Baseline: {layer.baseline.name}, speedup {fixed(layer.baseline.score, layer.digits)}x by definition.</span>
     </div> : <div className="dc-charts">
       {doneRuns.map((run) => <Chart key={`h${run.id}`} title={`Held-out, ${run.id}`}
-        note={`${run.family ? `${run.family}; ` : ''}${run.baseline.score != null ? `dashed line = ${run.baseline.name} ${fixed(run.baseline.score, barDigits)}` : `baseline = ${run.baseline.name}`}`}>
-        <HeldoutBars run={run} digits={barDigits} unit={unit} /></Chart>)}
+        note={`${run.family ? `${run.family}; ` : ''}dashed line = v0 cold, the baseline`}>
+        <HeldoutBars run={run} digits={barDigits} unit={unit} showDelta={layer.id !== 'inference'} /></Chart>)}
       {layer.settings && layer.settings.length > 0 && <Chart title="Model settings, 4 train halls"
         note="Layout role varies; scored by the DoneTwin checker">
         <SettingsBars settings={layer.settings} /></Chart>}
