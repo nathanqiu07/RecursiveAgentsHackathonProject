@@ -20,7 +20,7 @@ class FakeLLM:
         self.replies = list(replies)
         self.calls = []
 
-    def chat(self, model, messages, max_tokens=4096, temperature=0.4, retries=5):
+    def chat(self, model, messages, max_tokens=4096, temperature=0.4, retries=5, extra_body=None):
         self.calls.append({"model": model, "messages": messages, "max_tokens": max_tokens})
         return self.replies.pop(0) if self.replies else "no more scripted replies"
 
@@ -95,6 +95,13 @@ class HillClimbTest(unittest.TestCase):
         self.assertEqual(best, self.full)
         self.assertFalse(any(h["accepted"] for h in hist[1:]))
 
+    def test_edits_reply_accepted(self):
+        missing = next(r for r in self.full["racks"] if r not in self.reduced["racks"])
+        llm = FakeLLM([json.dumps({"add": [missing]})])
+        best, hist = hill_climb.solve(self.hall, llm=llm, iters=1, library_dir=self.lib, start=self.reduced, log=quiet)
+        self.assertTrue(hist[1]["accepted"])
+        self.assertEqual(sorted(r["id"] for r in best["racks"]), sorted(r["id"] for r in self.full["racks"]))
+
     def test_empty_start(self):
         llm = FakeLLM([json.dumps(self.full)])
         best, hist = hill_climb.solve(self.hall, llm=llm, iters=1, library_dir=self.lib, start="empty", log=quiet)
@@ -140,6 +147,17 @@ class OfflineUnitTest(unittest.TestCase):
         self.assertEqual(hill_climb._parse('{"payload": {"racks": []}}'), {"racks": []})
         with self.assertRaises(ValueError):
             hill_climb._parse("no json at all")
+
+    def test_apply_edits(self):
+        inc = {"racks": [{"id": "A", "cdu": "C1"}, {"id": "B", "cdu": "C1"}]}
+        out = hill_climb.apply_edits(inc, {"remove": ["A"], "update": [{"id": "B", "cdu": "C2"}], "add": [{"id": "N"}]})
+        self.assertEqual(out, {"racks": [{"id": "B", "cdu": "C2"}, {"id": "N"}]})
+        self.assertEqual(inc["racks"][1]["cdu"], "C1", "incumbent must not be mutated")
+        self.assertEqual(hill_climb.apply_edits(inc, {"racks": []}), {"racks": []})
+        with self.assertRaises(ValueError):
+            hill_climb.apply_edits(inc, {"note": "nothing to do"})
+        wrapped = hill_climb.apply_edits(inc, {"edits": {"remove": ["A"]}})
+        self.assertEqual([r["id"] for r in wrapped["racks"]], ["B"])
 
     def test_library_tolerates_missing_dir(self):
         self.assertEqual(hill_climb.load_library(os.path.join(tempfile.gettempdir(), "no_such_lib_dir_xyz")), [])

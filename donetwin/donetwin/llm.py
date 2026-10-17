@@ -12,12 +12,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_URL = os.getenv("CRUSOE_BASE_URL", "https://api.inference.crusoecloud.com/v1")
-PLANNER_MODEL = os.getenv("PLANNER_MODEL", "nvidia/Nemotron-3-Super-120B-A12B")
+PLANNER_MODEL = os.getenv("PLANNER_MODEL", "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B")  # Crusoe /models id
 VISION_MODEL = os.getenv("VISION_MODEL", "nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B")
 
 # USD per 1M tokens (input, output), from the hackathon model table.
 PRICES = {
-    "nvidia/Nemotron-3-Super-120B-A12B": (0.30, 2.40),
+    "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B": (0.30, 2.40),
     "nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B": (0.30, 1.83),
     "nvidia/Nemotron-3-Nano-30B-A3B": (0.05, 0.20),
     "nvidia/nemotron-3.5-lightning-30b-a3b": (0.05, 0.20),
@@ -55,12 +55,13 @@ class LLM:
         self.client = OpenAI(base_url=BASE_URL, api_key=key, timeout=180)
         self.usage = usage or Usage()
 
-    def chat(self, model, messages, max_tokens=4096, temperature=0.4, retries=5):
+    def chat(self, model, messages, max_tokens=4096, temperature=0.4, retries=5, extra_body=None):
         delay = 2.0
         for attempt in range(retries):
             try:
                 r = self.client.chat.completions.create(
-                    model=model, messages=messages, max_tokens=max_tokens, temperature=temperature)
+                    model=model, messages=messages, max_tokens=max_tokens, temperature=temperature,
+                    extra_body=extra_body)
                 if r.usage:
                     self.usage.add(model, r.usage.prompt_tokens or 0, r.usage.completion_tokens or 0)
                 msg = r.choices[0].message

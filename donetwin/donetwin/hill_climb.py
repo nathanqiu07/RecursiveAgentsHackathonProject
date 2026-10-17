@@ -1,8 +1,8 @@
 """LLM hill-climbing solver for the data-hall layout benchmark.
 
-solve(hall, llm=...) keeps a verified incumbent (greedy baseline by default), asks the LLM for one
-complete improved payload per iteration, scores it with donetwin.score, and accepts only strict
-improvements. Feasible bests are written to a small on-disk library that seeds future prompts
+solve(hall, llm=...) keeps a verified incumbent (greedy baseline by default), asks the LLM for small
+edits to it per iteration (remove / update / add racks; a complete payload is also accepted), scores
+the result with donetwin.score, and accepts only strict improvements. Feasible bests are written to a small on-disk library that seeds future prompts
 (nearest examples by simple hall features).
 """
 import json
@@ -26,10 +26,15 @@ RULES = """HARD RULES (any violation => score 0):
 SCORE 0..100 = 70*density (IT kW / upper bound) + 20*resilience (survive any single CDU failure:
 spread liquid load so remaining CDUs have headroom) + 10*hose shortness."""
 
-FORMAT = ('Reply with JSON only, one object, no prose: {"racks": [{"id": "R1", "model": "GB200-NVL72", '
-          '"x": 3.3, "y": 4.0, "rot": 0, "cdu": "CDU_1", "feed_a": "BW_A1", "feed_b": "BW_A2"}, ...]}. '
-          "Keys per rack exactly: id, model, x, y, rot (0|90|180|270), cdu, feed_a, feed_b. "
-          "Return the COMPLETE layout (all racks), not a diff.")
+FORMAT = ('Reply with ONE compact JSON object on a single line, no prose, listing EDITS to the incumbent: '
+          '{"remove": ["R_A_03"], "update": [{"id": "R_B_01", "cdu": "CDU_4"}], '
+          '"add": [{"id": "N1", "model": "GB300-NVL72", "x": 3.3, "y": 4.0, "rot": 0, "cdu": "CDU_1", '
+          '"feed_a": "BW_A1", "feed_b": "BW_A2"}]}. Any of the three keys may be omitted. "update" changes '
+          "model, x, y, rot, cdu, feed_a or feed_b of an existing id; new ids must be unique. Rack keys "
+          "exactly: id, model, x, y, rot (0|90|180|270), cdu, feed_a, feed_b. Keep edits small and targeted.")
+
+# Nemotron 3 otherwise spends its whole output budget on hidden reasoning before writing any JSON.
+NO_THINK = {"chat_template_kwargs": {"enable_thinking": False}}
 
 
 # ---------------------------------------------------------------- hall summary / features
@@ -170,10 +175,10 @@ def build_prompt(hall, inc, inc_res, examples, last=None):
     parts.append("VERIFIER FEEDBACK ON INCUMBENT:\n" + ("\n".join(fb) if fb else "(no violations)"))
     if last:
         parts.append(f"YOUR PREVIOUS ATTEMPT WAS REJECTED: {last}")
-    parts.append("\nTASK: output ONE complete payload that scores strictly higher than the incumbent while "
-                 "keeping every hard rule. Typical wins: add racks in free row length, swap HGX for GB300 where "
-                 "power/CDU budget allows, rebalance CDUs for single-failure survivability, shorten hoses. "
-                 "JSON only.")
+    parts.append("\nTASK: output edits that make the incumbent score strictly higher while keeping every "
+                 "hard rule. Typical wins: add racks in free row length, swap HGX for GB300 where power/CDU "
+                 "budget allows, reassign racks across CDUs so any single CDU failure is survivable, shorten "
+                 "hoses. JSON only.")
     return "\n".join(parts)
 
 
@@ -192,9 +197,33 @@ def _parse(text):
     return obj
 
 
+def apply_edits(inc, obj):
+    """A full {"racks": [...]} payload as-is, or {"remove", "update", "add"} edits applied to the incumbent.
+    Field validation is left to donetwin.score, which rejects unknown keys and values."""
+    if not isinstance(obj, dict):
+        raise ValueError("reply is not a JSON object")
+    keys = ("racks", "remove", "update", "add")
+    if not any(k in obj for k in keys):  # unwrap one level, e.g. {"edits": {...}}
+        inner = [v for v in obj.values() if isinstance(v, dict) and any(k in v for k in keys)]
+        if len(inner) == 1:
+            obj = inner[0]
+    if "racks" in obj:
+        return {"racks": obj["racks"]}
+    if not any(k in obj for k in ("remove", "update", "add")):
+        raise ValueError("reply has none of racks/remove/update/add")
+    gone = set(obj.get("remove") or [])
+    racks = [dict(r) for r in inc.get("racks", []) if r.get("id") not in gone]
+    by_id = {r.get("id"): r for r in racks}
+    for u in obj.get("update") or []:
+        if isinstance(u, dict) and u.get("id") in by_id:
+            by_id[u["id"]].update({k: v for k, v in u.items() if k != "id"})
+    racks += [dict(a) for a in obj.get("add") or [] if isinstance(a, dict)]
+    return {"racks": racks}
+
+
 # ---------------------------------------------------------------- solver
 def solve(hall, llm=None, iters=6, model=None, library_dir="library", start="greedy", log=print,
-          max_tokens=16000, temperature=0.4, patience=3):
+          max_tokens=3000, temperature=0.4, patience=3):
     """Strict hill climbing over LLM proposals. Returns (best_payload, history).
 
     start: "greedy" | "empty" | a payload dict to use as the incumbent.
@@ -228,14 +257,15 @@ def solve(hall, llm=None, iters=6, model=None, library_dir="library", start="gre
                     {"role": "user", "content": prompt}]
         rec = {"iter": it, "score": None, "feasible": False, "accepted": False, "feedback_head": ""}
         try:
-            text = llm.chat(model, messages, max_tokens=max_tokens, temperature=temperature)
+            text = llm.chat(model, messages, max_tokens=max_tokens, temperature=temperature, retries=2,
+                            extra_body=NO_THINK)
         except Exception as e:  # network / API failure: record and keep going
             rec.update(error="llm", feedback_head=f"llm error: {e}"[:200])
             text = None
         cand = None
         if text is not None:
             try:
-                cand = _parse(text)
+                cand = apply_edits(inc, _parse(text))
             except (ValueError, json.JSONDecodeError) as e:
                 rec.update(error="parse", feedback_head=f"parse error: {e}"[:200])
                 last = "your reply had no parseable JSON object; reply with JSON only."

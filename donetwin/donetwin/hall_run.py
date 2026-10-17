@@ -77,7 +77,7 @@ def _show(run, hall, it, payload, res, note):
 
 
 def execute_hall(run, llm, hall, iters=6, model=None, library_dir="library", patience=3,
-                 max_tokens=16000, temperature=0.4):
+                 max_tokens=3000, temperature=0.4):
     try:
         _execute(run, llm, hall, iters, model or PLANNER_MODEL, library_dir, patience, max_tokens, temperature)
     except Exception as e:  # never leave the UI waiting on a dead run
@@ -123,12 +123,16 @@ def _execute(run, llm, hall, iters, model, library_dir, patience, max_tokens, te
         messages = [{"role": "system", "content": "You are an expert data-center layout engineer. "
                                                   "You output only valid JSON payloads."},
                     {"role": "user", "content": prompt}]
+        reply = None
         try:
-            cand = hill_climb._parse(llm.chat(model, messages, max_tokens=max_tokens, temperature=temperature))
+            reply = llm.chat(model, messages, max_tokens=max_tokens, temperature=temperature, retries=2,
+                             extra_body=hill_climb.NO_THINK)
+            cand = hill_climb.apply_edits(inc, hill_climb._parse(reply))
         except Exception as e:
             run.emit("iteration_start", iter=it)
-            run.emit("sandbox", iter=it, ok=False, error=f"no usable payload: {e}"[:400], stdout="", scene=None,
-                     points={}, mode="score")
+            head = f" Reply began: {reply[:160]!r}" if reply else ""
+            run.emit("sandbox", iter=it, ok=False, error=f"no usable payload: {e}.{head}"[:400], stdout="",
+                     scene=None, points={}, mode="score")
             last = "your reply had no parseable JSON payload; reply with JSON only."
             run.emit("decision", iter=it, action="continue", reason="Reply was not a usable payload. Retrying.")
             stale += 1
