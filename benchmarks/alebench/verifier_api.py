@@ -12,6 +12,8 @@ POST /evaluations
          200 {"status": "completed", "score": total official score over the seeds, "cases": [...], "feedback"}
   {"submission": {"seed": 3, "output": "<program output text>"}}
       -> 200 {"status": "completed", "score": official score of that output on that seed's input, "feedback"}
+  "feedback" opens with two plain sentences comparing the result to the greedy reference program on the same seeds
+  ("baseline": {"name", "score", "is_baseline"}), then "Details:" per seed.
   Malformed body -> 400/422 {"status": "rejected", "error"}
 GET /health -> {"ok": true, "problem": "ahc039", "public_seeds": [...]}
 
@@ -64,8 +66,50 @@ def score_program(code: str, seeds: list[int] | None = None, workers: int = 5) -
         extra = f" ({r['error']})" if r.get("error") else ""
         lines.append(f"seed {r['seed']}: {r['status']}{extra}, score {r['score']}, "
                      f"ratio {r['ratio_vs_greedy']:.4f}, {r['wall_s']} s")
+    greedy_total = sum(ref[s] for s in seeds)
+    is_greedy = reference_name(code) == "greedy"
     return {"status": "completed", "score": float(total), "mean_ratio_vs_greedy": mean_ratio, "ok_cases": ok,
-            "cases": rows, "feedback": "\n".join(lines)}
+            "cases": rows, "baseline": {"name": "greedy reference program", "score": float(greedy_total),
+                                        "is_baseline": is_greedy},
+            "feedback": explain(code, rows, ref) + "\n\nDetails:\n" + "\n".join(lines)}
+
+
+def reference_name(code: str) -> str | None:
+    """'greedy' (the baseline) or 'naive' when the source is one of the reference programs, else None."""
+    for name, path in (("greedy", scorer.GREEDY), ("naive", scorer.NAIVE)):
+        try:
+            if code.strip() == path.read_text().strip():
+                return name
+        except OSError:
+            continue
+    return None
+
+
+def times(x: float, ref: float) -> str:
+    r = x / ref if ref > 0 else 0.0
+    if r >= 1:
+        return f"{r:.1f}x"
+    return f"{r * 100:.2f}% of" if r < 0.01 else f"{r * 100:.0f}% of"
+
+
+def explain(code: str, rows: list[dict[str, Any]], ref: dict[int, int]) -> str:
+    """Two plain sentences: the net catch against the greedy reference program on the same maps."""
+    k = len(rows)
+    total = sum(r["score"] for r in rows)
+    gtotal = sum(ref[r["seed"]] for r in rows)
+    maps = f"{k} test map{'s' if k != 1 else ''}"
+    name = reference_name(code)
+    if name == "greedy":
+        return (f"This is the baseline: the greedy reference program catches {total:,} net fish over {maps}. "
+                "A higher total means nets that hold more mackerel and fewer sardines.")
+    first = f"Catches {total:,} net fish over {maps}, {times(total, gtotal)} the greedy reference program ({gtotal:,})."
+    if name == "naive":
+        first = "This is the naive reference program (a lower bound). " + first
+    wins = sum(1 for r in rows if r["score"] > ref[r["seed"]])
+    failed = sum(1 for r in rows if r["status"] != "ok")
+    second = f"It beats greedy on {wins} of {k} maps" + (
+        f"; {failed} run{'s' if failed != 1 else ''} crashed or ran out of time and scored 0" if failed else "")
+    return first if name == "naive" else f"{first} {second}."
 
 
 def score_output(seed: int, output: str) -> dict[str, Any]:
@@ -75,8 +119,19 @@ def score_output(seed: int, output: str) -> dict[str, Any]:
         row = scorer.score_files([(scorer.input_path(seed), out)])[0]
     score = 0 if row["err"] else int(row["score"])
     feedback = f"seed {seed}: " + (f"wrong_answer ({row['err'][:200]}), score 0" if row["err"] else f"ok, score {score}")
+    try:
+        greedy = int(scorer.reference_scores([seed])[seed])
+    except Exception:  # no reference for this seed: the score stands without a baseline comparison
+        greedy = None
+    if greedy is None:
+        summary = f"Catches {score:,} net fish on test map {seed}."
+    else:
+        summary = (f"Catches {score:,} net fish on test map {seed}; the greedy reference program catches {greedy:,}."
+                   + (" The output breaks a rule of the contest, so it scores 0." if row["err"] else ""))
     return {"status": "completed", "score": float(score), "seed": seed, "error": row["err"] or None,
-            "feedback": feedback}
+            "baseline": None if greedy is None else {"name": "greedy reference program", "score": float(greedy),
+                                                     "is_baseline": False},
+            "feedback": summary + "\n\nDetails:\n" + feedback}
 
 
 def evaluate(req: Any) -> dict[str, Any]:

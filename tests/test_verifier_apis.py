@@ -27,6 +27,16 @@ from benchmarks.qaplib import verifier_api as qap_api  # noqa: E402
 from benchmarks.qaplib.verify import INSTANCES, parse_sln, verify  # noqa: E402
 
 
+def summary(feedback):
+    """The plain-English part of a verifier's feedback: the paragraph before 'Details:'."""
+    return feedback.split("\n\n")[0]
+
+
+def sentence_count(text):
+    import re
+    return len([p for p in re.split(r"(?<=[.!?])\s+(?=[A-Z0-9])", text) if p])
+
+
 def serve(handler):
     srv = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -79,6 +89,29 @@ class QaplibVerifierApi(unittest.TestCase):
         code, res = post(self.url, {"submission": {"solutions": [sol, sol]}})
         self.assertEqual((code, res["status"]), (422, "rejected"))
 
+    def test_feedback_explains_result_against_two_swap_in_two_sentences(self):
+        code, res = post(self.url, {"submission": {"instance": "nug22", "permutation": list(range(22))}})
+        self.assertEqual(code, 200)
+        text = summary(res["feedback"])
+        self.assertTrue(text.startswith("Costs "), text)
+        self.assertIn("2-swap baseline", text)
+        self.assertLessEqual(sentence_count(text), 2, text)
+        self.assertIn("Details:", res["feedback"])
+        self.assertEqual(res["baseline"]["name"], "2-swap")
+
+    def test_feedback_names_the_baseline_when_submission_is_the_baseline(self):
+        heldout = qap_api.load_split("heldout")
+        base = qap_api.two_swap_baseline()
+        if not all(n in base for n in heldout) or not qap_api.TWO_SWAP_CACHE.is_file():
+            self.skipTest("no 2-swap permutations cached for the held-out split")
+        perms = json.loads(qap_api.TWO_SWAP_CACHE.read_text())
+        code, res = post(self.url, {"submission": {"solutions": [{"instance": n, "permutation": perms[n]}
+                                                                 for n in heldout]}, "split": "heldout"})
+        self.assertEqual(code, 200)
+        self.assertTrue(summary(res["feedback"]).startswith("This is the baseline:"), res["feedback"][:200])
+        self.assertTrue(res["baseline"]["is_baseline"])
+        self.assertAlmostEqual(res["baseline"]["score"], res["score"], places=12)
+
     def test_invalid_permutation_scores_zero(self):
         code, res = post(self.url, {"submission": {"instance": "nug22", "permutation": [0] * 22}})
         self.assertEqual(code, 200)
@@ -107,6 +140,18 @@ class AleBenchVerifierApi(unittest.TestCase):
         direct = scorer.evaluate(self.greedy, seeds, scorer.contest_time_limit(), 5)
         self.assertEqual(res["score"], float(sum(r["score"] for r in direct)))
         self.assertEqual([c["score"] for c in res["cases"]], [r["score"] for r in direct])
+
+    def test_feedback_compares_to_greedy_and_names_the_baseline(self):
+        code, res = post(self.url, {"submission": {"program": self.greedy}})
+        self.assertEqual(code, 200)
+        self.assertTrue(summary(res["feedback"]).startswith("This is the baseline:"))
+        self.assertEqual(res["baseline"]["score"], res["score"])
+        code, res = post(self.url, {"submission": {"program": scorer.NAIVE.read_text()}})
+        self.assertEqual(code, 200)
+        text = summary(res["feedback"])
+        self.assertIn("the greedy reference program", text)
+        self.assertLessEqual(sentence_count(text), 2, text)
+        self.assertFalse(res["baseline"]["is_baseline"])
 
     def test_output_score_matches_official_scorer(self):
         seed = 1
@@ -194,11 +239,70 @@ class DataHallHeldoutVerifierApi(unittest.TestCase):
         self.assertTrue(res["violations"])
         self.assertIn("INFEASIBLE", res["feedback"])
 
+    def test_feedback_compares_to_greedy_on_the_same_halls(self):
+        from donetwin import greedy, halls
+
+        items = [{"seed": s, "tier": t, "layout": greedy.solve(halls.generate(s, t))}
+                 for s, t in ((10003, "small"), (10011, "medium"))]
+        code, res = post(self.url, {"submission": {"halls": items}})
+        self.assertEqual(code, 200)
+        self.assertTrue(summary(res["feedback"]).startswith("This is the baseline:"))
+        self.assertTrue(res["baseline"]["is_baseline"])
+        self.assertAlmostEqual(res["baseline"]["score"], res["score"], places=9)
+        items[0]["layout"]["racks"].pop()
+        code, res = post(self.url, {"submission": {"halls": items}})
+        self.assertEqual(code, 200)
+        text = summary(res["feedback"])
+        self.assertTrue(text.startswith("Scores "), text)
+        self.assertIn("the greedy layout (", text)
+        self.assertLessEqual(sentence_count(text), 2, text)
+        self.assertFalse(res["baseline"]["is_baseline"])
+
     def test_bad_tier_and_duplicate_halls_are_rejected_not_scored(self):
         code, res = post(self.url, {"submission": {"seed": 1, "tier": "huge", "layout": {"racks": []}}})
         self.assertEqual((code, res["status"]), (422, "rejected"))
         item = {"seed": 1, "tier": "small", "layout": {"racks": []}}
         code, res = post(self.url, {"submission": {"halls": [item, item]}})
+        self.assertEqual((code, res["status"]), (422, "rejected"))
+
+
+class KernelBenchVerifierApi(unittest.TestCase):
+    """benchmarks/kernelbench_mini/verifier_api.py (port 9005): baseline by definition, an error without a GPU."""
+
+    @classmethod
+    def setUpClass(cls):
+        from benchmarks.kernelbench_mini import verifier_api as kb_api
+
+        cls.kb = kb_api
+        cls.srv, cls.url = serve(kb_api.Handler)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+
+    def test_pytorch_eager_is_the_baseline_at_speedup_one(self):
+        sols = [{"task": t, "model_new": self.kb.eager_candidate(t)} for t in self.kb.heldout()]
+        code, res = post(self.url, {"submission": {"solutions": sols}})
+        self.assertEqual(code, 200)
+        self.assertEqual((res["status"], res["score"]), ("completed", 1.0))
+        self.assertTrue(summary(res["feedback"]).startswith("This is the baseline:"))
+        self.assertIn("not timed", res["feedback"])
+
+    def test_without_a_gpu_a_candidate_gets_an_error_not_a_score(self):
+        if self.kb.remote.gpu_mode() is not None:
+            self.skipTest("a GPU is attached")
+        code, res = post(self.url, {"submission": {"solutions": [{"task": "kb_relu", "model_new": "class ModelNew: pass"}]}})
+        self.assertEqual(code, 200)
+        self.assertEqual(res["status"], "failed")
+        self.assertIsNone(res["score"])
+        self.assertIn("Needs a GPU VM, not yet attached", res["feedback"])
+
+    def test_unknown_or_duplicate_task_is_rejected(self):
+        code, res = post(self.url, {"submission": {"solutions": [{"task": "kb_nope", "model_new": "x"}]}})
+        self.assertEqual((code, res["status"]), (422, "rejected"))
+        sol = {"task": "kb_relu", "model_new": "x"}
+        code, res = post(self.url, {"submission": {"solutions": [sol, sol]}})
         self.assertEqual((code, res["status"]), (422, "rejected"))
 
 

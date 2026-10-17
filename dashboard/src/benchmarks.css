@@ -107,3 +107,10 @@
   .tabs { gap: 0 20px; flex-wrap: wrap; }
   .tab { font-size: 13px; }
 }
+/* Plain-language result summaries and baseline comparison (additive). */
+.benchmark-leaderboard-note { max-width: 480px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; font-weight: 400; }
+.benchmark-summary { margin: 0 0 28px; padding: 14px 16px; background: #fafafa; border-radius: 6px; }
+.benchmark-summary h2 { font-size: 12px; font-weight: 500; margin: 0 0 6px; color: #52525b; }
+.benchmark-summary p { font-size: 14px; color: #27272a; line-height: 1.7; margin: 0; overflow-wrap: anywhere; }
+.benchmark-summary .benchmark-summary-measures { font-size: 12px; color: #71717a; margin-top: 4px; }
+.benchmark-list-summary { max-width: 590px; color: #3f3f46; font-size: 12px; line-height: 1.6; margin: 6px 0 4px; }

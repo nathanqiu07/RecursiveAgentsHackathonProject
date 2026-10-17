@@ -4,7 +4,13 @@
 
 Idempotent and re-runnable as live runs finish:
 - Benchmarks are found by exact title before any is created (definitions are immutable on the dashboard).
-- Each submission title carries a short hash of its payload; a title already on the benchmark is skipped.
+- Each submission title carries a short hash of its payload; a payload already on the benchmark under the same
+  name is skipped.
+- Titles say how each entry compares to the board's baseline ("v1 + brain, run: +1.4 vs greedy"; the baseline
+  itself is titled "Baseline: ..."). The delta comes from asking the same verifier before submitting; the
+  dashboard then verifies the entry again and stores the verifier's plain-English feedback.
+- Boards are the "(vs baseline)" versions, whose descriptions open with one sentence naming the baseline and
+  what a higher score means. The earlier boards without that sentence are left as they were.
 - Scores are never sent. The dashboard forwards each payload to the case study's verifier service, which
   recomputes the score from the solution itself.
 
@@ -13,6 +19,7 @@ Verifiers it expects (started separately; see each file's docstring):
   QAPLIB     http://127.0.0.1:9001/evaluations  benchmarks/qaplib/verifier_api.py
   AHC039     http://127.0.0.1:9002/evaluations  benchmarks/alebench/verifier_api.py
   held-out   http://127.0.0.1:9003/evaluations  benchmarks/datahall/verifier_api.py (any generated hall by seed, tier)
+  KernelBench http://127.0.0.1:9005/evaluations benchmarks/kernelbench_mini/verifier_api.py (needs KB_REMOTE or a GPU)
 
 Solutions it finds:
   data hall  the greedy layout for Hall B (recomputed; deterministic)
@@ -29,7 +36,10 @@ Solutions it finds:
                             | {"model_new": str}}
              A Hall B layout goes to the 9000 board and a generated hall's held-out layout to the 9003 board; a
              QAPLIB config only once it covers every held-out instance; AHC039 only held-out configs (the board's
-             seeds are public); KernelBench is listed, not submitted (its evaluator needs a CUDA host).
+             seeds are public); a KernelBench config once it covers every held-out kernel (until a GPU VM is
+             attached its verifier answers "Needs a GPU VM, not yet attached" and the entry shows as failed;
+             rerun with --retry-failed once it is attached). The KernelBench baseline is PyTorch eager itself,
+             speedup 1.0 by definition.
 """
 from __future__ import annotations
 
@@ -115,16 +125,68 @@ def digest(payload: Any) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:8]
 
 
-def submit_all(bid: str | None, entries: list[dict[str, Any]], base: str, args: argparse.Namespace) -> list[str]:
-    """entries: {"title", "submitted_by", "payload"}; returns the ids of new submissions."""
+BASELINE_PREFIX = "Baseline: "
+
+
+def verifier_body(definition: dict[str, Any], payload: Any) -> Any:
+    """The body the dashboard would send: the request template with the payload in, other placeholders left out."""
+    def fill(v: Any) -> Any:
+        if v == "{{submission.payload}}":
+            return payload
+        if isinstance(v, dict):
+            return {k: fill(x) for k, x in v.items() if not (isinstance(x, str) and x.startswith("{{"))
+                    or x == "{{submission.payload}}"}
+        return v
+    return fill(definition["verifier"].get("request_template") or {"submission": "{{submission.payload}}"})
+
+
+def prescore(definition: dict[str, Any], payload: Any, cache: dict[str, Any]) -> dict[str, Any]:
+    key = digest(payload)
+    if key not in cache:
+        req = urllib.request.Request(definition["verifier"]["url"], method="POST",
+                                     data=json.dumps(verifier_body(definition, payload)).encode("utf-8"),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=definition["verifier"].get("timeout_seconds", 600)) as resp:
+            cache[key] = json.load(resp)
+    return cache[key]
+
+
+def entry_title(e: dict[str, Any], entries: list[dict[str, Any]], definition: dict[str, Any],
+                baseline_label: tuple[str, str], cache: dict[str, Any]) -> str:
+    """'Baseline: <title>' for the baseline, else '<title>: +1.4 vs greedy' from the verifier's own score."""
+    if e.get("baseline"):
+        return BASELINE_PREFIX + e["title"]
+    label, fmt = baseline_label
+    try:
+        res = prescore(definition, e["payload"], cache)
+        base = res.get("baseline") or {}
+        bscore = base.get("score")
+        if bscore is None:  # a verifier that does not report a baseline (Rikin's Hall B): score the baseline entry
+            b = next((x for x in entries if x.get("baseline") and x.get("group") == e.get("group")), None)
+            bscore = prescore(definition, b["payload"], cache).get("score") if b else None
+        if bscore is None or res.get("score") is None:
+            return e["title"]
+        return f"{e['title']}: {format(float(res['score']) - float(bscore), fmt)} vs {label}"
+    except (urllib.error.URLError, OSError, ValueError, KeyError) as exc:
+        print(f"  could not pre-score {e['title']!r} for its title ({exc}); submitted without the delta")
+        return e["title"]
+
+
+def submit_all(bid: str | None, entries: list[dict[str, Any]], base: str, args: argparse.Namespace,
+               definition: dict[str, Any] | None = None, baseline_label: tuple[str, str] | None = None) -> list[str]:
+    """entries: {"title", "submitted_by", "payload", "baseline"?, "group"?}; returns the ids of new submissions."""
     have = existing_submissions(bid) if bid else {}
+    cache: dict[str, Any] = {}
     new_ids = []
     for e in entries:
-        title = f"{e['title']} [{digest(e['payload'])}]"[:200]
-        old = have.get(title)
+        dg = digest(e["payload"])
+        old = next((r for t, r in have.items() if t.endswith(f"[{dg}]")
+                    and (t.startswith(e["title"]) or t.startswith(BASELINE_PREFIX + e["title"]))), None)
         if old and not (args.retry_failed and str(old.get("status", "")).lower() in FAILED_STATES):
-            print(f"  skip (already submitted, {old.get('status')}): {title}")
+            print(f"  skip (already submitted, {old.get('status')}): {old['title']}")
             continue
+        name = entry_title(e, entries, definition, baseline_label, cache) if definition and baseline_label else e["title"]
+        title = f"{name[:189]} [{dg}]"
         if args.dry_run or bid is None:
             print(f"  [dry-run] would submit: {title}")
             continue
@@ -171,8 +233,10 @@ def datahall_definition() -> dict[str, Any]:
         "rot": {"type": "number"}, "cdu": {"type": ["string", "null"]}, "feed_a": {"type": "string"},
         "feed_b": {"type": "string"}}, "required": ["id", "model", "x", "y"]}
     return {
-        "title": "GPU data hall layout: Hall B (2N power, N+1 cooling)",
-        "prompt": ("Place GPU racks in the fixed 2N AI data hall 'Hall B' (donetwin/scenarios/data_hall_2n.json) and "
+        "title": "GPU data hall layout: Hall B (2N power, N+1 cooling) (vs baseline)",
+        "prompt": ("Baseline: donetwin's greedy layout (no LLM), titled 'Baseline: greedy'; a higher score means more "
+                   "GPU power deployed in the hall while it keeps running through a cooling-unit failure.\n\n"
+                   "Place GPU racks in the fixed 2N AI data hall 'Hall B' (donetwin/scenarios/data_hall_2n.json) and "
                    "assign each rack a cooling unit and two power feeds. Maximize deployed IT load while surviving "
                    "single CDU failures. Hard rules (any violation scores 0): no collisions, in bounds, walkways and "
                    "keepouts clear, 1.2 m aisles, liquid racks on a CDU and air racks off it, CDU capacity, hose "
@@ -198,7 +262,8 @@ def datahall_entries() -> list[dict[str, Any]]:
     from donetwin import greedy
 
     hall = json.loads(HALL_B.read_text())
-    entries = [{"title": "greedy (no LLM)", "submitted_by": "donetwin greedy baseline", "payload": greedy.solve(hall)}]
+    entries = [{"title": "greedy (no LLM)", "submitted_by": "donetwin greedy baseline", "payload": greedy.solve(hall),
+                "baseline": True}]
     for f, d in run_solutions("datahall"):
         if d.get("hall") != hall["name"]:
             continue  # a generated hall: scored by the 9003 verifier on the held-out board
@@ -221,8 +286,10 @@ def datahall_heldout_definition() -> dict[str, Any]:
                    "additionalProperties": False}},
         "required": ["seed", "tier", "layout"], "additionalProperties": False}
     return {
-        "title": "GPU data hall, held-out",
-        "prompt": (f"Place GPU racks in generated 2N AI data halls from donetwin's held-out seeds ({seeds[0]}-{seeds[-1]}; "
+        "title": "GPU data hall, held-out (vs baseline)",
+        "prompt": ("Baseline: donetwin's greedy layout (no LLM) on the same halls, one 'Baseline: greedy' row per run; "
+                   "a higher score means more GPU power placed safely across the halls.\n\n"
+                   f"Place GPU racks in generated 2N AI data halls from donetwin's held-out seeds ({seeds[0]}-{seeds[-1]}; "
                    "never used for training or Gate decisions). Each hall is rebuilt by the verifier from (seed, tier) "
                    "with donetwin/donetwin/halls.py generate(seed, tier) and scored by donetwin/donetwin/score.py "
                    "(same hard rules as Hall B; any violation scores 0; score = 70 x density + 20 x resilience + "
@@ -262,17 +329,18 @@ def datahall_heldout_entries() -> list[dict[str, Any]]:
 
         held = load_tasks()[2]
         entries.append({"title": f"greedy (no LLM), load_tasks() held-out split ({len(held)} halls)",
-                        "submitted_by": "donetwin greedy baseline",
+                        "submitted_by": "donetwin greedy baseline", "baseline": True,
                         "payload": {"halls": [{"seed": t.payload["seed"], "tier": t.payload["tier"],
                                                "layout": t.payload["greedy_layout"]} for t in held]}})
     for run, keys in sorted(runs.items()):
-        entries.append({"title": f"greedy (no LLM), {run} held-out halls ({len(keys)})",
-                        "submitted_by": "donetwin greedy baseline", "payload": {"halls": _greedy_halls(keys)}})
+        entries.append({"title": f"greedy (no LLM), {run} held-out halls ({len(keys)})", "group": run,
+                        "submitted_by": "donetwin greedy baseline", "baseline": True,
+                        "payload": {"halls": _greedy_halls(keys)}})
     for (run, config), layouts in sorted(by_config.items()):
         if len(layouts) < len(runs[run]):
             print(f"  {run} {config}: only {len(layouts)}/{len(runs[run])} held-out halls saved; not submitted")
             continue
-        entries.append({"title": f"{config}, {run}", "submitted_by": run,
+        entries.append({"title": f"{config}, {run}", "submitted_by": run, "group": run,
                         "payload": {"halls": [{"seed": k[0], "tier": k[1], "layout": layouts[k]} for k in runs[run]]}})
     return entries
 
@@ -290,8 +358,10 @@ def qaplib_definition() -> dict[str, Any]:
                                                             "minItems": 1, "maxItems": 256}},
            "required": ["instance", "permutation"], "additionalProperties": False}
     return {
-        "title": f"QAPLIB held-out set ({len(names)} instances): mean BKS / cost",
-        "prompt": ("Quadratic Assignment Problem on the frozen QAPLIB held-out split (benchmarks/qaplib/splits.json): "
+        "title": f"QAPLIB held-out set ({len(names)} instances): mean BKS / cost (vs baseline)",
+        "prompt": (f"Baseline: 2-swap local search (no LLM, {QAP_TIME_LIMIT_S:g} s per problem); a higher score means "
+                   "cheaper assignments, and 1.0 means every answer matches the best known cost.\n\n"
+                   "Quadratic Assignment Problem on the frozen QAPLIB held-out split (benchmarks/qaplib/splits.json): "
                    + ", ".join(names) + ". For each instance, assign facility i to location p[i] to minimize "
                    "sum_ij A[i][j] * B[p[i]][p[j]]. The verifier recomputes every cost exactly from the instance "
                    "file. Score = mean over all held-out instances of BKS / cost (1.0 = best known solution, "
@@ -346,8 +416,8 @@ def qaplib_entries() -> list[dict[str, Any]]:
     entries = [
         {"title": "random permutation (no LLM, seed 0)", "submitted_by": "qaplib baseline.py",
          "payload": {"solutions": rand}},
-        {"title": f"2-swap baseline (no LLM, {QAP_TIME_LIMIT_S:g} s/instance, seed 0)",
-         "submitted_by": "qaplib baseline.py", "payload": {"solutions": two}},
+        {"title": f"2-swap local search (no LLM, {QAP_TIME_LIMIT_S:g} s/instance, seed 0)",
+         "submitted_by": "qaplib baseline.py", "payload": {"solutions": two}, "baseline": True},
     ]
     by_config: dict[tuple[str, str], dict[str, list[int]]] = {}
     for f, d in run_solutions("qaplib"):
@@ -390,7 +460,7 @@ def alebench_definition() -> dict[str, Any]:
 def alebench_entries() -> list[dict[str, Any]]:
     progs = ROOT / "benchmarks" / "alebench" / "programs"
     entries = [{"title": "greedy reference program (no LLM)", "submitted_by": "alebench reference",
-                "payload": {"program": (progs / "greedy_ahc039.py").read_text()}},
+                "payload": {"program": (progs / "greedy_ahc039.py").read_text()}, "baseline": True},
                {"title": "naive reference program (no LLM)", "submitted_by": "alebench reference",
                 "payload": {"program": (progs / "naive_ahc039.py").read_text()}}]
     for f in sorted(RUNS.glob("alebench-*/logs/*.py")):
@@ -409,6 +479,111 @@ def alebench_entries() -> list[dict[str, Any]]:
         entries.append({"title": f"{d.get('config', 'run')}, {d.get('task_id', f.stem)}, {run_name(f)}",
                         "submitted_by": run_name(f), "payload": {"program": program}})
     return entries
+
+
+# ---------------------------------------------------------------- KernelBench mini
+
+def kernelbench_definition() -> dict[str, Any]:
+    from benchmarks.kernelbench_mini import verifier_api as kb
+
+    names = kb.heldout()
+    sol = {"type": "object", "properties": {"task": {"type": "string", "enum": names},
+                                            "model_new": {"type": "string", "minLength": 1, "maxLength": 200000}},
+           "required": ["task", "model_new"], "additionalProperties": False}
+    return {
+        "title": f"KernelBench mini held-out ({len(names)} GPU kernels): mean speedup vs PyTorch eager (vs baseline)",
+        "prompt": ("Baseline: PyTorch eager, speedup 1.0 by definition; a higher score means GPU kernels that run "
+                   "faster than PyTorch while giving the same answers.\n\n"
+                   "Write a faster ModelNew for each held-out KernelBench mini problem (benchmarks/kernelbench_mini/"
+                   "splits.json: " + ", ".join(names) + "). The verifier runs evaluate.py on a CUDA host: static "
+                   "checks, correctness on 5 fresh signed input sets (atol=rtol=1e-4), then CUDA-event timing against "
+                   "PyTorch eager on the same inputs. Score = mean over the held-out kernels of the speedup, capped at "
+                   "10; a missing, wrong or non-compiling kernel scores 0."),
+        "submission_instructions": ("Submit {\"solutions\": [{\"task\": \"kb_relu\", \"model_new\": \"<python "
+                                    "source defining class ModelNew>\"}]}, one per held-out kernel."),
+        "submission_schema": {"type": "object", "properties": {"solutions": {"type": "array", "items": sol,
+                                                                              "minItems": 1, "maxItems": len(names)}},
+                              "required": ["solutions"], "additionalProperties": False},
+        "score_name": "Mean speedup vs PyTorch eager",
+        "score_direction": "higher",
+        "score_min": 0,
+        "score_max": 10,
+        "verifier": {"url": "http://127.0.0.1:9005/evaluations", "method": "POST", "mode": "synchronous",
+                     "score_path": "score", "feedback_path": "feedback", "timeout_seconds": 3600},
+    }
+
+
+def kernelbench_entries() -> list[dict[str, Any]]:
+    from benchmarks.kernelbench_mini import verifier_api as kb
+
+    names = kb.heldout()
+    entries = [{"title": "PyTorch eager (no LLM)", "submitted_by": "kernelbench reference", "baseline": True,
+                "payload": {"solutions": [{"task": t, "model_new": kb.eager_candidate(t)} for t in names]}}]
+    by_config: dict[tuple[str, str], dict[str, str]] = {}
+    for f, d in run_solutions("kernelbench"):
+        src = (d.get("solution") or {}).get("model_new")
+        if d.get("task_id") in names and isinstance(src, str) and src.strip():
+            by_config.setdefault((run_name(f), d.get("config", "run")), {})[d["task_id"]] = src
+    for (run, config), sols in sorted(by_config.items()):
+        if len(sols) < len(names):
+            print(f"  {run} {config}: only {len(sols)}/{len(names)} held-out kernels saved; not submitted")
+            continue
+        entries.append({"title": f"{config}, {run}", "submitted_by": run,
+                        "payload": {"solutions": [{"task": t, "model_new": sols[t]} for t in names]}})
+    return entries
+
+
+# ---------------------------------------------------------------- inference serving cost
+
+def inference_opt_definition() -> dict[str, Any]:
+    from benchmarks.inference_opt.workload import load_tasks
+
+    held = [(t.payload["seed"], t.payload["tier"]) for t in load_tasks()[2]]
+    task = {"type": "object", "properties": {"seed": {"type": "integer"}, "tier": {"type": "string"},
+                                             "answers": {"type": "object"}},
+            "required": ["seed", "tier", "answers"], "additionalProperties": False}
+    return {
+        "title": f"Inference serving cost: held-out data-center ops Q&A ({len(held)} halls, 48 questions): accuracy (vs baseline)",
+        "prompt": ("Baseline: v0, Nemotron Super with reasoning on and one call per question; a higher score means more "
+                   "questions answered exactly, and the run's goal is the same accuracy at a lower Crusoe bill.\n\n"
+                   "Exact-answer questions about DoneTwin data halls (2N busway budget left, racks that fit a row, CDU "
+                   "headroom, hose slack), regenerated from each held-out hall's seed and tier "
+                   "(benchmarks/inference_opt/workload.py): " + ", ".join(f"{t}-{s}" for s, t in held) + ". "
+                   "Score = fraction of all held-out questions within the stated tolerance; a missing task scores 0."),
+        "submission_instructions": ("Submit {\"tasks\": [{\"seed\": int, \"tier\": str, \"answers\": {\"q1\": number, "
+                                    "...}}]} with one entry per held-out hall."),
+        "submission_schema": {"type": "object", "properties": {"tasks": {"type": "array", "items": task,
+                                                                          "minItems": len(held), "maxItems": len(held)}},
+                              "required": ["tasks"], "additionalProperties": False},
+        "score_name": "Accuracy",
+        "score_direction": "higher",
+        "score_min": 0,
+        "verifier": {"url": "http://127.0.0.1:9004/evaluations", "method": "POST", "mode": "synchronous",
+                     "request_template": {"submission": "{{submission.payload}}", "split": "heldout",
+                                          "submission_id": "{{submission.id}}", "benchmark_id": "{{benchmark.id}}"},
+                     "score_path": "score", "feedback_path": "feedback", "timeout_seconds": 60},
+    }
+
+
+def inference_opt_entries() -> list[dict[str, Any]]:
+    """One entry per (run, config) that saved answers for every held-out hall; v0 cold is the baseline."""
+    from benchmarks.inference_opt.workload import load_tasks
+
+    held = [(t.payload["seed"], t.payload["tier"]) for t in load_tasks()[2]]
+    by_config: dict[tuple[str, str], dict[tuple[int, str], dict[str, Any]]] = {}
+    for f, d in run_solutions("inference_opt"):
+        s = d.get("solution") or {}
+        key = (s.get("seed"), s.get("tier"))
+        if key in held:
+            by_config.setdefault((run_name(f), d.get("config", "run")), {})[key] = s.get("answers") or {}
+    entries = []
+    for (run, config), answers in sorted(by_config.items()):
+        if len(answers) < len(held):
+            print(f"  {run} {config}: only {len(answers)}/{len(held)} held-out halls saved; not submitted")
+            continue
+        entries.append({"title": f"{config}, {run}", "submitted_by": run, "baseline": config.startswith("v0 + empty"),
+                        "payload": {"tasks": [{"seed": s, "tier": t, "answers": answers[(s, t)]} for s, t in held]}})
+    return sorted(entries, key=lambda e: not e["baseline"])
 
 
 # ---------------------------------------------------------------- shared
@@ -435,11 +610,22 @@ def run_solutions(case_study: str) -> list[tuple[Path, dict[str, Any]]]:
     return out
 
 
+BASELINE_LABELS = {  # (name in titles, format of the score delta)
+    "datahall": ("greedy", "+.1f"),
+    "datahall_heldout": ("greedy", "+.1f"),
+    "qaplib": ("2-swap", "+.4f"),
+    "alebench": ("greedy", "+,.0f"),
+    "kernelbench": ("eager", "+.2f"),
+    "inference_opt": ("v0", "+.3f"),
+}
+
 CASE_STUDIES = {
     "datahall": (datahall_definition, datahall_entries, "http://127.0.0.1:9000/health"),
     "qaplib": (qaplib_definition, qaplib_entries, "http://127.0.0.1:9001/health"),
     "alebench": (alebench_definition, alebench_entries, "http://127.0.0.1:9002/health"),
     "datahall_heldout": (datahall_heldout_definition, datahall_heldout_entries, "http://127.0.0.1:9003/health"),
+    "kernelbench": (kernelbench_definition, kernelbench_entries, "http://127.0.0.1:9005/health"),
+    "inference_opt": (inference_opt_definition, inference_opt_entries, "http://127.0.0.1:9004/health"),
 }
 
 
@@ -461,8 +647,6 @@ def main() -> None:
     args = ap.parse_args()
     base = checkpoint_url(args.checkpoint_ref)
     print(f"base_checkpoint_url: {base}")
-    print("KernelBench mini: skipped; benchmarks/kernelbench_mini/evaluate.py needs a CUDA host with torch "
-          f"({len(run_solutions('kernelbench'))} saved ModelNew solutions under runs/*/solutions/).")
     boards = []
     for name in args.only or list(CASE_STUDIES):
         definition_fn, entries_fn, health = CASE_STUDIES[name]
@@ -472,7 +656,7 @@ def main() -> None:
             print(f"  verifier not reachable at {health}; skipped (start it, then rerun)")
             continue
         bid = find_or_create(definition, args.dry_run)
-        new_ids = submit_all(bid, entries_fn(), base, args)
+        new_ids = submit_all(bid, entries_fn(), base, args, definition, BASELINE_LABELS[name])
         if new_ids and not args.no_wait:
             wait_for(new_ids)
         if bid:

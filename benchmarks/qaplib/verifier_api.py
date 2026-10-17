@@ -12,6 +12,8 @@ POST /evaluations
       -> 200 {"status": "completed", "score": mean BKS/cost over every instance of the split, ...}
          An instance of the split that is missing or has an invalid permutation scores 0, so a partial
          set cannot raise the mean. Without "split", the mean is over the submitted instances.
+  "feedback" opens with two plain sentences comparing the answer to the 2-swap baseline in reports/qaplib_baseline.json
+  ("baseline": {"name", "score", "is_baseline"}, or null for an instance it does not cover), then "Details:".
   Unknown instance, unknown split, duplicate instance or malformed body -> 400/422 {"status": "rejected", "error"}
 GET /health -> {"ok": true, "instances": N}
 """
@@ -20,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -31,6 +34,8 @@ if str(ROOT) not in sys.path:
 from benchmarks.qaplib.verify import INSTANCES, load_index, verify  # noqa: E402
 
 MAX_BODY = 4 * 1024 * 1024
+BASELINE_REPORT = ROOT / "reports" / "qaplib_baseline.json"
+TWO_SWAP_CACHE = ROOT / "runs" / "dashboard" / "qaplib_two_swap_heldout.json"
 
 
 class Rejected(ValueError):
@@ -64,6 +69,93 @@ def line(r: dict[str, Any]) -> str:
     return f"{r['instance']}: {r['status']} ({r.get('error', '')}), score 0"
 
 
+def _mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+@lru_cache(maxsize=4)
+def _two_swap_baseline(_report_mtime: float, _cache_mtime: float) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    try:
+        inst = json.loads(BASELINE_REPORT.read_text())["instances"]
+        out = {k: v["two_swap"] for k, v in inst.items() if isinstance(v.get("two_swap"), dict)}
+    except (OSError, ValueError, KeyError):
+        pass
+    try:  # the exact 2-swap permutations on the dashboard's baseline row win, so that row reads as the baseline
+        cached = json.loads(TWO_SWAP_CACHE.read_text())
+    except (OSError, ValueError):
+        cached = {}
+    for name, perm in cached.items():
+        v = verify(name, perm)
+        if v.get("status") == "ok":
+            out[name] = {"cost": v["cost"], "score": v["score"], "gap_pct": v["gap_pct"]}
+    return out
+
+
+def two_swap_baseline() -> dict[str, dict[str, Any]]:
+    """The baseline: 2-swap local search per instance ({cost, score, gap_pct}), from reports/qaplib_baseline.json,
+    overridden by the permutations scripts/publish_results_to_dashboard.py submitted as the board's baseline."""
+    return _two_swap_baseline(_mtime(BASELINE_REPORT), _mtime(TWO_SWAP_CACHE))
+
+
+def pct(gap: float) -> str:
+    return f"{gap:.2f}%" if abs(gap) < 10 else f"{gap:.1f}%"
+
+
+def vs_best(gap: float) -> str:
+    return "the same as" if round(gap, 2) == 0 else f"{pct(abs(gap))} {'more' if gap > 0 else 'less'} than"
+
+
+def explain(results: list[dict[str, Any]]) -> str:
+    """Two plain sentences: the average cost gap to the best known answers, against the 2-swap baseline."""
+    n = len(results)
+    ok = [r for r in results if r["status"] == "ok" and r.get("gap_pct") is not None]
+    base = two_swap_baseline()
+    have_base = bool(ok) and all(r["instance"] in base for r in results)
+    bad = n - len(ok)
+    if not ok:
+        return f"No valid answer in {n} problem{'s' if n > 1 else ''}, so it scores 0. Each answer must assign every facility to a different location."
+    gap = sum(r["gap_pct"] for r in ok) / len(ok)
+    where = f"for {ok[0]['instance']}" if n == 1 else f"on average over {len(ok)} problems"
+    answers = "answer" if n == 1 else "answers"
+    at_bks = sum(1 for r in ok if r["cost"] <= r["bks"])
+    if have_base and not bad and all(r["cost"] == base[r["instance"]]["cost"] for r in ok):
+        return (f"This is the baseline: 2-swap local search costs {vs_best(gap)} the best known {answers} {where}. "
+                f"It matches the best known answer on {at_bks} of {n}; a higher score (1.0 = best known) means cheaper "
+                "assignments.")
+    else:
+        first = f"Costs {vs_best(gap)} the best known {answers} {where}"
+        if have_base:
+            bgap = sum(base[r["instance"]]["gap_pct"] for r in ok) / len(ok)
+            first += (f"; the 2-swap baseline matches {'it' if n == 1 else 'them'}" if round(bgap, 2) == 0 else
+                      f"; the 2-swap baseline is {pct(bgap)} above {'it' if n == 1 else 'them'}")
+        first += "."
+    if n == 1:
+        second = "It matches the best known answer." if at_bks else (
+            "It beats 2-swap." if have_base and ok[0]["cost"] < base[ok[0]["instance"]]["cost"] else
+            "It does not beat 2-swap." if have_base else "Lower cost is better.")
+        return f"{first} {second}"
+    second = f"It matches the best known answer on {at_bks} of {n}"
+    if have_base:
+        wins = sum(1 for r in ok if r["cost"] < base[r["instance"]]["cost"])
+        losses = sum(1 for r in ok if r["cost"] > base[r["instance"]]["cost"])
+        second += f" and beats 2-swap on {wins}, ties {len(ok) - wins - losses}, loses {losses}"
+    if bad:
+        second += f"; {bad} {'is' if bad == 1 else 'are'} missing or invalid and score 0"
+    return f"{first} {second}."
+
+
+def baseline_info(results: list[dict[str, Any]]) -> dict[str, Any] | None:
+    base = two_swap_baseline()
+    if not all(r["instance"] in base for r in results):
+        return None
+    return {"name": "2-swap", "score": sum(float(base[r["instance"]]["score"]) for r in results) / len(results),
+            "is_baseline": all(r["status"] == "ok" and r["cost"] == base[r["instance"]]["cost"] for r in results)}
+
+
 def evaluate(req: Any) -> dict[str, Any]:
     if not isinstance(req, dict) or not isinstance(req.get("submission"), (dict, str)):
         raise Rejected("body must be a JSON object with a 'submission' object")
@@ -79,7 +171,8 @@ def evaluate(req: Any) -> dict[str, Any]:
     if "solutions" not in sub:
         r = score_one(sub.get("instance"), sub.get("permutation"), index)
         return {"status": "completed", "score": float(r["score"]), "cost": r["cost"], "bks": r["bks"],
-                "gap_pct": r["gap_pct"], "results": [r], "feedback": line(r)}
+                "gap_pct": r["gap_pct"], "results": [r], "baseline": baseline_info([r]),
+                "feedback": explain([r]) + "\n\nDetails:\n" + line(r)}
     sols = sub["solutions"]
     if not isinstance(sols, list) or not sols:
         raise Rejected("'solutions' must be a non-empty list")
@@ -109,7 +202,8 @@ def evaluate(req: Any) -> dict[str, Any]:
     head = (f"mean BKS/cost {mean:.6f} over {len(results)} instances"
             f"{' of split ' + split if split else ''}; {len(ok)} valid, {at_bks} at or below BKS")
     return {"status": "completed", "score": mean, "n": len(results), "valid": len(ok), "at_bks": at_bks,
-            "results": results, "feedback": "\n".join([head] + [line(r) for r in results])}
+            "results": results, "baseline": baseline_info(results),
+            "feedback": explain(results) + "\n\nDetails:\n" + "\n".join([head] + [line(r) for r in results])}
 
 
 class Handler(BaseHTTPRequestHandler):

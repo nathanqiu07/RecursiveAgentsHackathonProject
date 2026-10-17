@@ -32,6 +32,44 @@ const statuses = (value: string) => value.split(',').map((item) => item.trim()).
 const score = (value: number | null) => value === null ? '—' : new Intl.NumberFormat(undefined, { maximumSignificantDigits: 8 }).format(value);
 const date = (value: number) => new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const statusLabels = { queued: 'Queued', running: 'Running', verified: 'Verified', failed: 'Failed', rejected: 'Rejected' };
+// A verifier's feedback may open with a plain-language summary paragraph; the leaderboard shows only that paragraph.
+const feedbackSummary = (feedback: string | null) => feedback?.split('\n\n')[0] ?? '';
+const isBaseline = (title: string) => /^baseline\b/i.test(title);
+const delta = (value: number, base: number) => {
+  const difference = value - base;
+  return `${difference > 0 ? '+' : difference < 0 ? '−' : '±'}${new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4 }).format(Math.abs(difference))}`;
+};
+// Rows titled "... (no LLM ...)" are reference programs, not team results.
+const isReference = (title: string) => /\bno LLM\b/i.test(title);
+const brief = (value: number) => new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4 }).format(value);
+const baselineName = (title: string) => title.replace(/^baseline:\s*/i, '').replace(/\s*[([].*$/, '').replace(/,.*$/, '');
+const lastSentence = (text: string) => {
+  const parts = text.split(/(?<=[.!?])\s+(?=[A-Z0-9])/).filter(Boolean);
+  return parts[parts.length - 1] ?? '';
+};
+function pickBaseline(entries: LeaderboardEntry[]) {
+  return entries.filter((entry) => isBaseline(entry.title)).reduce<LeaderboardEntry | null>((latest, entry) =>
+    !latest || (entry.completed_at ?? 0) > (latest.completed_at ?? 0) ? entry : latest, null);
+}
+function summarize(entries: LeaderboardEntry[]) {
+  const baseline = pickBaseline(entries);
+  const best = entries.find((entry) => !isBaseline(entry.title) && !isReference(entry.title)) ?? null;
+  const base = baseline && baseline.score !== null ? `${baselineName(baseline.title)} ${brief(baseline.score)}` : '';
+  let text = 'No verified results yet.';
+  if (entries.length && !best) text = baseline ? `Baseline only so far: ${base}. Team results pending.` : 'Reference programs only so far. Team results pending.';
+  if (best && best.score !== null) {
+    text = baseline && baseline.score !== null
+      ? `Best team result scores ${brief(best.score)} vs ${base} (${delta(best.score, baseline.score)}).`
+      : `Best team result scores ${brief(best.score)}; this board has no baseline entry.`;
+    const note = best.feedback?.includes('\n\n') ? lastSentence(feedbackSummary(best.feedback)) : '';
+    if (note) text += ` ${note}`;
+  }
+  return { baseline, best, text };
+}
+const measures = (benchmark: Benchmark) => {
+  const lead = benchmark.prompt.split('\n\n')[0];
+  return /^baseline:/i.test(lead) ? lead : `${benchmark.score_name} · ${benchmark.score_direction === 'higher' ? 'Higher' : 'Lower'} is better`;
+};
 
 function parseJSON(value: string, label: string) {
   try { return JSON.parse(value); }
@@ -209,6 +247,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
   const [message, setMessage] = useState('');
   const [creating, setCreating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [boards, setBoards] = useState<Record<string, LeaderboardEntry[]>>({});
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -220,7 +259,10 @@ export default function Benchmarks({ active }: { active: boolean }) {
           api<{ entries: LeaderboardEntry[] }>(`/benchmarks/${selectedId}/leaderboard`, { signal }),
         ]) : null,
       ]);
+      const leaderboards = selectedId ? null : await Promise.all(list.benchmarks.map((item) =>
+        api<{ entries: LeaderboardEntry[] }>(`/benchmarks/${item.id}/leaderboard`, { signal }).then((board) => [item.id, board.entries] as const)));
       if (signal?.aborted) return;
+      if (leaderboards) setBoards(Object.fromEntries(leaderboards));
       setBenchmarks(list.benchmarks);
       if (details) setDetail({ benchmark: details[0], submissions: details[1].submissions, total: details[1].total, entries: details[2].entries });
       setError('');
@@ -244,6 +286,8 @@ export default function Benchmarks({ active }: { active: boolean }) {
   }
 
   const benchmark = detail?.benchmark;
+  const baselineRows = detail?.entries.filter((entry) => isBaseline(entry.title)) ?? [];
+  const baselineEntry = baselineRows.length === 1 ? baselineRows[0] : null;
   return <div className="benchmarks">
     {selectedId && <nav className="benchmark-breadcrumb" aria-label="Benchmark navigation"><button onClick={() => {
       setSelectedId(null); setDetail(null); setOffset(0); setMessage(''); setError('');
@@ -261,6 +305,8 @@ export default function Benchmarks({ active }: { active: boolean }) {
     {message && <p className="benchmark-success" role="status">{message}</p>}
     {loading ? <p className="benchmark-loading" role="status">Loading benchmarks…</p>
       : selectedId ? !detail ? <p className="benchmark-loading" role="status">{error ? 'Benchmark could not be loaded.' : 'Loading benchmark…'}</p> : <>
+        <section className="benchmark-summary" aria-label="Result summary"><h2>Summary</h2>
+          <p>{summarize(detail.entries).text}</p><p className="benchmark-summary-measures">{measures(detail.benchmark)}</p></section>
         <div className="benchmark-description">
           <div><h2>Objective</h2><p className="benchmark-prompt">{detail.benchmark.prompt}</p>
             <div className="benchmark-instructions"><h2>Submission requirements</h2><p>{detail.benchmark.submission_instructions}</p>
@@ -281,7 +327,10 @@ export default function Benchmarks({ active }: { active: boolean }) {
           </tr></thead><tbody>{detail.entries.length === 0 ? <tr><td className="nodes-empty" colSpan={5}>No verified scores yet. Submit a solution to start the leaderboard.</td></tr>
             : detail.entries.map((entry) => <tr key={entry.id}><td className="benchmark-rank">{entry.rank}</td><th scope="row">{entry.title}
               {entry.base_checkpoint_url && <a className="cell-secondary" href={entry.base_checkpoint_url} target="_blank" rel="noreferrer">Base checkpoint ↗</a>}
-            </th><td>{entry.submitted_by}</td><td className="benchmark-score">{score(entry.score)}</td><td className="muted">{entry.completed_at ? date(entry.completed_at) : '—'}</td></tr>)}</tbody></table></div>
+              {entry.feedback && <span className="benchmark-submission-note benchmark-leaderboard-note">{feedbackSummary(entry.feedback)}</span>}
+            </th><td>{entry.submitted_by}</td><td className="benchmark-score">{score(entry.score)}
+              {baselineEntry && entry.score !== null && baselineEntry.score !== null && <span className="cell-secondary">
+                {entry.id === baselineEntry.id ? 'Baseline' : `${delta(entry.score, baselineEntry.score)} vs baseline`}</span>}</td><td className="muted">{entry.completed_at ? date(entry.completed_at) : '—'}</td></tr>)}</tbody></table></div>
         </section>
         <section className="benchmark-section" aria-labelledby="submissions-title">
           <div className="section-heading"><div><h2 id="submissions-title">Submissions <span className="node-count">{detail.total}</span></h2><p className="muted">Verification progress and feedback for each solution.</p></div></div>
@@ -307,12 +356,18 @@ export default function Benchmarks({ active }: { active: boolean }) {
         <p>Set an open-ended objective, define the submission format, and connect a verification API that returns a score.</p>
         <button className="button button-primary" onClick={() => setCreating(true)}>Create benchmark</button>
       </div> : <div className="nodes-table-container"><table className="benchmark-list" aria-label="Benchmarks"><thead><tr>
-        <th scope="col">Benchmark</th><th scope="col">Submissions</th><th scope="col">Best verified score</th><th scope="col">Created</th>
-      </tr></thead><tbody>{benchmarks.map((item) => <tr key={item.id}>
-        <td><button className="benchmark-name" onClick={() => openBenchmark(item.id)}>{item.title}</button><p className="benchmark-list-prompt">{item.prompt}</p></td>
+        <th scope="col">Benchmark</th><th scope="col">Submissions</th><th scope="col">Baseline</th><th scope="col">Best team result</th><th scope="col">Best verified score</th><th scope="col">Created</th>
+      </tr></thead><tbody>{benchmarks.map((item) => { const summary = summarize(boards[item.id] ?? []); return <tr key={item.id}>
+        <td><button className="benchmark-name" onClick={() => openBenchmark(item.id)}>{item.title}</button>
+          {boards[item.id] && <p className="benchmark-list-summary">{summary.text}</p>}<p className="benchmark-list-prompt">{item.prompt}</p></td>
         <td>{item.submission_count}<span className="cell-secondary">{item.verified_count} verified</span></td>
+        <td className="benchmark-score">{summary.baseline ? score(summary.baseline.score) : '—'}
+          {summary.baseline && <span className="cell-secondary">{baselineName(summary.baseline.title)}</span>}</td>
+        <td className="benchmark-score">{summary.best ? score(summary.best.score) : '—'}
+          {summary.best && summary.baseline && summary.best.score !== null && summary.baseline.score !== null
+            && <span className="cell-secondary">{delta(summary.best.score, summary.baseline.score)} vs baseline</span>}</td>
         <td className="benchmark-score">{score(item.best_score)}<span className="cell-secondary">{item.score_name} · {item.score_direction === 'higher' ? 'Higher' : 'Lower'} is better</span></td><td className="muted">{date(item.created_at)}</td>
-      </tr>)}</tbody></table></div>}
+      </tr>; })}</tbody></table></div>}
     {creating && <CreateBenchmark onClose={() => setCreating(false)} onCreated={(created) => {
       setCreating(false); setBenchmarks((items) => [created, ...items]); setSelectedId(created.id); setOffset(0); setDetail(null);
       setMessage('Benchmark created. Submit a solution to start verification.');
