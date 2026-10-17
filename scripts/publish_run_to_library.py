@@ -5,7 +5,8 @@
 
 Reads versions/ledger.jsonl, ledger.jsonl or version_ledger.jsonl under the run directory. Safe to re-run on a
 run that is still going: rows already published (recorded in library.jsonl beside the ledger) are skipped.
-Prints the papers and verdicts read back from the Library's own API.
+Prints the papers and verdicts read back from the Library's own API. A Gate-verified claim reads back as
+`blocked` + "verified (experimental)": SA's Library accepts `verified` only after its own novelty review.
 """
 from __future__ import annotations
 
@@ -74,8 +75,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {r['key']}: not published")
             continue
         got = publisher.client.get(r["paper_id"])
-        report = got.get("report") or {}
-        print(f"  {got['id']} {got['status']:<20} {report.get('verdict', '-'):<13} {got['submission']['title'][:70]}")
+        shown = ((got.get("report") or {}).get("verdict") or
+                 ((got.get("experimental_report") or {}).get("verdict", "verified") + " (experimental)"
+                  if str(got.get("blocked_reason") or "").startswith("Independent Library novelty") else "-"))
+        print(f"  {got['id']} {got['status']:<20} {shown:<25} {got['submission']['title'][:60]}")
     return 0 if publisher.counts["failures"] == 0 else 2
 
 

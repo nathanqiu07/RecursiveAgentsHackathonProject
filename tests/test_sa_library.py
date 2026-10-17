@@ -25,7 +25,8 @@ from scripts.publish_run_to_library import main as backfill  # noqa: E402
 from team.brain import SharedBrain  # noqa: E402
 from team.evolve import Evolver, TeamVersion  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
-from team.sa_library import LibraryPublisher, NullLibrary, claim_submission, from_env, gate_report  # noqa: E402
+from team.sa_library import (NOVELTY_REQUIRED, WORKER_ID, LibraryPublisher, NullLibrary, from_env,  # noqa: E402
+                             gate_report)
 from team.types import RunResult, Task  # noqa: E402
 
 
@@ -57,6 +58,14 @@ def fake_library(queue: PaperQueue) -> ThreadingHTTPServer:
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
+
+
+def verdict(paper: dict) -> str:
+    """SA's report verdict, or the experimental one a Gate-verified claim keeps until Library's novelty review."""
+    if paper["report"]:
+        return paper["report"]["verdict"]
+    assert (paper["status"], paper["blocked_reason"]) == ("blocked", NOVELTY_REQUIRED), paper["status"]
+    return paper["experimental_report"]["verdict"]
 
 
 def dead_url() -> str:
@@ -134,8 +143,8 @@ class SALibraryTest(unittest.TestCase):
         evolver.run(1, tasks("train", 2), tasks("dev", 3), tasks("heldout", 2))
         papers = self.queue.list(100, 0)["papers"]
         self.assertEqual(len(papers), 3)  # two gated claims, one dropped as invalid
-        verdicts = sorted(p["report"]["verdict"] for p in papers)
-        self.assertEqual(verdicts, ["inconclusive", "not_verified", "verified"])
+        self.assertEqual(sorted(verdict(p) for p in papers), ["inconclusive", "not_verified", "verified"])
+        self.assertEqual(sorted(p["status"] for p in papers), ["blocked", "completed", "completed"])
         self.assertEqual([p["verdict"] for p in evolver.papers], ["reproduced", "not reproduced"])
 
     def test_library_down_does_not_break_the_loop(self) -> None:
@@ -179,7 +188,29 @@ class SALibraryTest(unittest.TestCase):
         self.assertEqual(backfill(args), 0)
         papers = self.queue.list(100, 0)["papers"]
         self.assertEqual(len(papers), 3)
-        self.assertEqual(sorted(p["report"]["verdict"] for p in papers), ["inconclusive", "not_verified", "verified"])
+        self.assertEqual(sorted(verdict(p) for p in papers), ["inconclusive", "not_verified", "verified"])
+
+    def test_gate_verified_claim_waits_for_library_novelty_review_and_stays_retryable(self) -> None:
+        pub = self.publisher()
+        [pid] = pub.publish_claims(0, 0, MUTATIONS[:1])
+        decision = {"n": 3, "gain": 0.3, "accepted": True, "reason": "accepted"}
+        self.assertEqual(pub.post_verdict(pid, MUTATIONS[0], decision), "verified")
+        paper = self.queue.get(pid)
+        self.assertIsNone(paper["report"])  # SA: verified needs an independent semantic novelty decision
+        self.assertEqual(verdict(paper), "verified")
+        self.assertEqual(self.queue.retry(pid)["status"], "pending_verification")
+        self.assertEqual(len(self.queue.list(100, 0)["papers"]), 1)  # no linked report paper
+
+    def test_paper_left_mid_lease_by_an_older_bridge_is_repaired(self) -> None:
+        pub = self.publisher()
+        [pid] = pub.publish_claims(0, 0, MUTATIONS[:1])
+        with self.queue.connection() as db:  # what the pre-novelty bridge left behind: leased, then refused
+            db.execute("UPDATE papers SET status='planning', worker_id=?, lease_token='x', lease_until=0, "
+                       "compute_key='k' WHERE id=?", (WORKER_ID, pid))
+        pub.papers[next(iter(pub.papers))].update(verdict="verified", verdict_via="linked_paper")
+        self.assertEqual(pub.post_verdict(pid, MUTATIONS[0], {"accepted": True, "gain": 0.3, "reason": "accepted"}),
+                         "verified")
+        self.assertEqual(self.queue.get(pid)["status"], "blocked")
 
 
 if __name__ == "__main__":

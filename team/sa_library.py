@@ -213,8 +213,19 @@ class LibraryClient:
                 return papers
 
 
+NOVELTY_REQUIRED = ("Independent Library novelty review is required before acceptance. The Gate reproduced this "
+                    "claim; its measurement is attached as the experimental report.")
+
+
 class QueueVerdicts:
-    """Writes a report the way SA's Library worker does: lease the paper, then PaperQueue.finish_verification."""
+    """Writes a report the way SA's Library worker does: lease the paper, then finish or block it through PaperQueue.
+
+    Since SA's 7c74de5, a `verified` report needs an independent semantic novelty decision from Library's own
+    reviewer, which the Gate cannot honestly supply. A Gate-verified claim is therefore stored the way SA's code
+    stores experimental success without novelty: status `blocked`, the report kept as `experimental_report`, and
+    retryable (POST /papers/{id}/retry) so Library's worker can run novelty review later. `not_verified` and
+    `inconclusive` need no novelty decision and complete as before.
+    """
 
     def __init__(self, db_path: str | Path = DEFAULT_DB):
         self.db_path = Path(db_path)
@@ -241,12 +252,23 @@ class QueueVerdicts:
             leased = db.execute(
                 """UPDATE papers SET status='planning', started_at=COALESCE(started_at,?), worker_id=?,
                    lease_token=?, lease_until=?, compute_key=COALESCE(compute_key,?)
-                   WHERE id=? AND status='pending_verification'""",
+                   WHERE id=? AND (status='pending_verification' OR (status IN ('planning','verifying')
+                   AND worker_id=? AND (lease_until IS NULL OR lease_until<=?)))""",
                 (datetime.fromtimestamp(now, timezone.utc).isoformat(), WORKER_ID, token, now + 120,
-                 str(uuid4()), paper_id)).rowcount
+                 str(uuid4()), paper_id, WORKER_ID, now)).rowcount
+        # The second branch re-leases a paper this verifier left mid-way (an older bridge whose
+        # `verified` write SA's novelty rule refused), never one held by SA's worker.
         if leased != 1:
             raise LookupError(f"paper {paper_id} is not pending_verification in {self.db_path}")
+        if report["verdict"] == "verified" and self.novelty_required(queue):
+            return queue.block_verification(paper_id, token, NOVELTY_REQUIRED, experimental_report=report)
         return queue.finish_verification(paper_id, token, report=report)
+
+    @staticmethod
+    def novelty_required(queue) -> bool:
+        """SA's Library with the novelty gate (block_verification takes experimental_report); older code does not."""
+        import inspect
+        return "experimental_report" in inspect.signature(queue.block_verification).parameters
 
 
 # ---------------------------------------------------------------- publisher used by the Evolver
@@ -313,12 +335,15 @@ class LibraryPublisher(NullLibrary):
         return paper["id"]
 
     def _verdict(self, key: str, paper_id: str | None, report: dict) -> str | None:
-        if not paper_id or self.papers.get(key, {}).get("verdict"):
-            return self.papers.get(key, {}).get("verdict")
+        known = self.papers.get(key, {})
+        if not paper_id or (known.get("verdict") and known.get("verdict_via") != "linked_paper"):
+            return known.get("verdict")
         try:
-            self.verdicts.finish(paper_id, report)
-            where = "report"
+            done = self.verdicts.finish(paper_id, report)
+            where = "experimental_report" if (done or {}).get("status") == "blocked" else "report"
         except Exception as exc:
+            if known.get("verdict"):  # a linked report already exists; keep it rather than post another
+                return known["verdict"]
             log.warning("SA Library report on %s not written through PaperQueue (%s: %s); "
                         "submitting it as a linked verification-report paper", paper_id, type(exc).__name__, exc)
             linked = {"title": _clip(f"Verification report for {paper_id}: {report['verdict']}", 500),
