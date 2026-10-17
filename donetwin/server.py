@@ -4,6 +4,7 @@
 """
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -11,6 +12,8 @@ import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from donetwin import halls
+from donetwin.hall_run import execute_hall, is_2n_hall
 from donetwin.llm import LLM
 from donetwin.loop import RUNS_DIR, Run, execute
 from donetwin.mock import MockLLM
@@ -21,9 +24,14 @@ SCENARIOS = os.path.join(ROOT, "scenarios")
 RUNS = {}
 SANDBOX_MODE = os.getenv("SANDBOX_MODE") or (
     "openshell" if openshell_available() else "docker" if docker_available() else "subprocess")
+# Held-out generated halls offered in the UI next to the scenario files (never in the hill-climb library).
+GENERATED = [f"{t}-{halls.heldout_seeds()[0]}" for t in ("small", "medium", "large")]
 
 
 def load_scenario(name):
+    m = re.fullmatch(r"(small|medium|large)-(\d+)", os.path.basename(name))
+    if m:
+        return halls.generate(int(m.group(2)), m.group(1))
     with open(os.path.join(SCENARIOS, f"{os.path.basename(name)}.json"), encoding="utf-8") as f:
         return json.load(f)
 
@@ -68,7 +76,7 @@ class Handler(SimpleHTTPRequestHandler):
             except FileNotFoundError:
                 return self._json({"error": "unknown scenario"}, 404)
         if u.path == "/api/scenarios":
-            return self._json(sorted(f[:-5] for f in os.listdir(SCENARIOS) if f.endswith(".json")))
+            return self._json(sorted(f[:-5] for f in os.listdir(SCENARIOS) if f.endswith(".json")) + GENERATED)
         if u.path == "/api/runs":
             rows = []
             if os.path.isdir(RUNS_DIR):
@@ -108,6 +116,16 @@ class Handler(SimpleHTTPRequestHandler):
         rid = time.strftime("%H%M%S-") + uuid.uuid4().hex[:4]
         run = Run(rid, goal, scenario_name)
         RUNS[rid] = run
+        if is_2n_hall(base):  # 2N halls: Nemotron hill-climbs the verified hall score
+            try:
+                llm = None if body.get("mock") else LLM()
+            except RuntimeError as e:
+                return self._json({"error": str(e)}, 400)
+            library = None if scenario_name in GENERATED else "library"  # held-out halls never train it
+            threading.Thread(target=execute_hall, args=(run, llm, base),
+                             kwargs={"iters": int(body.get("max_iters", 6)), "library_dir": library},
+                             daemon=True).start()
+            return self._json({"run_id": rid})
         try:
             llm = MockLLM() if body.get("mock") else LLM()
         except RuntimeError as e:

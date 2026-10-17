@@ -44,6 +44,10 @@ python verifier_server.py --hall scenarios/data_hall_2n.json --port 9000 # POST 
 python bench/make_benchmark.py   # writes bench/hall_b_benchmark.json for the team dashboard
 ```
 
+In the 3D twin (`python server.py`), pick `data_hall_2n` or a generated hall (`small-10000`, `medium-10000`,
+`large-10000`) and click Run. The server runs `donetwin/hall_run.py`: the greedy baseline first, then Nemotron
+proposals, each scored live. The run ends on the best verified layout.
+
 Halls come from `donetwin/halls.py` (`generate(seed, tier)`). Train seeds are 0 to 9999 and held-out
 seeds are 10000 to 10049. The held-out halls never enter the hill-climb library.
 
