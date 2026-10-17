@@ -4,13 +4,16 @@ ledger and the Library paper. No network: a fake shim on loopback, or a stubbed 
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
 import tempfile
 import threading
 import unittest
+from contextlib import redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -85,11 +88,32 @@ class SearchTest(unittest.TestCase):
         self.assertIn("bad json", query)
         self.assertNotIn("Timeout", query)
 
-    def test_research_off_by_default_in_run_scripts(self) -> None:
+    def parser(self) -> argparse.ArgumentParser:
         ap = argparse.ArgumentParser()
+        ap.add_argument("--live", action="store_true")
+        ap.add_argument("--offline", action="store_true")
         research.add_research_args(ap)
-        self.assertIsNone(research.research_from_args(ap.parse_args([]), "qaplib"))
-        self.assertIsNotNone(research.research_from_args(ap.parse_args(["--research"]), "qaplib"))
+        return ap
+
+    def test_research_on_for_live_off_for_offline_and_no_research(self) -> None:
+        ap = self.parser()
+        with mock.patch.object(research, "shim_healthy", return_value=True), redirect_stdout(io.StringIO()) as out:
+            self.assertIsNotNone(research.research_from_args(ap.parse_args(["--live"]), "qaplib"))
+            self.assertIsNotNone(research.research_from_args(ap.parse_args(["--live", "--research"]), "qaplib"))
+            self.assertIsNone(research.research_from_args(ap.parse_args(["--live", "--no-research"]), "qaplib"))
+            self.assertIsNone(research.research_from_args(ap.parse_args(["--offline"]), "qaplib"))
+            self.assertIsNone(research.research_from_args(ap.parse_args(["--offline", "--research"]), "qaplib"))
+        lines = out.getvalue().splitlines()
+        self.assertEqual([line.endswith("(on)") for line in lines], [True, True, False, False, False])
+        self.assertTrue(lines[0].startswith("Research: You.com via http"))
+
+    def test_live_with_shim_down_warns_and_turns_research_off(self) -> None:
+        ap = self.parser()
+        with mock.patch.dict("os.environ", {"RESEARCH_SEARCH_URL": "http://127.0.0.1:9/search"}), \
+                redirect_stdout(io.StringIO()) as out:
+            self.assertIsNone(research.research_from_args(ap.parse_args(["--live"]), "qaplib"))
+        self.assertIn("WARNING", out.getvalue())
+        self.assertIn("(off)", out.getvalue())
 
 
 class EvolverResearchTest(unittest.TestCase):

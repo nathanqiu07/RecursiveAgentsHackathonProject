@@ -99,10 +99,27 @@ def make_research(benchmark_label: str, url: str | None = None) -> Callable[[lis
 
 def add_research_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--research", action="store_true",
-                    help="before each Reviewer call, run one You.com search via the shim at RESEARCH_SEARCH_URL "
-                         f"(default {DEFAULT_SEARCH_URL}) and give the Reviewer the results to cite")
+                    help="accepted for compatibility; research is already on for --live runs")
+    ap.add_argument("--no-research", action="store_true",
+                    help="--live runs skip the You.com search step (by default each generation's Reviewer reads "
+                         f"one search via the shim at RESEARCH_SEARCH_URL, default {DEFAULT_SEARCH_URL})")
+
+
+def shim_healthy(url: str) -> bool:
+    parts = urllib.parse.urlsplit(url)
+    try:
+        with urllib.request.urlopen(f"{parts.scheme}://{parts.netloc}/health", timeout=5) as response:
+            return response.status == 200
+    except Exception:  # noqa: BLE001 — any failure means "not answering"; the caller turns research off
+        return False
 
 
 def research_from_args(args: argparse.Namespace, benchmark_label: str) -> Callable[[list[str]], tuple] | None:
-    """None (research off) unless --research was passed."""
-    return make_research(benchmark_label) if getattr(args, "research", False) else None
+    """On for --live unless --no-research; off for --offline. A shim that fails /health turns it off, never the run."""
+    url = os.environ.get("RESEARCH_SEARCH_URL") or DEFAULT_SEARCH_URL
+    wanted = bool(getattr(args, "live", False)) and not getattr(args, "no_research", False)
+    if wanted and not shim_healthy(url):
+        print(f"WARNING: search service at {url} does not answer /health; continuing with research off", flush=True)
+        wanted = False
+    print(f"Research: You.com via {url} ({'on' if wanted else 'off'})", flush=True)
+    return make_research(benchmark_label, url) if wanted else None
