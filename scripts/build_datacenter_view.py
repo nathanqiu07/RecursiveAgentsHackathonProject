@@ -155,6 +155,22 @@ def progress_note(runs: list[dict]) -> str:
     return f" {r['id']} is running: {cr.plural(len(r['candidates']), 'candidate change')} scored on dev so far, {acc} accepted."
 
 
+def hall_note(best: dict | None) -> str:
+    """The hall caveat, read from the best run's log: say what a no-LLM greedy + polish run scores beside it."""
+    if not best or not best.get("delta"):
+        return "v0 starts from the greedy layout, so v0 cold equals greedy here."
+    run = best.get("run") or ""
+    logs = [ROOT / "runs" / f"{run}.log", ROOT / "reports" / run.replace("-", "_") / "run.log"]
+    text = next((p.read_text(errors="replace") for p in logs if p.is_file()), "")
+    m = re.search(r"^\|\s*greedy \+ polish \(no LLM\)\s*\|\s*([0-9.]+)", text, re.M)
+    if not m:
+        return "The gain comes from a verifier-guided search tool the Reviewer switched on."
+    polish = float(m.group(1))
+    same = "the same" if abs(polish - best["score"]) < 0.0005 else "a comparable"
+    return (f"Gain comes from a verifier-guided search tool the Reviewer switched on; "
+            f"greedy + polish with no LLM scores {same} {polish:.3f}.")
+
+
 def hall_layer(procs: str) -> dict[str, Any]:
     spec = dict(cr.CASE_STUDIES[0])
     runs = []
@@ -179,7 +195,7 @@ def hall_layer(procs: str) -> dict[str, Any]:
     return {"id": "hall", "name": "Hall layout", "problem": "Place racks, CDUs and power in a data hall (DoneTwin).",
             "verified": spec["verifier"], "score_label": "DoneTwin score / 100", "digits": 3,
             "baseline": {"name": "v0 cold", "score": best["baseline"] if best else None},
-            "note": "v0 starts from the greedy layout, so v0 cold equals greedy here.",
+            "note": hall_note(best),
             "best": best, "status": layer_status(runs), "summary": summary + progress_note(runs),
             "runs": runs, "settings": settings}
 

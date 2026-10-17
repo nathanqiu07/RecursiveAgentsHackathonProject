@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-17 16:51:50 PDT",
+ "generated_at": "2026-10-17 16:53:14 PDT",
  "command": ".venv/bin/python scripts/build_datacenter_view.py",
  "pitch": "Every layer of an AI data center as a verifiable optimization problem.",
  "layers": [
@@ -14,7 +14,7 @@
     "name": "v0 cold",
     "score": 0.6879
    },
-   "note": "v0 starts from the greedy layout, so v0 cold equals greedy here.",
+   "note": "Gain comes from a verifier-guided search tool the Reviewer switched on; greedy + polish with no LLM scores the same 0.728.",
    "best": {
     "run": "datahall-live-5",
     "label": "v1 + final brain",
@@ -26,7 +26,7 @@
     "v0_invalid": 0
    },
    "status": "done",
-   "summary": "From v0 0.688 to 0.728 (+0.040) on 6 unseen halls. datahall-live-6 is running: 3 candidate changes scored on dev so far, 1 accepted.",
+   "summary": "From v0 0.688 to 0.728 (+0.040) on 6 unseen halls. datahall-live-6 is running: 4 candidate changes scored on dev so far, 1 accepted.",
    "runs": [
     {
      "id": "datahall-live-1",
@@ -456,7 +456,7 @@
     {
      "id": "datahall-live-6",
      "status": "running",
-     "status_detail": "5 candidates scored on dev, generation 1; started 16:46 PDT, last write 16:51 PDT",
+     "status_detail": "6 candidates scored on dev, generation 1; started 16:46 PDT, last write 16:52 PDT",
      "baseline": {
       "name": "v0 cold",
       "score": null
@@ -472,6 +472,10 @@
       {
        "gen": 0,
        "score": 0.6916
+      },
+      {
+       "gen": 1,
+       "score": 0.7247
       }
      ],
      "candidates": [
@@ -498,11 +502,19 @@
        "accepted": false,
        "reason": "gain +0.000 < 0.02; cost +16% misses the -15% cut",
        "change": "temperature = 0.0"
+      },
+      {
+       "gen": 1,
+       "score": 0.722,
+       "parent_score": 0.7247,
+       "accepted": false,
+       "reason": "gain -0.003 < 0.02",
+       "change": "polish_checks = 1000"
       }
      ],
      "cost_usd": null,
      "calls": null,
-     "last_update": "16:51 PDT",
+     "last_update": "16:52 PDT",
      "n_heldout": null
     }
    ],
@@ -2428,8 +2440,8 @@
    "solver": "Nano",
    "reviewer": "Super",
    "research": true,
-   "generations": 1,
-   "candidates": 3,
+   "generations": 2,
+   "candidates": 4,
    "accepted": 1,
    "heldout": null,
    "cost_usd": null,
@@ -2528,12 +2540,47 @@
        "https://arxiv.org/html/2504.00277v1"
       ],
       "incumbent": 0.7247
+     },
+     {
+      "i": 3,
+      "gen": 1,
+      "id": "g1-c0",
+      "parent": 1,
+      "type": "config_set",
+      "target": "polish_checks",
+      "change": "polish_checks = 1000",
+      "rationale": "The polish feature already runs a verifier-guided local search over single-rack moves after the team's layout, which...",
+      "claim_gain": 0.0,
+      "claim_cost_pct": -33.3,
+      "score": 0.722,
+      "parent_score": 0.7247,
+      "gain": -0.0026,
+      "cost": 0.00112376,
+      "parent_cost": 0.00105586,
+      "cost_pct": 6.43,
+      "n": 4,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.003 < 0.02",
+      "verdict": "not reproduced",
+      "research_query": "data center GPU rack placement quadratic assignment heuristic cdu capacity power 2n",
+      "sources": [
+       "https://intuitionlabs.ai/articles/nvidia-hgx-data-center-requirements",
+       "https://www.leviathansystems.co/articles/cdu-sizing-guide-gpu-clusters",
+       "https://introl.com/blog/building-100kw-gpu-racks-power-cooling-architecture"
+      ],
+      "incumbent": 0.7247
      }
     ],
     "generations": [
      {
       "gen": 0,
       "start": 0.6916,
+      "end": 0.7247
+     },
+     {
+      "gen": 1,
+      "start": 0.7247,
       "end": 0.7247
      }
     ],

@@ -22,8 +22,8 @@ const PROJECT_NAME = 'Bring a verifier. Get a team that improves.';
 const THESIS = 'Every layer of an AI data center as a verifiable optimization problem';
 const TWIN_URL = 'http://127.0.0.1:8000';
 const REFRESH_MS = 60000;
-// Explains the flat hall result; used when datacenter.json carries no note of its own.
-const HALL_NOTE = 'v0 starts from the greedy layout, so v0 cold equals greedy here.';
+// Explains where the hall gain comes from; used when datacenter.json carries no note of its own.
+const HALL_NOTE = 'Gain comes from a verifier-guided search tool the Reviewer switched on; greedy + polish with no LLM scores the same 0.728.';
 // QAPLIB is the one layer with a published SOTA (best-known solutions). Figures from the team's QAPLIB held-out run;
 // datacenter.json does not carry them.
 const PLACEMENT_SOTA = 'QAPLIB: 3.6% from best-known solutions (SOTA), 6 unseen instances';

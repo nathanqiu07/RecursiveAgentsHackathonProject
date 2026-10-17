@@ -560,6 +560,8 @@ function Close({ t, layers }: { t: number; layers: Layer[] }) {
   const hall = layers.find((layer) => layer.id === 'hall');
   if (hall?.best && isNum(hall.best.score) && isNum(hall.best.baseline) && hall.best.score === hall.best.baseline) {
     lines.push('Hall layout: no change passed the gate, so final equals v0 cold.');
+  } else if (hall?.note) {
+    lines.push(`Hall layout: ${hall.note}`);
   }
   return <div className="stage-slide stage-close">
     <p className="stage-kicker">What the numbers do not say</p>

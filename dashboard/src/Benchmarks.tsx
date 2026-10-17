@@ -62,8 +62,11 @@ const finalRun = (title: string) => /^(\S+) final$/.exec(stripDigest(title))?.[1
 const coldFor = (entries: LeaderboardEntry[], run: string | null) => run ? entries.find((entry) => coldRun(entry.title) === run) ?? null : null;
 // On a board that has v0-baseline rows, the older team rows (titled "... vs 2-swap") repeat them with the classical
 // comparison, so only the v0 rows are shown; elsewhere every row without "no LLM" is shown.
+// 411091e6 ("Baseline: v0 cold (qaplib-research-2)") scored 0.8047 from a refill script bug, not the run: hidden.
+const HIDDEN_ENTRY_PREFIXES = ['411091e6'];
+const isHiddenEntry = (entry: LeaderboardEntry) => HIDDEN_ENTRY_PREFIXES.some((prefix) => String(entry.id ?? '').startsWith(prefix));
 function visibleEntries(entries: LeaderboardEntry[]) {
-  const team = entries.filter((entry) => !isReference(entry.title) && !/^reference\b/i.test(entry.title));
+  const team = entries.filter((entry) => !isHiddenEntry(entry) && !isReference(entry.title) && !/^reference\b/i.test(entry.title));
   const v0Rows = team.filter((entry) => coldRun(entry.title) || finalRun(entry.title));
   return v0Rows.length ? v0Rows : team;
 }
