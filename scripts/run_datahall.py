@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import NANO, SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.datahall import SPLIT_SIZES, datahall_run_team, datahall_v0, load_tasks  # noqa: E402
+from team.datahall_polish import MAX_CHECKS, local_search  # noqa: E402
 from team.evolve import Evolver, Gate, TeamVersion, markdown_table  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
 from team.sa_library import add_library_args, configure_from_args  # noqa: E402
@@ -39,7 +40,9 @@ DATAHALL_REVIEWER_NOTE = (
     "that beat greedy; at 16000 most reasoning replies were cut off (truncated); Super with thinking on stalled "
     "(~340 s per call, cut off). Feasible gains came from swapping single GB200 racks to GB300 and reassigning CDUs, "
     "not from re-laying out rows. Super is currently throttled by Crusoe (HTTP 429 on every call); do not assign it "
-    "to a role.")
+    "to a role. Data-hall config_set knobs: polish (true or false, default false): run a verifier-guided local search "
+    "over single-rack moves after the team's layout; polish_checks (int in [0, 1500], default 1500): the most "
+    "verifier calls that search may use.")
 _HALL_NAME = re.compile(r"HALL (\S+):")
 
 
@@ -128,6 +131,17 @@ def greedy_row(tasks: list[Task]) -> dict[str, Any]:
             "mean_iterations": 0.0, "tokens": 0, "cost_usd": 0.0}
 
 
+def greedy_polish_row(tasks: list[Task], checks: int = MAX_CHECKS) -> dict[str, Any]:
+    """Ablation, no LLM: the greedy layout after the same verifier-guided polish the team can switch on, so a
+    team + polish gain is only the team's where it beats this row."""
+    n = max(1, len(tasks))
+    results = [local_search(t.payload["hall"], t.payload["greedy_layout"], checks)[1] for t in tasks]
+    return {"config": "greedy + polish (no LLM)", "version": None, "n": len(tasks),
+            "mean_score": round(sum(r["score"] for r in results) / 100 / n, 4),
+            "pass_rate": round(sum(bool(r["feasible"]) for r in results) / n, 4),
+            "mean_iterations": 0.0, "tokens": 0, "cost_usd": 0.0}
+
+
 def run_one(llm: LLM, task: Task, v0: TeamVersion) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         r = datahall_run_team(v0, SharedBrain(tmp), task, llm)
@@ -159,10 +173,12 @@ def evolve(llm: LLM, reviewer_model: str, out: Path, generations: int, seed: int
         print(f"gen {h['generation']}: v{h['parent']} -> v{h['version']} accepted={h['accepted']} "
               f"train={h['train_mean']:.3f} dev={h['dev_mean']:.3f} brain_active={h['brain']['active']}", flush=True)
     print("\nchangelog:\n  " + "\n  ".join(final.changelog))
-    rows = evolver.final_report(heldout) + [greedy_row(heldout)]
+    rows = evolver.final_report(heldout) + [greedy_polish_row(heldout), greedy_row(heldout)]
     table = markdown_table(rows)
-    base = rows[-1]["mean_score"]
-    vs = "\n".join(f"- {r['config']}: {(r['mean_score'] - base) * 100:+.2f} points vs greedy" for r in rows[:-1])
+    base, polished = rows[-1]["mean_score"], rows[-2]["mean_score"]
+    vs = "\n".join(f"- {r['config']}: {(r['mean_score'] - base) * 100:+.2f} points vs greedy"
+                   + ("" if r is rows[-2] else f", {(r['mean_score'] - polished) * 100:+.2f} vs greedy + polish")
+                   for r in rows[:-1])
     print(f"\nHeld-out ({len(heldout)} unseen halls), score = DoneTwin score / 100, pass = feasible:\n")
     print(table)
     print(vs)

@@ -36,6 +36,7 @@ from donetwin.hill_climb import FORMAT, RULES, features, hall_summary, nearest_e
 from donetwin.scene import RACK_CATALOG  # noqa: E402
 from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import NANO, extract_json  # noqa: E402
+from team.datahall_polish import MAX_CHECKS, local_search  # noqa: E402
 from team.evolve import TeamVersion  # noqa: E402
 from team.types import LLM, Reply, RunResult, Task  # noqa: E402
 
@@ -271,6 +272,7 @@ def datahall_v0() -> TeamVersion:
                 "temperature": 0.2, "max_tokens": 6000, "max_iters": 2,
                 "thinking": {"Planner": False, "Layout": False, "Checker": False},
                 "brain_budget": 2000, "tool_catalog": list(TOOL_CATALOG),
+                "polish": False, "polish_checks": MAX_CHECKS,
                 "tools": {"verifier_feedback": {"enabled": True}, "capacity_calc": {"enabled": False},
                           "nearest_examples": {"enabled": False}}},
         changelog=["v0: initial data-hall team (Planner, Layout, Checker), hill climbing from the greedy layout"])
@@ -284,6 +286,14 @@ class _Attempt:
     payload_json: str = ""
     payload: dict[str, Any] | None = None
     accepted: bool = False
+    delta: float | None = None  # verified score minus the incumbent's at the time; None when not scored
+
+    def record(self) -> dict[str, Any]:
+        """Compact, layout-free trace of why this attempt was or was not kept."""
+        return {"index": self.index, "feasible": bool(self.res and self.res["feasible"]),
+                "score": round(self.res["score"], 4) if self.res else 0.0,
+                "delta": None if self.delta is None else round(self.delta, 4),
+                "accepted": self.accepted, "failures": self.failures}
 
 
 class _Run:
@@ -441,6 +451,8 @@ class _Run:
             attempt = self.judge(i, reply)
             attempts.append(attempt)
             self.failures.extend(attempt.failures)
+            if attempt.res:
+                attempt.delta = attempt.res["score"] - self.inc_res["score"]
             if attempt.res and attempt.payload and attempt.res["score"] > self.inc_res["score"]:
                 attempt.accepted = True
                 self.incumbent, self.inc_res = attempt.payload, attempt.res
@@ -448,6 +460,22 @@ class _Run:
             if i + 1 < max_iters:
                 tail = self.feedback(attempt)
         return attempts
+
+    def polish(self) -> dict[str, Any]:
+        """With config polish on, run the verifier-guided local search on the final incumbent and keep its
+        result only if it stays feasible and the verified score rises; off by default, so v0 never polishes."""
+        if self.cfg.get("polish") is not True:
+            return {"polish": False, "polish_gain": 0.0, "polish_checks_used": 0, "polish_moves": 0}
+        checks = self.cfg.get("polish_checks", MAX_CHECKS)
+        checks = max(0, min(MAX_CHECKS, int(checks))) if isinstance(checks, (int, float)) else MAX_CHECKS
+        before = self.inc_res["score"]
+        payload, res, moves, used = local_search(self.hall, self.incumbent, checks)
+        kept = bool(res.get("feasible")) and res["score"] > before + 1e-9
+        if kept:
+            self.incumbent, self.inc_res = payload, res
+            self.inc_label = "team layout after polish"
+        return {"polish": True, "polish_gain": round(self.inc_res["score"] - before, 4),
+                "polish_checks_used": used, "polish_moves": len(moves) if kept else 0}
 
 
 def datahall_run_team(version: TeamVersion, brain: SharedBrain, task: Task, llm: LLM) -> RunResult:
@@ -464,17 +492,17 @@ def datahall_run_team(version: TeamVersion, brain: SharedBrain, task: Task, llm:
     accepted = [a for a in attempts if a.accepted]
     if attempts and not accepted:
         run.failures.append("no_improvement")
+    polish = run.polish()
     best_res, greedy_score = run.inc_res, float(task.payload["greedy_score"])
-    if accepted and best_res["feasible"] and task.split == "train":
+    if (accepted or polish["polish_gain"] > 0) and best_res["feasible"] and task.split == "train":
         library_add(run.hall, run.incumbent, best_res["score"])
     failures = list(dict.fromkeys(run.failures))
     notes = {"proposals": lesson_proposals(failures),
              "violations": violations(best_res),
-             "attempts": [{"score": a.res["score"] if a.res else 0.0, "feasible": bool(a.res and a.res["feasible"]),
-                           "accepted": a.accepted, "failures": a.failures} for a in attempts],
+             "attempts": [a.record() for a in attempts],
              "best_attempt": accepted[-1].index if accepted else None, "greedy_score": greedy_score,
              "best_score": best_res["score"], "gain_over_greedy": round(best_res["score"] - greedy_score, 4),
-             "errors": run.errors}
+             **polish, "errors": run.errors}
     return RunResult(task_id=task.id, version=version.version,
                      score=round(best_res["score"] / 100, 4),
                      passed=bool(best_res["feasible"]), claimed_done=bool(scored),
@@ -484,4 +512,6 @@ def datahall_run_team(version: TeamVersion, brain: SharedBrain, task: Task, llm:
                      brain_ids_read=sorted(run.brain_ids), notes=json.dumps(notes),
                      solution={"case_study": "datahall", "hall": run.hall["name"], "seed": task.payload.get("seed"),
                                "tier": task.payload.get("tier"), "verified_score": best_res["score"],
+                               "greedy_score": greedy_score, "attempts": notes["attempts"],
+                               **({"polish_gain": polish["polish_gain"]} if polish["polish"] else {}),
                                "solution": run.incumbent})

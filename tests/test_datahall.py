@@ -105,6 +105,26 @@ class DataHallTest(unittest.TestCase):
         self.assertFalse(notes["attempts"][0]["accepted"])
         self.assertTrue(any("0.6 m apart" in p["text"] for p in notes["proposals"]))
 
+    def test_per_attempt_trace_records_why_each_attempt_was_kept_or_not_in_notes_and_solution(self) -> None:
+        racks = self.task.payload["greedy_layout"]["racks"]
+        v = datahall_v0()
+        v.config["max_iters"] = 3
+        llm = layout_llm({"racks": racks + [{**racks[0], "id": "R_DUP"}]}, improved(self.task), "not json")
+        r = datahall_run_team(v, self.brain, self.task, llm)
+        trace = json.loads(r.notes)["attempts"]
+        self.assertEqual([a["index"] for a in trace], [0, 1, 2])
+        self.assertEqual([a["feasible"] for a in trace], [False, True, False])
+        self.assertEqual([a["accepted"] for a in trace], [False, True, False])
+        self.assertIn("no_collision", trace[0]["failures"])
+        self.assertAlmostEqual(trace[0]["delta"], -self.task.payload["greedy_score"], places=3)  # infeasible scores 0
+        self.assertGreater(trace[1]["delta"], 0)
+        self.assertEqual((trace[2]["delta"], trace[2]["failures"]), (None, ["bad_json"]))
+        self.assertTrue(all(set(a) == {"index", "feasible", "score", "delta", "accepted", "failures"} for a in trace))
+        self.assertEqual(r.solution["attempts"], trace)  # the saved solution json carries the trace, not layouts
+        self.assertNotIn("polish_gain", r.solution)
+        v.config.update(polish=True, polish_checks=20)
+        self.assertIn("polish_gain", datahall_run_team(v, self.brain, self.task, layout_llm("x")).solution)
+
     def test_feedback_after_a_rejected_attempt_reaches_layout(self) -> None:
         racks = self.task.payload["greedy_layout"]["racks"]
         llm = layout_llm({"racks": racks + [{**racks[0], "id": "R_DUP"}]}, improved(self.task))
@@ -210,6 +230,49 @@ class DataHallTest(unittest.TestCase):
         self.assertEqual(d["config"], "v0 + empty brain (cold)")
         self.assertEqual(d["solution"], task.payload["greedy_layout"])  # nothing beat greedy
         self.assertAlmostEqual(d["score"], round(task.payload["greedy_score"] / 100, 4), places=4)
+
+    def test_polish_is_off_by_default_and_v0_keeps_greedy(self) -> None:
+        v0 = datahall_v0()
+        self.assertIs(v0.config["polish"], False)
+        r = datahall_run_team(v0, self.brain, self.task, layout_llm(self.task.payload["greedy_layout"]))
+        notes = json.loads(r.notes)
+        self.assertEqual((notes["polish"], notes["polish_gain"], notes["polish_checks_used"]), (False, 0.0, 0))
+        self.assertAlmostEqual(r.score, self.greedy, places=4)
+
+    def test_polish_never_lowers_the_score_or_breaks_feasibility(self) -> None:
+        for task in (self.task, HELDOUT[0]):
+            v = datahall_v0()
+            v.config.update(polish=True, polish_checks=150)
+            greedy = round(task.payload["greedy_score"] / 100, 4)
+            r = datahall_run_team(v, self.brain, task, layout_llm(task.payload["greedy_layout"]))
+            notes = json.loads(r.notes)
+            self.assertTrue(r.passed)
+            self.assertGreaterEqual(r.score, greedy)
+            self.assertGreaterEqual(notes["polish_gain"], 0.0)
+            self.assertLessEqual(notes["polish_checks_used"], 150)
+            res = score_payload(task.payload["hall"], r.solution["solution"])  # the kept layout re-verifies
+            self.assertTrue(res["feasible"])
+            self.assertAlmostEqual(res["score"], r.solution["verified_score"], places=6)
+
+    def test_polish_leaves_an_infeasible_layout_unchanged_and_zero_checks_does_nothing(self) -> None:
+        from team.datahall_polish import local_search
+
+        hall, greedy = self.task.payload["hall"], self.task.payload["greedy_layout"]
+        bad = {"racks": greedy["racks"] + [{**greedy["racks"][0], "id": "R_DUP"}]}
+        payload, res, moves, used = local_search(hall, bad, 100)
+        self.assertEqual((res["feasible"], moves, used, payload["racks"]), (False, [], 0, bad["racks"]))
+        v = datahall_v0()
+        v.config.update(polish=True, polish_checks=0)
+        notes = json.loads(datahall_run_team(v, self.brain, self.task, layout_llm(greedy)).notes)
+        self.assertEqual((notes["polish_gain"], notes["polish_checks_used"]), (0.0, 0))
+
+    def test_polish_knobs_pass_config_set_validation(self) -> None:
+        from team.evolve import validate_mutation
+
+        claim = {"dev_gain": 0.02, "cost_change_pct": 0.0, "why": "polish"}
+        for key, value in (("polish", True), ("polish_checks", 500)):
+            m = {"type": "config_set", "key": key, "value": value, "rationale": "r", "claim": claim}
+            self.assertIsNone(validate_mutation(m, datahall_v0(), self.brain))
 
 
 if __name__ == "__main__":
