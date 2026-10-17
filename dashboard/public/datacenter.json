@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-17 16:53:14 PDT",
+ "generated_at": "2026-10-17 16:54:51 PDT",
  "command": ".venv/bin/python scripts/build_datacenter_view.py",
  "pitch": "Every layer of an AI data center as a verifiable optimization problem.",
  "layers": [
@@ -456,7 +456,7 @@
     {
      "id": "datahall-live-6",
      "status": "running",
-     "status_detail": "6 candidates scored on dev, generation 1; started 16:46 PDT, last write 16:52 PDT",
+     "status_detail": "6 candidates scored on dev, generation 1; started 16:46 PDT, last write 16:53 PDT",
      "baseline": {
       "name": "v0 cold",
       "score": null
@@ -514,7 +514,7 @@
      ],
      "cost_usd": null,
      "calls": null,
-     "last_update": "16:52 PDT",
+     "last_update": "16:53 PDT",
      "n_heldout": null
     }
    ],

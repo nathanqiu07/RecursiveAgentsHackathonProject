@@ -10,6 +10,7 @@
   const fixed = (v, d = 3) => (isNum(v) ? v.toFixed(d) : 'n/a');
   const signed = (v, d = 3) => (isNum(v) ? (v >= 0 ? '+' : '-') + Math.abs(v).toFixed(d) : 'n/a');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pct = (v) => (isNum(v) ? `${v >= 0 ? '+' : '-'}${Math.abs(Math.round(v))}%` : 'n/a');
   const money = (v) => (isNum(v) ? '$' + (v < 0.01 ? v.toFixed(6) : v.toFixed(2)) : 'n/a');
 
   let data = null;
@@ -42,6 +43,7 @@
     if (e.target && /^(SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
     if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(cur + 1); }
     else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(cur - 1); }
+    else if (e.key === 'End' || e.key === 's' || e.key === 'S') { if (beats[cur].dataset.name === 'replay') { e.preventDefault(); replay.skip(); } }
     else if (e.key === 'r' || e.key === 'R') { if (beats[cur].dataset.name === 'replay') replay.start(); else replayBeatsAnim(); }
     else if (e.key === 'f' || e.key === 'F') {
       if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
@@ -96,7 +98,13 @@
   }
   function verdictOf(c) {
     const v = (c.verdict || '').toLowerCase();
-    if (v.includes('smaller')) return { text: 'effect smaller than claimed', cls: 'small' };
+    // "effect smaller than claimed" can refer to the cost claim: when the measured gain beat the
+    // claimed gain, the shortfall is on cost, so say that instead of contradicting the numbers.
+    if (v.includes('smaller')) {
+      return isNum(c.gain) && isNum(c.claim_gain) && c.gain >= c.claim_gain
+        ? { text: 'kept, cost higher than claimed', cls: 'small', showCost: true }
+        : { text: 'kept, gain smaller than claimed', cls: 'small' };
+    }
     if (v.includes('not reproduced')) return { text: 'not reproduced', cls: 'bad' };
     if (v.includes('reproduced')) return { text: 'accepted', cls: 'ok' };
     return c.accepted ? { text: 'accepted', cls: 'ok' } : { text: 'rejected', cls: 'bad' };
@@ -117,7 +125,10 @@
   function layerNotes(L) {
     const notes = [];
     const b = L.best || {};
-    if (L.id === 'hall') notes.push(L.note ? 'v0 starts from the greedy layout.' : 'v0 starts from the greedy layout.');
+    if (L.id === 'hall') {
+      // With a held-out gain, the builder's note explains where it came from (a search tool, not better drawing).
+      notes.push(isNum(b.delta) && b.delta > 0 && L.note && /tool|search|polish/i.test(L.note) ? L.note : 'v0 starts from the greedy layout.');
+    }
     if (L.id === 'placement' && L.sota && isNum(L.sota.final_gap) && isNum(L.sota.v0_gap)) {
       notes.push(`QAPLIB: ${L.sota.final_gap.toFixed(1)}% from best-known solutions (SOTA), vs ${L.sota.v0_gap.toFixed(1)}% for v0 cold.`);
     }
@@ -286,7 +297,8 @@
       const hmax = hv.length ? Math.max(...hv) : 1;
       const hmin = hv.length ? Math.min(...hv) : 0;
       $('#rp-held').innerHTML = `<div class="hd">Held-out tasks it never saw${lowerBetter(run) ? ' (lower is better)' : ''}</div>
-        <div class="hbars">${held.length ? held.map((h) => `<div class="hbar"><div class="num">${fixed(h.score, 3)}</div><div class="col" data-h="${isNum(h.score) ? Math.max(8, (lowerBetter(run) ? hmin / h.score : h.score / hmax) * 100) : 4}" style="background:${hcol[h.kind] || '#22d3ee'}"></div><div class="lab">${esc(hk[h.kind] || h.label || h.kind)}</div></div>`).join('') : '<div class="more">held-out: running</div>'}</div>
+        <div class="more held-wait" style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center">${held.length ? 'Scored on held-out tasks after the last change. End skips the replay.' : 'held-out: running'}</div>
+        <div class="hbars" style="display:none">${held.length ? held.map((h) => `<div class="hbar"><div class="num">${fixed(h.score, 3)}</div><div class="col" data-h="${isNum(h.score) ? Math.max(8, (lowerBetter(run) ? hmin / h.score : h.score / hmax) * 100) : 4}" style="background:${hcol[h.kind] || '#22d3ee'}"></div><div class="lab">${esc(hk[h.kind] || h.label || h.kind)}</div></div>`).join('') : '<div class="more">held-out: running</div>'}</div>
         <div class="lib">${cands.filter((c) => c.accepted).length} kept change${cands.filter((c) => c.accepted).length === 1 ? '' : 's'} published to SA's Library as papers</div>`;
 
       // timeline (ms at 1x): ~2.3 s per candidate, then held-out and library
@@ -308,16 +320,10 @@
       incPath.style.transition = REDUCED ? 'none' : `stroke-dashoffset ${0.9 / speed}s ease-out`;
       incPath.style.strokeDashoffset = Math.max(0, totalLen - reach[i]);
       const claim = c.claim_gain, meas = c.gain;
-      const costMode = c.accepted_by === 'cost' || (!isNum(claim) || claim === 0) && isNum(c.claim_cost_pct) && isNum(c.cost_pct) && Math.abs(c.claim_cost_pct) > 1;
-      let rows;
-      if (costMode) {
-        const m = Math.max(Math.abs(c.claim_cost_pct || 0), Math.abs(c.cost_pct || 0), 1);
-        rows = [['claimed cost', c.claim_cost_pct, m, '#a59cc9', '%'], ['measured cost', c.cost_pct, m, c.accepted ? '#b6f24a' : '#ff5a6e', '%']];
-      } else {
-        const m = Math.max(Math.abs(claim || 0), Math.abs(meas || 0), 1e-6);
-        rows = [['claimed', claim, m, '#a59cc9', ''], ['measured', meas, m, c.accepted ? '#b6f24a' : '#ff5a6e', '']];
-      }
-      const fmtRow = (v, unit) => (isNum(v) ? (unit === '%' ? `${v >= 0 ? '+' : ''}${v.toFixed(0)}%` : signed(v, 3)) : 'n/a');
+      const m = Math.max(Math.abs(claim || 0), Math.abs(meas || 0), 1e-6);
+      const rows = [['claimed', claim, m, '#a59cc9', ''], ['measured', meas, m, c.accepted ? '#b6f24a' : '#ff5a6e', '']];
+      if (isNum(c.cost_pct)) rows.push(['cost', c.cost_pct, Math.max(100, Math.abs(c.cost_pct)), c.cost_pct <= 0 ? '#22d3ee' : '#ffc93c', '%']);
+      const fmtRow = (v, unit) => (unit === '%' ? pct(v) : signed(v, 3));
       $('#rp-cand').innerHTML = `<div class="meta">gen ${esc(c.gen)} · change ${i + 1} of ${candsOf(run).length} · ${esc(c.type || 'change')}</div>
         <h4>${esc(plainLabel(c))}</h4>
         <p class="why">${esc(c.rationale || c.change || '')}</p>
@@ -334,7 +340,7 @@
       if (box.dataset.gen !== key) {
         box.dataset.gen = key;
         box.innerHTML = '<div class="hd">Reviewer read, You.com</div>' + (srcs.length
-          ? srcs.slice(0, 4).map((s) => { const title = sourceTitle(s); return `<div class="src"><b>${esc(host(sourceUrl(s)))}</b>${title ? `<span>${esc(title)}</span>` : ''}</div>`; }).join('')
+          ? srcs.slice(0, 3).map((s) => { const title = sourceTitle(s); return `<div class="src"><b>${esc(host(sourceUrl(s)))}</b>${title ? `<span>${esc(title)}</span>` : ''}</div>`; }).join('')
           : '<div class="more">no web search for this generation</div>');
         [...box.querySelectorAll('.src')].forEach((n, k) => setTimeout(() => n.classList.add('show'), REDUCED ? 0 : (150 + k * 180) / speed));
       }
@@ -342,8 +348,22 @@
     function stamp() { const s = $('#rp-cand .stampbox'); if (s) s.classList.add('show'); }
     function showHeld() {
       const h = $('#rp-held'); h.classList.add('show');
-      h.querySelectorAll('.col').forEach((c, k) => setTimeout(() => { c.style.height = c.dataset.h + '%'; }, REDUCED ? 0 : (k * 380) / speed));
+      const wait = h.querySelector('.held-wait'), bars = h.querySelector('.hbars');
+      if (!bars || !bars.querySelector('.col')) return;
+      if (wait) wait.style.display = 'none';
+      bars.style.display = '';
+      void bars.offsetHeight; // commit height 0 so the rise transitions
+      const instant = REDUCED || !playing;
+      // Percent heights do not resolve inside the auto-height grid row, so size bars in pixels.
+      const room = Math.max(40, bars.clientHeight - 48);
+      h.querySelectorAll('.col').forEach((c, k) => {
+        const px = Math.round((+c.dataset.h / 100) * room) + 'px';
+        if (instant) c.style.height = px;
+        else setTimeout(() => { c.style.height = px; }, 60 + (k * 380) / speed);
+      });
     }
+    // Jump straight to the end state: every dot, the full incumbent line, held-out bars, Library card.
+    function skip() { if (!plan) return; stop(); seek(plan.end); }
 
     function tick(now) {
       if (!playing || !plan) return;
@@ -371,19 +391,27 @@
       b.blur();
     }));
     $('#rp-replay').addEventListener('click', (e) => { start(); e.currentTarget.blur(); });
-    return { start, stop, seek, fillPicker, isPlaying: () => playing, current: () => runName };
+    $('#rp-held').addEventListener('click', skip);
+    return { start, stop, seek, skip, fillPicker, isPlaying: () => playing, current: () => runName };
   })();
   window.__demoReplay = replay;
 
   // ---------- beat 5: papers ----------
   function renderPapers() {
     const all = runsAll();
-    const counts = { accepted: 0, 'effect smaller than claimed': 0, 'not reproduced': 0, rejected: 0 };
+    const counts = {};
+    const cls = {};
     let papers = 0;
-    all.forEach((r) => candsOf(r).forEach((c) => { if (!c.verdict && !c.research_query) return; papers++; counts[verdictOf(c).text]++; }));
-    const cls = { accepted: 'ok', 'effect smaller than claimed': 'small', 'not reproduced': 'bad', rejected: 'bad' };
+    all.forEach((r) => candsOf(r).forEach((c) => {
+      if (!c.verdict && !c.research_query) return;
+      papers++;
+      const v = verdictOf(c);
+      counts[v.text] = (counts[v.text] || 0) + 1;
+      cls[v.text] = v.cls;
+    }));
+    const rank = { ok: 0, small: 1, bad: 2 };
     $('#pp-totals').innerHTML = `<span class="vt"><b>${papers}</b>papers across all runs</span>` +
-      Object.keys(counts).filter((k) => counts[k] > 0).map((k) => `<span class="vt"><b class="${cls[k] === 'ok' ? 'up' : cls[k] === 'small' ? 'flat' : ''}" style="${cls[k] === 'bad' ? 'color:var(--red)' : ''}">${counts[k]}</b>${k}</span>`).join('');
+      Object.keys(counts).sort((a, b) => rank[cls[a]] - rank[cls[b]]).map((k) => `<span class="vt"><b class="${cls[k] === 'ok' ? 'up' : cls[k] === 'small' ? 'flat' : ''}" style="${cls[k] === 'bad' ? 'color:var(--red)' : ''}">${counts[k]}</b>${esc(k)}</span>`).join('');
     const run = all.find((r) => r.name === replay.current() && candsOf(r).length) || all.find((r) => r.name === DEFAULT_RUN) || all.find((r) => candsOf(r).length);
     const tl = $('#pp-timeline');
     if (!run) { tl.innerHTML = '<div class="more">papers: running</div>'; return; }
@@ -397,10 +425,9 @@
       return `<div class="gen"><div class="gh"><span>Generation ${esc(g)}</span><span>${list.filter((c) => c.accepted).length} kept / ${list.length}</span></div>
         ${shown.map((c) => {
           const v = verdictOf(c);
-          const costMode = c.accepted_by === 'cost';
-          const nums = costMode
-            ? `<span>claimed <b>${isNum(c.claim_cost_pct) ? c.claim_cost_pct.toFixed(0) + '%' : 'n/a'}</b> cost</span><span>measured <b>${isNum(c.cost_pct) ? c.cost_pct.toFixed(0) + '%' : 'n/a'}</b></span>`
-            : `<span>claimed <b>${signed(c.claim_gain)}</b></span><span>measured <b>${signed(c.gain)}</b></span>`;
+          const showCost = (v.showCost || c.accepted_by === 'cost') && isNum(c.cost_pct);
+          const nums = `<span>claimed <b>${signed(c.claim_gain)}</b></span><span>measured <b>${signed(c.gain)}</b></span>` +
+            (showCost ? `<span>cost <b>${pct(c.cost_pct)}</b></span>` : '');
           return `<div class="paper" style="--d:${0.1 + (k++) * 0.12}s"><div class="pm">${esc(c.id || 'paper')} · ${esc(c.type || '')}</div><h4>${esc(plainLabel(c))}</h4><div class="nums">${nums}</div><span class="pv ${v.cls}">${esc(v.text.toUpperCase())}</span></div>`;
         }).join('')}
         ${list.length > shown.length ? `<div class="more">+${list.length - shown.length} more</div>` : ''}</div>`;
