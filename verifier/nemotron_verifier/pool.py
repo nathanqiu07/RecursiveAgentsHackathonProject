@@ -166,7 +166,7 @@ def inspect_pool(config, client_factory=NodeClient):
             document = receipt(node)
             enrolled.append({"id": node["id"], "gpu_uuid": document["gpu_uuid"],
                              "image_sha256": document["target"]["guest_image_sha256"],
-                             "gpu": document.get("verification", {}).get("gpu")})
+                             "gpu": gpu_identity({"verification": document["verification"]})})
         except (OSError, ValueError, KeyError, TypeError):
             enrolled.append({"id": node["id"], "gpu_uuid": None})
     fingerprint = digest({"nodes": enrolled, "suite": suite,

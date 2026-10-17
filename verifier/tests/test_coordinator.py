@@ -177,6 +177,18 @@ def test_live_gpu_drift_disables_node_until_reenrollment(pool):
     assert after[1]["status"] == "available"
 
 
+def test_new_probe_timestamp_or_vm_id_does_not_change_physical_pool_identity(pool):
+    from pathlib import Path
+    config, factory, _, _ = pool
+    fingerprint, _ = inspect_pool(config, factory)
+    for definition in config["nodes"]:
+        path = Path(definition["connection_file"])
+        document = json.loads(path.read_text())
+        document["verification"]["gpu"].update(vm_id="new-probe-vm", observed_at=999999)
+        path.write_text(json.dumps(document))
+    assert inspect_pool(config, factory)[0] == fingerprint
+
+
 def test_cancel_and_finish_are_atomic_across_api_worker_connections(tmp_path):
     path = str(tmp_path / "shared.sqlite")
     api, worker = Queue(path), Queue(path)
