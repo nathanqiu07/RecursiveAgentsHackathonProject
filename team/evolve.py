@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import tempfile
 import threading
@@ -19,6 +20,7 @@ from statistics import mean
 from typing import Any, Callable
 
 from team.brain import MAX_TEXT, SharedBrain
+from team.crusoe import LIGHTNING, NANO, PRICES, SUPER
 from team.types import LLM, RunResult, Task
 
 RunTeam = Callable[["TeamVersion", SharedBrain, Task, LLM], RunResult]
@@ -36,6 +38,15 @@ MUTATIONS: dict[str, tuple[str, ...]] = {
 OPTIONAL_FIELDS: dict[str, tuple[str, ...]] = {"tool_set": ("params",)}
 # Owned by add_role/remove_role and tool_set, so config_set cannot bypass their checks or invent tools.
 RESERVED_KEYS = ("roles_enabled", "tools", "tool_catalog")
+# A candidate at an equal score is also kept when its mean cost per task falls by at least this fraction.
+MIN_COST_CUT = 0.15
+MODEL_IDS = (NANO, SUPER, LIGHTNING)
+# Numeric inference knobs config_set may change, with inclusive bounds; max_tokens and max_iters must be ints.
+KNOB_RANGES: dict[str, tuple[float, float]] = {"max_tokens": (256, 32768), "max_iters": (1, 10), "temperature": (0.0, 2.0)}
+# Every Reviewer mutation is a falsifiable claim the Gate's dev measurement then reproduces or not.
+CLAIM_FIELDS = {"dev_gain": "float, expected change in mean dev score",
+                "cost_change_pct": "float, expected % change in mean cost per task, negative = cheaper",
+                "why": "str"}
 
 
 @dataclass
@@ -70,6 +81,40 @@ def tool_catalog(v: TeamVersion, tools: list[str] | None = None) -> list[str]:
     return list(v.config.get("tool_catalog", []) if tools is None else tools)
 
 
+def _is_number(x: Any) -> bool:
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def knob_error(key: str, value: Any, v: TeamVersion) -> str | None:
+    """Inference knobs get value checks, so a typo never reaches Crusoe as a model id or a zero token budget."""
+    if key == "default_model" and value not in MODEL_IDS:
+        return f"unknown model id {value!r}, choose one of {list(MODEL_IDS)}"
+    if key in ("models", "thinking"):
+        if not isinstance(value, dict) or set(value) - set(v.prompts):
+            return f"{key} must map roles among {sorted(v.prompts)} to values, got {value!r}"
+        bad_models = [x for x in value.values() if x not in MODEL_IDS]
+        if key == "models" and bad_models:
+            return f"unknown model id {bad_models[0]!r}, choose one of {list(MODEL_IDS)}"
+        if key == "thinking" and not all(isinstance(x, bool) for x in value.values()):
+            return f"thinking values must be true or false, got {value!r}"
+    if key in KNOB_RANGES:
+        lo, hi = KNOB_RANGES[key]
+        integral = key != "temperature"
+        if not _is_number(value) or (integral and not isinstance(value, int)) or not lo <= value <= hi:
+            return f"{key} must be {'an int' if integral else 'a number'} in [{lo:g}, {hi:g}], got {value!r}"
+    return None
+
+
+def claim_error(m: dict) -> str | None:
+    """A mutation without a numeric claim cannot be reproduced, so it is not tested."""
+    claim = m.get("claim")
+    if not isinstance(claim, dict) or not all(_is_number(claim.get(f)) for f in ("dev_gain", "cost_change_pct")):
+        return f"claim must be {{\"dev_gain\": <number>, \"cost_change_pct\": <number>, \"why\": <str>}}, got {claim!r}"
+    if not isinstance(claim.get("why", ""), str):
+        return "claim why must be a string"
+    return None
+
+
 def validate_mutation(m: Any, v: TeamVersion, brain: SharedBrain, tools: list[str] | None = None) -> str | None:
     if not isinstance(m, dict) or m.get("type") not in MUTATIONS:
         return f"unknown mutation type {m.get('type') if isinstance(m, dict) else m!r}"
@@ -94,6 +139,10 @@ def validate_mutation(m: Any, v: TeamVersion, brain: SharedBrain, tools: list[st
         return "cannot remove the last role"
     if kind == "config_set" and (not isinstance(m["key"], str) or m["key"] in RESERVED_KEYS):
         return "config key must be a string other than roles_enabled, tools or tool_catalog (use add_role/remove_role/tool_set)"
+    if kind == "config_set":
+        error = knob_error(m["key"], m["value"], v)
+        if error:
+            return error
     if kind == "tool_set":
         catalog = tool_catalog(v, tools)
         if m["tool"] not in catalog:
@@ -155,25 +204,43 @@ class Reviewer:
     """Turns recent runs into at most `max_mutations` validated self-edits."""
 
     SYSTEM = ("You review an agent team's recent runs and propose at most 3 changes to its own prompts, "
-              "playbooks, tools, config or roles. Each change is tested on dev tasks and kept only if the score rises, "
-              "so propose concrete, testable edits that target the most frequent failures. "
-              'Reply with JSON only: {"mutations": [{"type": ..., "rationale": ..., <fields>}]}. Types and fields: '
-              + json.dumps(MUTATIONS) + "; optional fields: " + json.dumps(OPTIONAL_FIELDS)
-              + ". tool_set may only name a tool listed in tool_catalog; params are passed to that tool.")
+              "playbooks, tools, config or roles. Each change is tested on dev tasks and kept if the mean score rises; "
+              "a change that cuts the mean cost per task by at least {cut} without lowering the mean score or losing "
+              "a pass is also accepted. So propose concrete, testable edits that target the most frequent failures "
+              "or the costliest role (runs and cost_per_task_by_role show cost, tokens and calls per task). "
+              'Reply with JSON only: {"mutations": [{"type": ..., "rationale": ..., "claim": ..., <fields>}]}. '
+              "Types and fields: " + json.dumps(MUTATIONS) + "; optional fields: " + json.dumps(OPTIONAL_FIELDS)
+              + ". Every mutation must carry a falsifiable claim " + json.dumps(CLAIM_FIELDS) + "; one without "
+              "numeric dev_gain and cost_change_pct is dropped, and each claim is published as reproduced or not. "
+              "tool_set may only name a tool listed in tool_catalog; params are passed to that tool. "
+              "config_set inference knobs: models ({role: model id}; it replaces the whole map and roles left out use "
+              "default_model), default_model, thinking ({role: true or false}; reasoning on costs about 25x the "
+              "tokens), and " + json.dumps(KNOB_RANGES) + " as inclusive ranges (max_tokens is per call and "
+              "reasoning counts against it). Model ids with USD per 1M input/output tokens: "
+              + json.dumps({m: PRICES[m] for m in MODEL_IDS}) + ".")
 
-    def __init__(self, llm: LLM, model: str, max_mutations: int = 3, tool_catalog: list[str] | None = None):
+    def __init__(self, llm: LLM, model: str, max_mutations: int = 3, tool_catalog: list[str] | None = None,
+                 min_cost_cut: float = MIN_COST_CUT):
         self.llm, self.model, self.max_mutations = llm, model, max_mutations
         self.tool_catalog = tool_catalog
+        self.system = self.SYSTEM.replace("{cut}", f"{min_cost_cut:.0%}")
         self.dropped: list[dict] = []
 
-    def build_prompt(self, version: TeamVersion, results: list[RunResult], brain: SharedBrain) -> str:
+    def build_prompt(self, version: TeamVersion, results: list[RunResult], brain: SharedBrain,
+                     role_usage: dict[str, dict] | None = None) -> str:
+        """`role_usage` is per-task usage by role from the LLM's ledger; without one, only the overall figures show."""
         failures = Counter(f for r in results for f in r.failures)
+        n = max(1, len(results))
         summary = {
             "version": {k: v for k, v in asdict(version).items() if k != "changelog"},
             "recent_changes": version.changelog[-5:],
             "runs": {"n": len(results), "mean_score": round(mean(r.score for r in results), 3) if results else 0,
                      "pass_rate": round(mean(r.passed for r in results), 3) if results else 0,
-                     "cost_usd": round(sum(r.cost_usd for r in results), 4)},
+                     "cost_usd": round(sum(r.cost_usd for r in results), 4),
+                     "cost_per_task_usd": round(sum(r.cost_usd for r in results) / n, 6),
+                     "tokens_per_task": round(sum(r.prompt_tokens + r.completion_tokens for r in results) / n),
+                     "calls_per_task": round(sum(r.calls for r in results) / n, 2)},
+            "cost_per_task_by_role": role_usage or "not available; see runs for the overall per-task figures",
             "tool_catalog": tool_catalog(version, self.tool_catalog),
             "tool_settings": version.config.get("tools", {}),
             "failures_by_count": failures.most_common(15),
@@ -183,41 +250,78 @@ class Reviewer:
         }
         return json.dumps(summary, indent=1)
 
-    def propose(self, version: TeamVersion, results: list[RunResult], brain: SharedBrain) -> list[dict]:
-        reply = self.llm.chat(self.model, [{"role": "system", "content": self.SYSTEM},
-                                           {"role": "user", "content": self.build_prompt(version, results, brain)}],
+    def propose(self, version: TeamVersion, results: list[RunResult], brain: SharedBrain,
+                role_usage: dict[str, dict] | None = None) -> list[dict]:
+        prompt = self.build_prompt(version, results, brain, role_usage)
+        reply = self.llm.chat(self.model, [{"role": "system", "content": self.system},
+                                           {"role": "user", "content": prompt}],
                               temperature=0.3, json_mode=True, role="reviewer")
         raw = _parse_json(reply.text).get("mutations", [])
         valid, self.dropped = [], []
         for m in raw if isinstance(raw, list) else []:
-            error = validate_mutation(m, version, brain, self.tool_catalog)
+            error = validate_mutation(m, version, brain, self.tool_catalog) or claim_error(m)
             if error is None and len(valid) >= self.max_mutations:
                 error = f"over the limit of {self.max_mutations} mutations"
             (self.dropped.append({"mutation": m, "reason": error}) if error else valid.append(m))
         return valid
 
 
-class Gate:
-    """Paired dev comparison: keep a candidate only for a real gain with no lost passes."""
+def run_cost(r: RunResult, unit: str) -> float:
+    return r.cost_usd if unit == "usd" else r.prompt_tokens + r.completion_tokens
 
-    def __init__(self, min_gain: float = 0.05):
-        self.min_gain = min_gain
+
+class Gate:
+    """Paired dev comparison with no lost passes: keep a candidate for a real gain, or for a real cost cut at an equal score."""
+
+    def __init__(self, min_gain: float = 0.05, min_cost_cut: float = MIN_COST_CUT):
+        self.min_gain, self.min_cost_cut = min_gain, min_cost_cut
 
     def decide(self, parent: list[RunResult], candidate: list[RunResult], min_gain: float | None = None) -> dict:
-        """`min_gain` overrides the default, e.g. 0.0 for consolidation, whose payoff is a leaner brain."""
+        """`min_gain` overrides the default, e.g. 0.0 for consolidation, whose payoff is a leaner brain.
+
+        Cost is mean cost_usd per task, or mean prompt + completion tokens when neither arm has a cost (scripted LLM).
+        """
         threshold = self.min_gain if min_gain is None else min_gain
         p, c = {r.task_id: r for r in parent}, {r.task_id: r for r in candidate}
         ids = sorted(p.keys() & c.keys())
         if not ids:
-            return {"n": 0, "accepted": False, "reason": "no paired dev tasks"}
+            return {"n": 0, "accepted": False, "accepted_by": None, "reason": "no paired dev tasks"}
         pm, cm = mean(p[i].score for i in ids), mean(c[i].score for i in ids)
         pp, cp = sum(p[i].passed for i in ids), sum(c[i].passed for i in ids)
         gain = cm - pm
-        accepted = gain >= threshold - 1e-9 and cp >= pp
-        reason = ("accepted" if accepted else f"gain {gain:+.3f} < {threshold}" if gain < threshold - 1e-9
-                  else f"passed dropped {pp} -> {cp}")
+        unit = "usd" if any(p[i].cost_usd or c[i].cost_usd for i in ids) else "tokens"
+        pc, cc = mean(run_cost(p[i], unit) for i in ids), mean(run_cost(c[i], unit) for i in ids)
+        change, cut = ((cc - pc) / pc, (pc - cc) / pc) if pc > 0 else (0.0, 0.0)
+        by_score = gain >= threshold - 1e-9 and cp >= pp
+        cost_eligible = gain >= -1e-9 and cp >= pp
+        by_cost = not by_score and cost_eligible and cut >= self.min_cost_cut - 1e-9
+        if by_score or by_cost:
+            reason = "accepted" if by_score else f"cheaper at equal score: cost {change:+.0%}"
+        else:
+            reason = f"gain {gain:+.3f} < {threshold}" if gain < threshold - 1e-9 else f"passed dropped {pp} -> {cp}"
+            if cost_eligible:
+                reason += f"; cost {change:+.0%} misses the -{self.min_cost_cut:.0%} cut"
         return {"n": len(ids), "parent_mean": round(pm, 4), "cand_mean": round(cm, 4), "gain": round(gain, 4),
-                "parent_passed": pp, "cand_passed": cp, "accepted": accepted, "reason": reason}
+                "parent_passed": pp, "cand_passed": cp, "cost_unit": unit, "parent_cost": round(pc, 8),
+                "cand_cost": round(cc, 8), "cost_cut": round(cut, 4), "cost_change_pct": round(change * 100, 2),
+                "accepted": by_score or by_cost,
+                "accepted_by": "score" if by_score else "cost" if by_cost else None, "reason": reason}
+
+
+def paper(m: dict, decision: dict) -> dict:
+    """Claimed vs measured for one mutation. Reproduced: accepted and every claimed benefit (a score gain,
+    a cost cut) measured with the claimed sign; claimed trade-offs (a loss, a cost rise) do not count."""
+    claim = m.get("claim") or {}
+    gain = decision.get("gain")
+    measured = {"dev_gain": gain, "cost_change_pct": decision.get("cost_change_pct")}
+    if not decision["accepted"]:
+        verdict = "not reproduced"
+    elif ((claim.get("dev_gain", 0) > 0 and not gain > 1e-9)
+          or (claim.get("cost_change_pct", 0) < 0 and not measured["cost_change_pct"] < 0)):
+        verdict = "accepted, effect smaller than claimed"
+    else:
+        verdict = "reproduced"
+    return {"claim": {k: claim.get(k) for k in CLAIM_FIELDS}, "measured": measured, "verdict": verdict}
 
 
 def proposals_from_run(result: RunResult, run_id: str) -> list[dict]:
@@ -254,12 +358,13 @@ class Evolver:
         self.versions_dir.mkdir(parents=True, exist_ok=True)
         self.reports_dir = Path(reports_dir) if reports_dir else self.versions_dir.parent / "reports"
         self.max_workers = max_workers
-        self.reviewer = Reviewer(llm, reviewer_model)
         self.gate = gate or Gate()
+        self.reviewer = Reviewer(llm, reviewer_model, min_cost_cut=self.gate.min_cost_cut)
         self.v0 = initial or TeamVersion.load(self.versions_dir / "v0.json")
         self.v0.save(self.versions_dir)
         self.current = self.v0
         self.history: list[dict] = []
+        self.papers: list[dict] = []
         self._cache: dict[tuple, RunResult] = {}
         self._last_score: dict[str, float] = {}
         self._dispute_tests: Counter = Counter()
@@ -289,6 +394,10 @@ class Evolver:
         if proposals:
             brain.propose(proposals, run_id)
         return result
+
+    def _usage_by_role(self) -> dict[str, dict] | None:
+        ledger = getattr(self.llm, "ledger", None)
+        return ledger.summary()["by_role"] if ledger is not None else None
 
     def _batch(self, version: TeamVersion, brain: SharedBrain, tasks: list[Task], tag: str | None = None) -> list[RunResult]:
         with ThreadPoolExecutor(self.max_workers) as pool:
@@ -325,10 +434,12 @@ class Evolver:
         self._heldout = frozenset(splits[2])
         for g in range(generations):
             parent = self.current
+            usage_before = self._usage_by_role()
             train = self._batch(parent, self.brain, train_tasks, tag=f"v{parent.version}g{g}")
+            role_usage = per_task_usage(usage_before, self._usage_by_role(), len(train))
             pruned = self.brain.prune()
             disputes = self._settle_disputes(g, parent, dev_tasks)
-            mutations = self.reviewer.propose(parent, train, self.brain)
+            mutations = self.reviewer.propose(parent, train, self.brain, role_usage)
             for d in self.reviewer.dropped:
                 self._log({"generation": g, "parent": parent.version, "mutation": d["mutation"],
                            "accepted": False, "reason": f"invalid: {d['reason']}"})
@@ -340,12 +451,18 @@ class Evolver:
                 view = self.brain.without(m["entry_ids"]) if is_consolidation else self.brain
                 decision = self.gate.decide(parent_dev, self._batch(cand, view, dev_tasks),
                                             min_gain=0.0 if is_consolidation else None)
-                self._log({"generation": g, "parent": parent.version, "mutation": m, **decision})
-                if decision["accepted"] and (best is None or decision["gain"] > best[1]["gain"]):
+                record = paper(m, decision)
+                self._log({"generation": g, "parent": parent.version, "mutation": m, **decision, "paper": record})
+                self.papers.append({"generation": g, "type": m["type"], **record})
+                rank = (decision.get("gain", 0.0), decision.get("cost_cut", 0.0))
+                if decision["accepted"] and (best is None or rank > (best[1]["gain"], best[1]["cost_cut"])):
                     best = (cand, decision, m)
+            self.reports_dir.mkdir(parents=True, exist_ok=True)
+            (self.reports_dir / "papers.md").write_text(papers_table(self.papers))
             if best:
                 cand, decision, m = best
-                cand.changelog[-1] += f" [dev gain {decision['gain']:+.3f}]"
+                cost_note = f"; {decision['reason']}" if decision["accepted_by"] == "cost" else ""
+                cand.changelog[-1] += f" [dev gain {decision['gain']:+.3f}{cost_note}]"
                 cand.save(self.versions_dir)
                 if m["type"] == "promote_brain":
                     self.brain.retire(m["entry_ids"], f"consolidated into v{cand.version}", run_id=f"g{g}")
@@ -354,6 +471,7 @@ class Evolver:
                                  "train_mean": round(mean(r.score for r in train), 4) if train else 0.0,
                                  "dev_mean": round(mean(r.score for r in parent_dev), 4) if parent_dev else 0.0,
                                  "mutations": len(mutations), "accepted": best[2]["type"] if best else None,
+                                 "accepted_reason": best[1]["reason"] if best else None,
                                  "pruned": len(pruned), "disputes_settled": sum(d["winner"] is not None for d in disputes),
                                  "brain": self.brain.stats()})
         return self.current
@@ -361,11 +479,15 @@ class Evolver:
     def _row(self, label: str, version: TeamVersion, brain: SharedBrain, tasks: list[Task]) -> dict:
         rs = self._batch(version, brain, tasks)
         n = max(1, len(rs))
+        tokens, cost, score = (sum(r.prompt_tokens + r.completion_tokens for r in rs), sum(r.cost_usd for r in rs),
+                               sum(r.score for r in rs))
         return {"config": label, "version": version.version, "n": len(rs),
-                "mean_score": round(sum(r.score for r in rs) / n, 4), "pass_rate": round(sum(r.passed for r in rs) / n, 4),
+                "mean_score": round(score / n, 4), "pass_rate": round(sum(r.passed for r in rs) / n, 4),
                 "mean_iterations": round(sum(r.iterations for r in rs) / n, 3),
-                "tokens": sum(r.prompt_tokens + r.completion_tokens for r in rs),
-                "cost_usd": round(sum(r.cost_usd for r in rs), 6)}
+                "calls_per_task": round(sum(r.calls for r in rs) / n, 3), "tokens_per_task": round(tokens / n, 1),
+                "cost_per_task_usd": round(cost / n, 8),
+                "cost_per_point_usd": round(cost / score, 8) if score > 0 else None,
+                "tokens": tokens, "cost_usd": round(cost, 6)}
 
     def final_report(self, heldout_tasks: list[Task]) -> list[dict]:
         """Ablation on unseen tasks: cold v0, v0 + learned brain, final version + learned brain."""
@@ -380,8 +502,46 @@ class Evolver:
         return rows
 
 
+def per_task_usage(before: dict[str, dict] | None, after: dict[str, dict] | None, n: int) -> dict[str, dict] | None:
+    """Per-task usage by role between two ledger snapshots (UsageLedger.summary()["by_role"]); None without a ledger."""
+    if before is None or after is None or n <= 0:
+        return None
+    fields = ("calls", "prompt_tokens", "completion_tokens", "cached_tokens", "cost_usd")
+    out = {}
+    for role, t in after.items():
+        delta = {f: t.get(f, 0) - before.get(role, {}).get(f, 0) for f in fields}
+        if delta["calls"]:
+            out[role] = {f: round(delta[f] / n, 8 if f == "cost_usd" else 1) for f in fields}
+    return out or None
+
+
+def _cell(r: dict, key: str, fmt: str) -> str:
+    """Rows built outside final_report (e.g. a no-LLM baseline) may lack the cost columns; None means n/a."""
+    if key not in r:
+        return "-"
+    return "n/a" if r[key] is None else format(r[key], fmt)
+
+
 def markdown_table(rows: list[dict]) -> str:
-    lines = ["| Config | Mean score | Pass rate | Mean iters | Tokens | Cost (USD) |", "|---|---|---|---|---|---|"]
+    """Cost per verified point = total cost / total verifier score, n/a when nothing scored."""
+    lines = ["| Config | Mean score | Pass rate | Mean iters | Calls/task | Tokens/task | Cost/task (USD) | "
+             "Cost per verified point (USD) | Tokens | Cost (USD) |", "|---|---|---|---|---|---|---|---|---|---|"]
     lines += [f"| {r['config']} | {r['mean_score']:.3f} | {r['pass_rate']:.0%} | {r['mean_iterations']:.2f} | "
+              f"{_cell(r, 'calls_per_task', '.2f')} | {_cell(r, 'tokens_per_task', '.0f')} | "
+              f"{_cell(r, 'cost_per_task_usd', '.6f')} | {_cell(r, 'cost_per_point_usd', '.6f')} | "
               f"{r['tokens']} | {r['cost_usd']:.4f} |" for r in rows]
+    return "\n".join(lines) + "\n"
+
+
+def papers_table(papers: list[dict]) -> str:
+    """Each gated mutation as a paper: the Reviewer's claim, the dev measurement, and whether it reproduced."""
+    def effect(d: dict) -> str:
+        gain, cost = d.get("dev_gain"), d.get("cost_change_pct")
+        return "n/a" if gain is None or cost is None else f"gain {gain:+.3f}, cost {cost:+.1f}%"
+
+    lines = ["| Generation | Mutation type | Claim | Measured | Verdict |", "|---|---|---|---|---|"]
+    for p in papers:
+        why = " ".join(str(p["claim"].get("why") or "").split()).replace("|", "/")[:160]
+        lines.append(f"| {p['generation']} | {p['type']} | {effect(p['claim'])}{f' ({why})' if why else ''} | "
+                     f"{effect(p['measured'])} | {p['verdict']} |")
     return "\n".join(lines) + "\n"

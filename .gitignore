@@ -30,3 +30,6 @@ sites/
 # Solver logs
 gurobi.log
 *.log
+
+# Live run outputs (commit selected reports by name)
+runs/

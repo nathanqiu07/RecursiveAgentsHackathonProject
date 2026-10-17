@@ -11,13 +11,37 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from team.bench import REVIEWER_SCRIPT, make_tasks, toy_run_team, toy_v0  # noqa: E402
 from team.brain import Curator, SharedBrain  # noqa: E402
-from team.evolve import Evolver, Gate, Reviewer, TeamVersion, apply_mutation, validate_mutation  # noqa: E402
+from team.crusoe import LIGHTNING, UsageLedger  # noqa: E402
+from team.evolve import (Evolver, Gate, Reviewer, TeamVersion, apply_mutation, markdown_table, paper,  # noqa: E402
+                         per_task_usage, validate_mutation)
 from team.fake_llm import ScriptedLLM  # noqa: E402
 from team.types import RunResult, Task  # noqa: E402
 
 
 def results(scores: list[float]) -> list[RunResult]:
     return [RunResult(task_id=f"d{i}", version=0, score=s, passed=s >= 1.0) for i, s in enumerate(scores)]
+
+
+def costed(scores: list[float], cost_usd: float = 0.0, tokens: int = 0, passed: list[bool] | None = None) -> list[RunResult]:
+    return [RunResult(task_id=f"d{i}", version=0, score=s, passed=s >= 1.0 if passed is None else passed[i],
+                      cost_usd=cost_usd, prompt_tokens=tokens) for i, s in enumerate(scores)]
+
+
+def claimed(m: dict, dev_gain: float = 0.1, cost_change_pct: float = 0.0) -> dict:
+    return {**m, "claim": {"dev_gain": dev_gain, "cost_change_pct": cost_change_pct, "why": "test"}}
+
+
+class LedgerLLM(ScriptedLLM):
+    """ScriptedLLM plus the per-role usage ledger CrusoeLLM keeps."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ledger = UsageLedger()
+
+    def chat(self, *args, **kwargs):
+        reply = super().chat(*args, **kwargs)
+        self.ledger.record(reply, kwargs.get("role", ""))
+        return reply
 
 
 def tasks(split: str, n: int) -> list[Task]:
@@ -56,7 +80,7 @@ class EvolveTest(unittest.TestCase):
         self.assertIn("passed dropped", lost_pass["reason"])
 
     def test_reviewer_drops_invalid_mutations_and_caps_at_three(self) -> None:
-        reply = json.dumps({"mutations": [
+        reply = json.dumps({"mutations": [claimed(m) for m in (
             {"type": "playbook_add", "role": "Layout", "step": "a", "rationale": "r"},
             {"type": "playbook_add", "role": "Ghost", "step": "b"},
             {"type": "config_set", "key": "roles_enabled", "value": []},
@@ -64,7 +88,7 @@ class EvolveTest(unittest.TestCase):
             {"type": "prompt_edit", "role": "Layout", "text": "c"},
             {"type": "remove_role", "role": "Layout"},
             {"type": "playbook_add", "role": "Layout", "step": "d"},
-        ]})
+        )]})
         llm = ScriptedLLM({"reviewer": [reply]})
         v0 = TeamVersion(version=0, parent=None, prompts={"Layout": "p"})
         reviewer = Reviewer(llm, "m")
@@ -77,11 +101,11 @@ class EvolveTest(unittest.TestCase):
         self.assertTrue(llm.calls_for("reviewer")[0]["json_mode"])
 
     def test_tool_set_applies_from_the_catalog_and_unknown_tools_are_dropped(self) -> None:
-        reply = json.dumps({"mutations": [
+        reply = json.dumps({"mutations": [claimed(m) for m in (
             {"type": "tool_set", "tool": "solver", "enabled": True, "params": {"time_limit": 30}, "rationale": "r"},
             {"type": "tool_set", "tool": "web_search", "enabled": True},
             {"type": "config_set", "key": "tool_catalog", "value": ["web_search"]},
-        ]})
+        )]})
         llm = ScriptedLLM({"reviewer": [reply]})
         v0 = TeamVersion(version=0, parent=None, prompts={"Layout": "p"}, config={"tool_catalog": ["solver"]})
         brain = SharedBrain(self.dir / "brain")
@@ -159,7 +183,7 @@ class EvolveTest(unittest.TestCase):
             score = {"helps": 1.0, "neutral": 0.5, "hurts": 0.3}[outcome] if promoted else 0.5
             return RunResult(task_id=task.id, version=version.version, score=score, passed=score >= 1.0, brain_ids_read=ids)
 
-        mutation = {"type": "promote_brain", "entry_ids": [eid], "role": "Layout", "rationale": "proven rule"}
+        mutation = claimed({"type": "promote_brain", "entry_ids": [eid], "role": "Layout", "rationale": "proven rule"}, 0.0)
         llm = ScriptedLLM({"reviewer": [json.dumps({"mutations": [mutation]})]})
         evolver = Evolver(run_team, llm, "m", brain, self.dir / f"versions-{outcome}",
                           initial=TeamVersion(version=0, parent=None, prompts={"Layout": "p"}))
@@ -221,6 +245,124 @@ class EvolveTest(unittest.TestCase):
         self.assertTrue((self.dir / "versions" / f"v{final.version}.json").exists())
         decisions = [json.loads(l) for l in (self.dir / "versions" / "ledger.jsonl").read_text().splitlines()]
         self.assertTrue(any(d.get("accepted") is False and d.get("gain", 0) < 0 for d in decisions))
+
+    def test_gate_accepts_20_percent_cheaper_at_equal_score_with_the_cost_reason(self) -> None:
+        d = Gate().decide(costed([0.5, 0.5, 1.0], cost_usd=0.010), costed([0.5, 0.5, 1.0], cost_usd=0.008))
+        self.assertTrue(d["accepted"])
+        self.assertEqual((d["accepted_by"], d["reason"]), ("cost", "cheaper at equal score: cost -20%"))
+        self.assertEqual((d["cost_unit"], d["parent_cost"], d["cand_cost"], d["cost_cut"]), ("usd", 0.01, 0.008, 0.2))
+
+    def test_gate_rejects_10_percent_cheaper_at_equal_score(self) -> None:
+        d = Gate().decide(costed([0.5, 0.5, 1.0], cost_usd=0.010), costed([0.5, 0.5, 1.0], cost_usd=0.009))
+        self.assertFalse(d["accepted"])
+        self.assertIn("cost -10% misses the -15% cut", d["reason"])
+
+    def test_gate_rejects_cheaper_when_score_drops_or_a_pass_is_lost(self) -> None:
+        lower = Gate().decide(costed([0.5, 0.5, 1.0], cost_usd=0.010), costed([0.4, 0.5, 1.0], cost_usd=0.002))
+        self.assertFalse(lower["accepted"])
+        self.assertIsNone(lower["accepted_by"])
+        lost = Gate().decide(costed([1.0, 0.5], cost_usd=0.010, passed=[True, False]),
+                             costed([1.0, 0.5], cost_usd=0.002, passed=[False, False]))
+        self.assertEqual((lost["accepted"], lost["gain"], lost["cost_cut"]), (False, 0.0, 0.8))
+        self.assertNotIn("cheaper", lost["reason"])
+
+    def test_gate_falls_back_to_tokens_when_neither_arm_has_a_cost(self) -> None:
+        d = Gate().decide(costed([0.5, 1.0], tokens=1000), costed([0.5, 1.0], tokens=800))
+        self.assertEqual((d["accepted"], d["cost_unit"], d["parent_cost"], d["cand_cost"]), (True, "tokens", 1000, 800))
+        self.assertEqual(Gate().decide(costed([0.5], tokens=1000), costed([0.5], tokens=1000), min_gain=0.0)["accepted_by"],
+                         "score")
+
+    def test_reviewer_sees_cost_and_validates_inference_knobs(self) -> None:
+        reply = json.dumps({"mutations": [
+            claimed({"type": "config_set", "key": "models", "value": {"Layout": "nvidia/Imaginary-9000"}}),
+            claimed({"type": "config_set", "key": "default_model", "value": "gpt-5"}),
+            claimed({"type": "config_set", "key": "max_tokens", "value": 0}),
+            claimed({"type": "config_set", "key": "thinking", "value": {"Layout": "yes"}}),
+            {"type": "config_set", "key": "max_iters", "value": 1},
+            claimed({"type": "config_set", "key": "models", "value": {"Layout": LIGHTNING}}, 0.0, -30.0),
+            claimed({"type": "config_set", "key": "thinking", "value": {"Layout": False}}, 0.0, -90.0),
+        ]})
+        llm = ScriptedLLM({"reviewer": [reply]})
+        v0 = TeamVersion(version=0, parent=None, prompts={"Layout": "p"})
+        reviewer = Reviewer(llm, "m")
+        runs = [RunResult(task_id="t", version=0, score=0.5, passed=False, calls=4, prompt_tokens=900,
+                          completion_tokens=100, cost_usd=0.002)]
+        valid = reviewer.propose(v0, runs, SharedBrain(self.dir / "brain"))
+        self.assertEqual([m["value"] for m in valid], [{"Layout": LIGHTNING}, {"Layout": False}])
+        reasons = [d["reason"] for d in reviewer.dropped]
+        for expected in ("unknown model id 'nvidia/Imaginary-9000'", "unknown model id 'gpt-5'", "max_tokens must be",
+                         "thinking values", "claim must be"):
+            self.assertTrue(any(expected in r for r in reasons), (expected, reasons))
+        system, user = (m["content"] for m in llm.calls_for("reviewer")[0]["messages"])
+        self.assertIn("at least 15% without lowering the mean score", system)
+        for knob in ("thinking", "25x", "max_tokens", "max_iters", "temperature", LIGHTNING):
+            self.assertIn(knob, system)
+        summary = json.loads(user)
+        self.assertEqual({k: summary["runs"][k] for k in ("cost_per_task_usd", "tokens_per_task", "calls_per_task")},
+                         {"cost_per_task_usd": 0.002, "tokens_per_task": 1000, "calls_per_task": 4})
+        self.assertIn("not available", summary["cost_per_task_by_role"])
+
+    def test_reviewer_gets_cost_per_task_by_role_from_the_llm_ledger(self) -> None:
+        self.assertEqual(per_task_usage({"A": {"calls": 2, "cost_usd": 0.1}}, {"A": {"calls": 6, "cost_usd": 0.3}}, 2)["A"]
+                         ["calls"], 2.0)
+        self.assertIsNone(per_task_usage(None, {}, 2))
+        train, dev, heldout = make_tasks(0)
+        llm = LedgerLLM({"reviewer": [json.dumps({"mutations": []})]})
+        evolver = Evolver(toy_run_team, llm, "m", SharedBrain(self.dir / "brain"), self.dir / "versions",
+                          initial=toy_v0(), reports_dir=self.dir / "reports")
+        evolver.run(1, train, dev, heldout)
+        by_role = json.loads(llm.calls_for("reviewer")[0]["messages"][1]["content"])["cost_per_task_by_role"]
+        self.assertEqual(sorted(by_role), ["Layout", "Spec"])
+        self.assertEqual(by_role["Layout"]["calls"], 1.0)
+        self.assertGreater(by_role["Layout"]["prompt_tokens"], 0)
+
+    def test_claims_are_published_as_reproduced_or_not_and_claimless_mutations_are_dropped(self) -> None:
+        def run_team(version: TeamVersion, b: SharedBrain, task: Task, llm: ScriptedLLM) -> RunResult:
+            good = "[good]" in " ".join(version.playbooks.get("Layout", []))
+            return RunResult(task_id=task.id, version=version.version, score=0.8 if good else 0.5, passed=False)
+
+        reply = json.dumps({"mutations": [
+            claimed({"type": "playbook_add", "role": "Layout", "step": "[good] works"}, 0.3),
+            claimed({"type": "playbook_add", "role": "Layout", "step": "[noop] does nothing"}, 0.2),
+            {"type": "playbook_add", "role": "Layout", "step": "[bare] no claim"},
+        ]})
+        evolver = Evolver(run_team, ScriptedLLM({"reviewer": [reply]}), "m", SharedBrain(self.dir / "brain"),
+                          self.dir / "versions", initial=TeamVersion(version=0, parent=None, prompts={"Layout": "p"}),
+                          reports_dir=self.dir / "reports")
+        evolver.run(1, tasks("train", 2), tasks("dev", 3), tasks("heldout", 2))
+        self.assertEqual([(p["type"], p["verdict"]) for p in evolver.papers],
+                         [("playbook_add", "reproduced"), ("playbook_add", "not reproduced")])
+        self.assertEqual(evolver.papers[1]["claim"]["dev_gain"], 0.2)
+        self.assertEqual(evolver.papers[1]["measured"], {"dev_gain": 0.0, "cost_change_pct": 0.0})
+        log = [json.loads(l) for l in (self.dir / "versions" / "ledger.jsonl").read_text().splitlines()]
+        self.assertTrue(any(r.get("reason", "").startswith("invalid: claim must be") for r in log))
+        self.assertEqual([r["paper"]["verdict"] for r in log if "paper" in r], ["reproduced", "not reproduced"])
+        papers_md = (self.dir / "reports" / "papers.md").read_text()
+        self.assertTrue(papers_md.startswith("| Generation | Mutation type | Claim | Measured | Verdict |"))
+        self.assertIn("| 0 | playbook_add | gain +0.200, cost +0.0% (test) | gain +0.000, cost +0.0% | not reproduced |",
+                      papers_md)
+        cost_only = Gate().decide(costed([0.5], cost_usd=0.01), costed([0.5], cost_usd=0.005))
+        self.assertEqual(paper(claimed({"type": "x"}, 0.2, -50.0), cost_only)["verdict"],
+                         "accepted, effect smaller than claimed")
+
+    def test_report_has_calls_tokens_cost_per_task_and_cost_per_verified_point(self) -> None:
+        train, dev, heldout = make_tasks(0)
+        evolver, _ = self.toy_evolver()
+        evolver.run(1, train, dev, heldout)
+        rows = evolver.final_report(heldout)
+        header = (self.dir / "reports" / "before_after.md").read_text().splitlines()[0]
+        for column in ("Calls/task", "Tokens/task", "Cost/task (USD)", "Cost per verified point (USD)"):
+            self.assertIn(column, header)
+        r = rows[0]
+        self.assertGreater(r["calls_per_task"], 0)
+        self.assertAlmostEqual(r["cost_per_point_usd"], r["cost_usd"] / (r["mean_score"] * r["n"]), places=5)
+        self.assertAlmostEqual(r["tokens_per_task"], r["tokens"] / r["n"], places=1)
+        table = markdown_table([{**r, "mean_score": 0.0, "cost_per_point_usd": None},
+                                {k: r[k] for k in ("config", "mean_score", "pass_rate", "mean_iterations", "tokens",
+                                                   "cost_usd")}])
+        zero, bare = table.splitlines()[2:]
+        self.assertEqual(zero.split(" | ")[7], "n/a")
+        self.assertEqual(bare.split(" | ")[4:8], ["-", "-", "-", "-"])
 
 
 if __name__ == "__main__":

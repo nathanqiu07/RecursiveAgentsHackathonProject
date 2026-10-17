@@ -90,18 +90,27 @@ def _mutations(*items: dict) -> str:
     return json.dumps({"mutations": list(items)})
 
 
+def _claim(dev_gain: float, cost_change_pct: float, why: str) -> dict:
+    return {"dev_gain": dev_gain, "cost_change_pct": cost_change_pct, "why": why}
+
+
 # One scripted reviewer reply per generation: a real gain, a harmful edit, a no-op, and invalid ones.
 REVIEWER_SCRIPT: list[str] = [
     _mutations({"type": "add_role", "role": "Inspector", "prompt": "You check the layout against every rule.",
-                "rationale": "Inspector-owned checks fail on every run because no role owns them"},
-               {"type": "playbook_add", "role": "Layout", "step": MYTH, "rationale": "denser halls"},
-               {"type": "config_set", "key": "temperature", "value": 0.1, "rationale": "less variance"}),
+                "rationale": "Inspector-owned checks fail on every run because no role owns them",
+                "claim": _claim(0.2, 50.0, "a third role owns the egress and fire checks")},
+               {"type": "playbook_add", "role": "Layout", "step": MYTH, "rationale": "denser halls",
+                "claim": _claim(0.1, 0.0, "narrower aisles fit more racks")},
+               {"type": "config_set", "key": "temperature", "value": 0.1, "rationale": "less variance",
+                "claim": _claim(0.0, 0.0, "steadier replies")}),
     _mutations({"type": "playbook_add", "role": "Layout", "step": f"[F7] {FACTS['F7'][2]}",
-                "rationale": "check F7 fails repeatedly without detail; vendor guide says trays run perpendicular"},
+                "rationale": "check F7 fails repeatedly without detail; vendor guide says trays run perpendicular",
+                "claim": _claim(0.1, 2.0, "the silent F7 check passes once Layout knows the rule")},
                {"type": "prompt_edit", "role": "Spec", "text": "You turn the request into a precise spec.",
-                "rationale": "clarity"},
+                "rationale": "clarity", "claim": _claim(0.0, 0.0, "wording only")},
                {"type": "delete_everything", "rationale": "invalid on purpose"}),
     _mutations({"type": "playbook_add", "role": "Inspector", "step": f"[F6] {FACTS['F6'][2]}",
-                "rationale": "check F6 fails repeatedly; fire code limits zones to one hall"},
+                "rationale": "check F6 fails repeatedly; fire code limits zones to one hall",
+                "claim": _claim(0.1, 2.0, "the silent F6 check passes once Inspector knows the rule")},
                {"type": "playbook_remove", "role": "Layout", "index": 99, "rationale": "invalid index"}),
 ]

@@ -43,13 +43,19 @@ def offline_llm(tasks: list[Task]) -> ScriptedLLM:
     reviews = iter([
         {"mutations": [
             {"type": "config_set", "key": "thinking", "value": {"Layout": True},
-             "rationale": "Layout proposals are infeasible; let it reason"},
-            {"type": "config_set", "key": "max_iters", "value": 1, "rationale": "cheaper runs"},
-            {"type": "tool_set", "tool": "hammer", "enabled": True, "rationale": "invalid on purpose"}]},
+             "rationale": "Layout proposals are infeasible; let it reason",
+             "claim": {"dev_gain": 0.05, "cost_change_pct": 400.0, "why": "reasoning fixes 2N and CDU overloads"}},
+            {"type": "config_set", "key": "max_iters", "value": 1, "rationale": "cheaper runs",
+             "claim": {"dev_gain": 0.0, "cost_change_pct": -50.0, "why": "half the Layout calls"}},
+            {"type": "tool_set", "tool": "hammer", "enabled": True, "rationale": "invalid on purpose",
+             "claim": {"dev_gain": 0.1, "cost_change_pct": 0.0, "why": "unknown tool, must be dropped"}}]},
         {"mutations": [
-            {"type": "prompt_edit", "role": "Checker", "text": "You are the Checker. Be brief.", "rationale": "shorter"},
-            {"type": "tool_set", "tool": "capacity_calc", "enabled": True, "rationale": "power_2n overloads"}]},
-        {"mutations": [{"type": "playbook_remove", "role": "Layout", "index": 9, "rationale": "invalid index"}]},
+            {"type": "prompt_edit", "role": "Checker", "text": "You are the Checker. Be brief.", "rationale": "shorter",
+             "claim": {"dev_gain": 0.0, "cost_change_pct": -10.0, "why": "fewer Checker tokens"}},
+            {"type": "tool_set", "tool": "capacity_calc", "enabled": True, "rationale": "power_2n overloads",
+             "claim": {"dev_gain": 0.02, "cost_change_pct": 5.0, "why": "budgets stop busway overloads"}}]},
+        {"mutations": [{"type": "playbook_remove", "role": "Layout", "index": 9, "rationale": "invalid index",
+                        "claim": {"dev_gain": 0.0, "cost_change_pct": 0.0, "why": "invalid on purpose"}}]},
     ])
 
     def respond(role: str, messages: list[dict[str, str]]) -> str:
