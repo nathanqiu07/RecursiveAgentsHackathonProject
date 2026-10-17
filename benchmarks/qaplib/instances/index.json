@@ -1,0 +1,514 @@
+{
+ "source": "QAPLIB, coral.ise.lehigh.edu/data-sets/qaplib",
+ "archives": {
+  "dat": "https://coral.ise.lehigh.edu/wp-content/uploads/2014/07/qapdata.tar.gz",
+  "sln": "https://coral.ise.lehigh.edu/wp-content/uploads/2014/07/qapsoln.tar.gz"
+ },
+ "excluded_bad_sln": [
+  {
+   "name": "kra32",
+   "reason": ".sln permutation does not reproduce stated value 88900"
+  },
+  {
+   "name": "tai40a",
+   "reason": ".sln permutation does not reproduce stated value 3139370"
+  }
+ ],
+ "instances": [
+  {
+   "name": "bur26a",
+   "n": 26,
+   "family": "bur",
+   "bks": 5426670,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Burkard-Offermann typewriter keyboard design",
+   "sha256": "bcc4b7ddd80b49b4a2657ed36ecac9a81786c6ff570e4a35c18c43704b7ba5b1",
+   "sln_sha256": "4a9c25e9cf36d078fdbf1ba36c348459ebba4835c51cf82a57c07bdec3a29542"
+  },
+  {
+   "name": "chr15c",
+   "n": 15,
+   "family": "chr",
+   "bks": 9504,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Christofides-Benavent, flow matrix is a weighted tree",
+   "sha256": "61b307b61269d6a7aac1eb3750b5d056e426106b68bf1736a92615b6f1371e7b",
+   "sln_sha256": "4e06e0f158b2378c26427a6bd9838e44023603dbf6bce9bba5137ef339afaada"
+  },
+  {
+   "name": "chr18b",
+   "n": 18,
+   "family": "chr",
+   "bks": 1534,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Christofides-Benavent, flow matrix is a weighted tree",
+   "sha256": "7400d871613c545ed62cef649018d76fa7aff9ea317518cce3f38082831db723",
+   "sln_sha256": "d64b15a0cb9a35dc0b2624c03d2b91b81edf252130343bb454311b1b5e4c4bd3"
+  },
+  {
+   "name": "chr20b",
+   "n": 20,
+   "family": "chr",
+   "bks": 2298,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Christofides-Benavent, flow matrix is a weighted tree",
+   "sha256": "5982959046627fd558ee825f0920f70609f07841e4ea4d67c6236f4e870c3505",
+   "sln_sha256": "9be351276d1f75280fc63d2e1dc34a4e167ea9ca99fc650f3da94d1cdfc845f2"
+  },
+  {
+   "name": "chr22a",
+   "n": 22,
+   "family": "chr",
+   "bks": 6156,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Christofides-Benavent, flow matrix is a weighted tree",
+   "sha256": "cc60a1117a2bf6776d0c807da1ecea178d4b706d98152527e821f3566b505fb4",
+   "sln_sha256": "73d7d43b3a0f691cee0b5b7fbf5072580ce691b43c2aa8406ae86fd817805c7c"
+  },
+  {
+   "name": "chr25a",
+   "n": 25,
+   "family": "chr",
+   "bks": 3796,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Christofides-Benavent, flow matrix is a weighted tree",
+   "sha256": "e840425ca03bd14822e63d4c2b8055fad0ddb1b6ef504095fc0abcb87a472bc8",
+   "sln_sha256": "cffd04ce663a9f3490919818f055915d6fc83dd48ff01e13d86e5b21d0a53a57"
+  },
+  {
+   "name": "els19",
+   "n": 19,
+   "family": "els",
+   "bks": 17212548,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Elshafei hospital department layout",
+   "sha256": "649de7f196439afdd098bd5c2c2aa175e8046e59059ee9a84f8637e2dff8d4d3",
+   "sln_sha256": "46220ed204b44f0ec66138d4c04645d0f3f801e0e90fc07bafb1300a93a25fb3"
+  },
+  {
+   "name": "had20",
+   "n": 20,
+   "family": "had",
+   "bks": 6922,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Hadley-Rendl-Wolkowicz, Manhattan grid distances",
+   "sha256": "7fcf5045bd3918f543bc7a6c91108b44096dd3e3f09101854a29f8107a02c42b",
+   "sln_sha256": "737e9649ca920e0628dffde985bca31652510d9f201ac9de10b7444fdd2a157d"
+  },
+  {
+   "name": "kra30a",
+   "n": 30,
+   "family": "kra",
+   "bks": 88900,
+   "bks_proven_optimal": true,
+   "sln_convention": "inverse",
+   "comment": "Krarup-Pruzan hospital planning",
+   "sha256": "edc54d8bfc77d054dcb88ca45d5d5ce0c4301bb1fdbf12d127dfabfc01009c6e",
+   "sln_sha256": "ba223f7d33b60efbf35ae875656caf2273f3a4762ac5bd629cbfeb0169918f84"
+  },
+  {
+   "name": "kra30b",
+   "n": 30,
+   "family": "kra",
+   "bks": 91420,
+   "bks_proven_optimal": true,
+   "sln_convention": "inverse",
+   "comment": "Krarup-Pruzan hospital planning",
+   "sha256": "e497b762f1253e0840a1c9a7d349952916b10194786e3ad358ef60bb8def2e56",
+   "sln_sha256": "da288741a74f92dac52d71038e9a13fe5206437aa1aac1ab63d91de8c71a8faa"
+  },
+  {
+   "name": "lipa20a",
+   "n": 20,
+   "family": "lipa",
+   "bks": 3683,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Li-Pardalos generator with known optimum",
+   "sha256": "3e0346b250c7060b82f9d8f57604defffb8fc913f725ab4f6525e65b00cd5433",
+   "sln_sha256": "22e97cb1f057e961bb80fe8fd4187302df69db9c670426a84b194b218db60061"
+  },
+  {
+   "name": "lipa40b",
+   "n": 40,
+   "family": "lipa",
+   "bks": 476581,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Li-Pardalos generator with known optimum",
+   "sha256": "da4b86feee53bc815f7b04cf84706ec469f664b08b4530c96fe2328f32eed9ff",
+   "sln_sha256": "15d7fdef5f3458017ebf4dd6fddf28082cba6e4a176a1948e435172795baefe3"
+  },
+  {
+   "name": "lipa50a",
+   "n": 50,
+   "family": "lipa",
+   "bks": 62093,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Li-Pardalos generator with known optimum",
+   "sha256": "c4691880bd5a8910a50eb521d631a5c90b58935432af0abc8bdf5a4d20fdeff4",
+   "sln_sha256": "5ee83f68baf657ee84a386d797706c99be26262ac049184749d648bd99309595"
+  },
+  {
+   "name": "lipa70a",
+   "n": 70,
+   "family": "lipa",
+   "bks": 169755,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Li-Pardalos generator with known optimum",
+   "sha256": "9291885647c09b688f6a186a875eeeea5c059b7989a4ccd199f54aa062825dce",
+   "sln_sha256": "a2518504ce17b89d1230485f099091d19d16f6fc4dc10917c9c94c0458724fcc"
+  },
+  {
+   "name": "lipa90a",
+   "n": 90,
+   "family": "lipa",
+   "bks": 360630,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Li-Pardalos generator with known optimum",
+   "sha256": "8448c98c34e4811fc19eec0f7d0df0c60bee7044224fb6cbc1b5b2bc1377e9b3",
+   "sln_sha256": "a82a69cba3e0c7270510a60f3a1e37486efd1cbcee0e7e58eefbdff704ef4e95"
+  },
+  {
+   "name": "nug17",
+   "n": 17,
+   "family": "nug",
+   "bks": 1732,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Nugent, Manhattan distances on a rectangular grid",
+   "sha256": "d5cbe356fe81388225e0af527077dd69d37ad79a46121bb58cb7669087fbd59a",
+   "sln_sha256": "802d39ad1236184f1c6ce8a5f6a19a5fe128d42161308dd47d4835ea4e106bc2"
+  },
+  {
+   "name": "nug20",
+   "n": 20,
+   "family": "nug",
+   "bks": 2570,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Nugent, Manhattan distances on a rectangular grid",
+   "sha256": "a82316ada09e9c8d7fe40591306cfe0a2505b44254f37da54f2916ea81f1ecf1",
+   "sln_sha256": "8ee356ac206af5d3f77a587d047f97cee01cdf471fae23ff8c2a5736329bcf7c"
+  },
+  {
+   "name": "nug22",
+   "n": 22,
+   "family": "nug",
+   "bks": 3596,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Nugent, Manhattan distances on a rectangular grid",
+   "sha256": "406aa5df910fbbeac01660dd96963ffa7f5a1670786a74822d17241dfe2850c8",
+   "sln_sha256": "de533312591fb6681ac68e8e579acbae92be80f709416fb1dab40c7eae5d2b87"
+  },
+  {
+   "name": "nug25",
+   "n": 25,
+   "family": "nug",
+   "bks": 3744,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Nugent, Manhattan distances on a rectangular grid",
+   "sha256": "c8c62f0ec01dd5c0eb8ddfdd3c8a353086e5a9b245d11ea902628f0a210d2015",
+   "sln_sha256": "bf9b6ebb6ea1163e8a50155a08bbc52deefd0f5738ac37231cdc4286157b59c0"
+  },
+  {
+   "name": "nug30",
+   "n": 30,
+   "family": "nug",
+   "bks": 6124,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Nugent, Manhattan distances on a rectangular grid",
+   "sha256": "7c8e1001b1fb13e93417193707f4975c968bd2ff2d27451b8c4fccbd76645c09",
+   "sln_sha256": "2f29aab37f086bf9b8745800b8da6e47591988e76b1bb824bfbbb10310a016e2"
+  },
+  {
+   "name": "rou15",
+   "n": 15,
+   "family": "rou",
+   "bks": 354210,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Roucairol, uniform random flows and distances",
+   "sha256": "7631c0017c53061e2e3587adaefe138ab11dfac2f70736ab9744c5c00037a549",
+   "sln_sha256": "47ec9df1648e6e5a56fecd02015df89ccb6b191b954a33d4b4574368243b4846"
+  },
+  {
+   "name": "rou20",
+   "n": 20,
+   "family": "rou",
+   "bks": 725522,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Roucairol, uniform random flows and distances",
+   "sha256": "7a2c7acf9ee38b256fa75ef027d4906bca3334fdddd5b64c09b572a014479833",
+   "sln_sha256": "e599a60e2fab92b1d30955040c52072e8790b96af5eb8d69a66c74eeaa03ffc6"
+  },
+  {
+   "name": "scr20",
+   "n": 20,
+   "family": "scr",
+   "bks": 110030,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Scriabin-Vergin, rectangular grid distances",
+   "sha256": "2511fcaae6de80b2d7aaeb29c5469e13a46201d754bdc807e8a61b8b723daf33",
+   "sln_sha256": "6954037fa1bdbc25ddf120310de7afa9e9d0ef82c8c2e1dec8c18024e9951283"
+  },
+  {
+   "name": "sko100a",
+   "n": 100,
+   "family": "sko",
+   "bks": 152002,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Skorin-Kapov, rectangular grid distances, random flows",
+   "sha256": "bd25a54fe4761df0aa4fa0ee888b3893233293c9f15734677ef8fa86792e649c",
+   "sln_sha256": "ba2a58e38aba8dc14b5aa621cb213a8aeabe561fa75d569c5a4b3ba4731369b6"
+  },
+  {
+   "name": "sko42",
+   "n": 42,
+   "family": "sko",
+   "bks": 15812,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Skorin-Kapov, rectangular grid distances, random flows",
+   "sha256": "fd3887537642630295bb6d0c24755dcdc39848202ad3065f394645beafba49d0",
+   "sln_sha256": "b34362c6ffaf30a2046dd8af3bc1419155b71a8945a0d29f32f5cc4d6c148c81"
+  },
+  {
+   "name": "sko56",
+   "n": 56,
+   "family": "sko",
+   "bks": 34458,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Skorin-Kapov, rectangular grid distances, random flows",
+   "sha256": "581b41269fd70985f2dabfbf543070014b40548a356a676658a5f76f194e4cc2",
+   "sln_sha256": "33db29aee63ed73ead21e072cea14084c678143ea2ab3a32ebe36aba612a7c8d"
+  },
+  {
+   "name": "sko64",
+   "n": 64,
+   "family": "sko",
+   "bks": 48498,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Skorin-Kapov, rectangular grid distances, random flows",
+   "sha256": "fc1a95a121c50da5e221a19b4694cfc4bad33631615626ab2bf404cbc31905e4",
+   "sln_sha256": "b54ac55e0c49392d7ddecc876d8e78b6d76e433b63f78af0a4923c0a88d8c071"
+  },
+  {
+   "name": "sko81",
+   "n": 81,
+   "family": "sko",
+   "bks": 90998,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Skorin-Kapov, rectangular grid distances, random flows",
+   "sha256": "40aae61081c6076a6a5f6ace32f9d2ef0770777746d66de2a7b791b01e0524c8",
+   "sln_sha256": "cd06c7815da15284a33efcd390c5f10fc4a821584f147c74af99793d7e29f142"
+  },
+  {
+   "name": "ste36a",
+   "n": 36,
+   "family": "ste",
+   "bks": 9526,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Steinberg backboard wiring",
+   "sha256": "0dc451cb75985a53dd7964860e58fd7ad809316a2c4758d2fe328beaceab50fa",
+   "sln_sha256": "73a06b4d0bf9de1519a6fb395ab1d83d5e5d24ae1048bea88a0579b183980359"
+  },
+  {
+   "name": "ste36c",
+   "n": 36,
+   "family": "ste",
+   "bks": 8239110,
+   "bks_proven_optimal": true,
+   "sln_convention": "inverse",
+   "comment": "Steinberg backboard wiring",
+   "sha256": "9071556e17b7461d5bae15d829a2605a2969b440ea6c28d2575f3debd328a2ff",
+   "sln_sha256": "d63e85304bd6d94733a9f9b804c6137e17edf2633c7c3cf13956b8b26b2957e9"
+  },
+  {
+   "name": "tai100a",
+   "n": 100,
+   "family": "tai-a",
+   "bks": 21052466,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Taillard, dense uniform random matrices (hard for local search)",
+   "sha256": "de053a8df4044c71d3d3da8b86a6e3bf32b1ac3053ab1970e6d81098a26a0895",
+   "sln_sha256": "6d98fd048962d4f80ac75bc71e2c2cd47f364e2bcf82fa21200b1c71c2e34f3b"
+  },
+  {
+   "name": "tai15a",
+   "n": 15,
+   "family": "tai-a",
+   "bks": 388214,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Taillard, dense uniform random matrices (hard for local search)",
+   "sha256": "374f8225097d01ab29bd933dfa41a2c1b8d753bcc5deb05cd3179faf97b9fb65",
+   "sln_sha256": "51eb6befec4c22087b1e62d91a83104e8567cf7e6523cd94cc60e404e80aea11"
+  },
+  {
+   "name": "tai20a",
+   "n": 20,
+   "family": "tai-a",
+   "bks": 703482,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Taillard, dense uniform random matrices (hard for local search)",
+   "sha256": "39eeebc193ffa134e7be20ca32d4ffacadcadda7f75268ef0dee142d27a1fb74",
+   "sln_sha256": "1220c5f9a2c9b6c159b0cae0d9d3df948cad23fe89dc5af7ccd104eec0a9a56e"
+  },
+  {
+   "name": "tai20b",
+   "n": 20,
+   "family": "tai-b",
+   "bks": 122455319,
+   "bks_proven_optimal": true,
+   "sln_convention": "direct",
+   "comment": "Taillard, real-life-like clustered flows and distances",
+   "sha256": "99efd6bc04aae2f8d27cce380165867497c9fe807fca798e53131d25c09831f5",
+   "sln_sha256": "798a09e8e8d11ec8d8624001f46d0c7a3b96d8261d80f1ed96d4502e2a8e47b8"
+  },
+  {
+   "name": "tai35a",
+   "n": 35,
+   "family": "tai-a",
+   "bks": 2422002,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Taillard, dense uniform random matrices (hard for local search)",
+   "sha256": "78ac8afe13129e9074a1431e5358ad670d5daacfa944222b7d2f420f94679316",
+   "sln_sha256": "d1f06d79f69f01278e5174366208676c5b9f7a860215774df4d121763575f87f"
+  },
+  {
+   "name": "tai35b",
+   "n": 35,
+   "family": "tai-b",
+   "bks": 283315445,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Taillard, real-life-like clustered flows and distances",
+   "sha256": "7082b75870365c9e313b095f13ff9d6f6b851e6063934fb4b2dcf302d4febeaf",
+   "sln_sha256": "67cba8265884417c2431d0f184856c3d0b2e9e31e81822d64107c1201e77a0c4"
+  },
+  {
+   "name": "tai50a",
+   "n": 50,
+   "family": "tai-a",
+   "bks": 4938796,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Taillard, dense uniform random matrices (hard for local search)",
+   "sha256": "3ff7b0cc5cbc28d0cafbc37fea4ac61d490db81bb20453757fad557ec468bf9c",
+   "sln_sha256": "c04410c53e0623d96976760aa0c86dfa26c548671571580da12c4c9f9f35ef3f"
+  },
+  {
+   "name": "tai50b",
+   "n": 50,
+   "family": "tai-b",
+   "bks": 458821517,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Taillard, real-life-like clustered flows and distances",
+   "sha256": "4977aa11a530a0699bf0a91eb3ca1962687782fd317accdf63b054fcaf7df288",
+   "sln_sha256": "c4c9836f9036ec0709b254c6fcb0bb4329faea6e44549c4b77d81fbd2f1a2eba"
+  },
+  {
+   "name": "tai60a",
+   "n": 60,
+   "family": "tai-a",
+   "bks": 7205962,
+   "bks_proven_optimal": false,
+   "sln_convention": "inverse",
+   "comment": "Taillard, dense uniform random matrices (hard for local search)",
+   "sha256": "b32cae60a3539c788e1e228a10f5581ee1c31dbaa58930c697d80c7947c054a1",
+   "sln_sha256": "50d2446c6ea49d35b83ef28d21485893169fbd98a613c8844ce75c63b91df32e"
+  },
+  {
+   "name": "tai80a",
+   "n": 80,
+   "family": "tai-a",
+   "bks": 13499184,
+   "bks_proven_optimal": false,
+   "sln_convention": "inverse",
+   "comment": "Taillard, dense uniform random matrices (hard for local search)",
+   "sha256": "99a401c93d7294429383823dfab749e6e74cdd9d0208ed0cf9e52bcb18d1681a",
+   "sln_sha256": "b94a15dc36aa6a9d8976fa07edf6d262fe9c1e4fd9c6f490e05531eb2401165a"
+  },
+  {
+   "name": "tai80b",
+   "n": 80,
+   "family": "tai-b",
+   "bks": 818415043,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Taillard, real-life-like clustered flows and distances",
+   "sha256": "cea03ad8f4fd1755922d86f084c3a3d6bf10bc3525f40ce34d584b8705f5cd0a",
+   "sln_sha256": "f4136f7b501e88a6d04e0c70b06a7a0d15baafc767d50b0f9b2000368d50639c"
+  },
+  {
+   "name": "tho30",
+   "n": 30,
+   "family": "tho",
+   "bks": 149936,
+   "bks_proven_optimal": true,
+   "sln_convention": "inverse",
+   "comment": "Thonemann-Boelte, rectangular grid distances",
+   "sha256": "270072ddc0b14bcdd1aaa31e71ba46542b28acb2b03e7cd6ed15e19e702b32c2",
+   "sln_sha256": "95a33eb680a48369fbd3fbfbc680692375b8804493cc566aeb8cb2d6aa311e4d"
+  },
+  {
+   "name": "tho40",
+   "n": 40,
+   "family": "tho",
+   "bks": 240516,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Thonemann-Boelte, rectangular grid distances",
+   "sha256": "2701531cf5f9e03d5ba267f206db6ff94f354fcdd5d8e2112fc5d90571b0c73e",
+   "sln_sha256": "a2045ff9cb921f23b40cb4c5eea5338f463d346852f75715dafc25e2125b58d3"
+  },
+  {
+   "name": "wil100",
+   "n": 100,
+   "family": "wil",
+   "bks": 273038,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Wilhelm-Ward, rectangular grid distances",
+   "sha256": "9477abe6459def2fc664ee49f612a592bba7b59c2a3027c4a0382d068c6aa4ca",
+   "sln_sha256": "54b4f1a8acc5e719d7372c650ef718c4e87dff1417bcae55cf6d14ec8881f043"
+  },
+  {
+   "name": "wil50",
+   "n": 50,
+   "family": "wil",
+   "bks": 48816,
+   "bks_proven_optimal": false,
+   "sln_convention": "direct",
+   "comment": "Wilhelm-Ward, rectangular grid distances",
+   "sha256": "ad67fae8ff5e78aadded6004e101baa252f4eeac5a786a56e353f71b07bcb2f7",
+   "sln_sha256": "490e68e8b2e4651cafa38bde7a1c874b5b96a6dd22364fa2358a6f480574eef1"
+  }
+ ]
+}
