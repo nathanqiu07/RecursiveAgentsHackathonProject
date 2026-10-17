@@ -41,7 +41,7 @@ A change is one of: a prompt edit, a playbook rule, a config change (model per r
 - **Verifier:** Rikin's DoneTwin scorer (`donetwin/donetwin/score.py`), no LLM. Score 0 to 100 = 70 for density + 20 for resilience to a single CDU failure + 10 for hose length.
 - **Hard rules, which score 0 if broken:** 2N power on A/B busways, 1.2 m hot/cold aisles, keep-outs, hose reach, CDU capacity, room air budget.
 - **Baseline:** v0 cold (the original team, empty memory), 71.0 on held-out. **No-LLM reference:** greedy, also 71.0, usually 0 of the 20 resilience points. v0 starts from greedy's layout, which is why the two match.
-- **Splits:** train 12 and dev 8 halls from disjoint seeds in 0..9999. Held-out is 15 halls from seeds 10000..10049.
+- **Splits:** currently train 8, dev 6, held-out 10 halls (`team/datahall.py`). Train and dev use disjoint seeds in 0..9999, held-out uses seeds 10000..10049. Run 1 used 12 / 8 / 15.
 - **Live run 1** (`reports/datahall_live_1/`): every role on Nemotron Nano with reasoning off.
   - Held-out on 15 halls: greedy 0.710, v0 with empty memory 0.710, v0 with learned memory 0.710.
   - The Reviewer proposed 9 changes and the gate rejected all 9: 7 measured a gain of +0.000 or -0.001 against the required 0.05, and 2 failed validation (a playbook step over 280 chars).
@@ -53,7 +53,8 @@ A change is one of: a prompt edit, a playbook rule, a config change (model per r
   - Super with reasoning on stalled: every call was cut off at 16k tokens.
   - Run-to-run noise: about ±1.3 points.
   - In one line: the only setting that beat the cold start was the small model allowed to think. The cold start, Nano with reasoning off, scored exactly greedy.
-- **Run 2** (live): v0 is run 1's config. The Reviewer can turn Layout reasoning on. Result: [RUN2_SCORE]
+- **Runs 2+** (live, latest `datahall-live-4`): v0 is run 1's config. The Reviewer can turn Layout reasoning on, or enable a verifier-guided polish tool (`team/datahall_polish.py`, Rikin's local search). Result: [RUN2_SCORE]
+- **Required ablation for any polish gain:** offline, greedy + polish with no LLM scores 72.75 vs greedy 68.79 on 6 held-out halls. If the final version's gain comes from enabling polish, it must be reported next to that row. The LLM's contribution is then choosing the tool and the settings, not the layout itself.
 
 Both outcomes are reportable:
 - **If the final version beats v0 cold:** the table below shows the gain on unseen halls.
@@ -65,6 +66,7 @@ Both outcomes are reportable:
 | v0, learned memory (Shared Brain effect) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | vN, learned memory (Version N+1 effect) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | *Reference: greedy (no LLM)* | *71.0* | *100%* | 0 | 0 | 0 | n/a |
+| *Reference: greedy + polish (no LLM)* | *[POLISH_REF]* | | 0 | 0 | 0 | n/a |
 
 ## Layer 2, equipment placement: QAPLIB facility layout (live)
 
@@ -77,7 +79,12 @@ Both outcomes are reportable:
   - Random: 0.707.
 - **Live smoke:** Super wrote a runnable program with a 13.9% gap on els19, where 2-swap is at 0.0%. Cost $0.016.
 - **Evolve run 1** (`runs/qaplib-evolve-1/`): crashed on a Crusoe 429 (`max_requests_limit`) before finishing.
-- **Evolve run 2** (`runs/qaplib-evolve-2/`, live): 2 generations on a 4 / 3 / 6 split, after the 429 client fix. Result: [QAP_RESULT]. Same table as layer 1: v0 cold is the baseline, with 2-swap as the gray no-LLM reference row.
+- **Data-center QAP instances** (`benchmarks/qaplib/dc_instances.py`): GPU rack placement in DoneTwin halls, in QAPLIB's format. Facilities are one training job's racks, locations are the hall's rack slots, flow is GB/s between racks, and distance is cable-tray length. There is no published optimum, so the reference is the best of a time-boxed robust tabu search and 2-swap; 1.0 matches it. This is what ties the QAPLIB layer to real data-center data.
+- **Held-out so far (v0 cold → final):**
+  - QAPLIB (`qaplib-research-1`): final 0.966, 2.9 points below the 2-swap reference (0.995). v0 cold is [QAP_V0].
+  - Data-center QAP (`qaplib-dc-research-1`): 0.477 → 0.802 (+0.325). The 2-swap reference is 0.967, so the final version is still below a textbook heuristic.
+  - Still running: `qaplib-research-2` and `qaplib-dc-research-2`.
+- **Evolve run 2** (`runs/qaplib-evolve-2/`): 2 generations on a 4 / 3 / 6 split, after the 429 client fix. Result: [QAP_RESULT]. Same table as layer 1: v0 cold is the baseline, with 2-swap as the gray no-LLM reference row.
 
 ## Layer 3, GPU kernels: KernelBench mini
 
@@ -93,7 +100,7 @@ Both outcomes are reportable:
 - **Starting point:** v0 is deliberately expensive: Super for every type, reasoning on, max_tokens 4000, one question per call.
 - **Knobs:** model per type (Super, Nano, Lightning), reasoning per type, token caps, batch size 1 to 12, temperature, prompts and playbooks.
 - **Gate:** a version is kept if mean cost per hall falls by 15% or more with no loss in accuracy and no lost passes, or if accuracy rises by 0.05 or more.
-- **Live run:** `runs/inference-opt-1/`, started about 15:35, about 44 team runs and at most 528 calls. Pending.
+- **Live run 1** (`runs/inference-opt-1/`): on dev, batch_size 3 cut cost by 30.5% at 100% accuracy. There is no held-out result yet, so it is not a headline. Run 2 (`inference-opt-2`) is running.
 - **Limits:** this is our own workload, so there are no outside records. It tunes how we call the model, not Crusoe's serving stack (GPU scheduling, KV cache, quantization).
 - **Headline:** same accuracy at [INF_COST_PCT]% of the cost.
 
