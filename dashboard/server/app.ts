@@ -9,6 +9,7 @@ import { ResourceStore, StoreError } from './store.ts';
 import { BenchmarkStore } from './benchmark-store.ts';
 import { benchmarkDefinitionSchema, solutionSubmissionSchema } from '../shared/api-schemas.ts';
 import { agentHarnessApi } from './agent-harness.ts';
+import { libraryFeedApi } from './library-feed.ts';
 import { nemotronStatus, startNemotronBaseline } from './nemotron-verifier.ts';
 
 const querySchema = z.object({
@@ -46,6 +47,15 @@ export function createApp(store: ResourceStore, benchmarks = new BenchmarkStore(
   });
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', database: 'sqlite' }));
+  app.all('/api/library/feed', async (req, res) => {
+    const request = new Request(new URL(req.originalUrl, 'http://127.0.0.1'), { method: req.method });
+    const response = await libraryFeedApi(request, ['library', 'feed'], {
+      ...process.env,
+      AGENT_HARNESS_URL: process.env.AGENT_HARNESS_URL ?? 'http://127.0.0.1:8003',
+      LIBRARY_API_URL: process.env.LIBRARY_API_URL ?? process.env.HARNESS_LIBRARY_URL ?? 'http://127.0.0.1:8001',
+    });
+    res.status(response!.status).type('application/json').send(await response!.text());
+  });
   app.get('/api/verifiers/nemotron/status', async (_req, res) => res.json(await nemotronStatus()));
   app.post('/api/verifiers/nemotron/baseline', async (req, res) => {
     if (req.body !== undefined && (typeof req.body !== 'object' || req.body === null || Array.isArray(req.body) || Object.keys(req.body).length)) {

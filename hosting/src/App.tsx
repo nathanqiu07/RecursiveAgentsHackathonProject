@@ -4,6 +4,7 @@ import Benchmarks from './Benchmarks';
 import Guide from './Guide';
 import Agents from './Agents';
 import Connections from './Connections';
+import Library from './Library';
 
 const tabs = ['Benchmarks', 'Library', 'Agents', 'Connections', 'Resources', 'Guide'] as const;
 
@@ -71,6 +72,7 @@ export default function App() {
             tabIndex={0}
           >
             {tab === 'Benchmarks' && <Benchmarks active={activeTab === 'Benchmarks'} />}
+            {tab === 'Library' && <Library active={activeTab === 'Library'} />}
             {tab === 'Resources' && <Resources active={activeTab === 'Resources'} />}
             {tab === 'Agents' && <Agents active={activeTab === 'Agents'} />}
             {tab === 'Connections' && <Connections active={activeTab === 'Connections'} />}

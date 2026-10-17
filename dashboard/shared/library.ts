@@ -1,0 +1,46 @@
+export type LibraryIdea = {
+  id: string;
+  run_id: string;
+  title: string;
+  hypothesis: string;
+  novelty_difference: string;
+  source_urls: string[];
+  experiment_plan: { baseline: string; experiment: string; metric: string; success_criterion: string }[];
+  run_status: string;
+  status: 'unverified';
+  verification_status: 'unverified';
+  experiment_count: number;
+  created_at: string;
+  updated_at: string;
+  paper_id: string | null;
+  blocker: string | null;
+};
+export type LibraryPaper = {
+  id: string;
+  title: string;
+  paper_text: string;
+  paper_text_truncated: boolean;
+  paper_url: string | null;
+  status: 'pending_verification' | 'planning' | 'verifying' | 'blocked' | 'completed' | 'failed';
+  verdict: 'verified' | 'not_verified' | 'inconclusive' | null;
+  summary: string | null;
+  blocked_reason: string | null;
+  node_id: string | null;
+  compute_job_id: string | null;
+  compute_job_status: string | null;
+  submitted_by: string | null;
+  run_id: string | null;
+  created_at: string;
+  started_at: string | null;
+};
+export type LibraryFeed = {
+  ideas: LibraryIdea[];
+  papers: LibraryPaper[];
+  active_verifications: LibraryPaper[];
+  counts: { unverified: number; in_verification: number; verified: number };
+  verification_available: boolean;
+  drafts_available: boolean;
+  pagination: { limit: number; offset: number; total: number; has_more: boolean };
+  warnings: string[];
+  checked_at: string;
+};

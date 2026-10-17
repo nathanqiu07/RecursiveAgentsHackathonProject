@@ -7,6 +7,7 @@ import { resourceApi } from '../../../lib/resource-api';
 import { benchmarkDefinitionSchema, solutionSubmissionSchema } from '../../../shared/api-schemas';
 import { agentHarnessApi } from '../../../lib/agent-harness';
 import { agentAccess } from '../../../lib/agent-access';
+import { libraryFeedApi } from '../../../lib/library-feed';
 
 export const dynamic = 'force-dynamic';
 const headers = { 'Cache-Control': 'no-store' };
@@ -62,6 +63,16 @@ async function route(request: Request): Promise<Response> {
       const denied = agentAccess(request, path, configuration);
       if (denied) return denied;
       const response = await agentHarnessApi(request, path, configuration);
+      if (response) return response;
+    }
+    if (path[0] === 'library') {
+      const configuration = env as unknown as Record<string, unknown>;
+      if (typeof configuration.AGENT_HARNESS_URL !== 'string' || !configuration.AGENT_HARNESS_URL) {
+        return Response.json({ error: 'Connect the agent harness to view the Library research feed.' }, { status: 503, headers });
+      }
+      const denied = agentAccess(request, ['agents', 'runs'], configuration);
+      if (denied) return denied;
+      const response = await libraryFeedApi(request, path, configuration);
       if (response) return response;
     }
     if (!env.DB) throw new ApiError(503, 'Persistent database is not connected');
