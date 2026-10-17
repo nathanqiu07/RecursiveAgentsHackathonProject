@@ -28,6 +28,7 @@ from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import LIGHTNING, NANO, SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.evolve import Evolver, Gate, TeamVersion, markdown_table  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
+from team.sa_library import add_library_args, configure_from_args  # noqa: E402
 from team.types import LLM, RunResult, Task  # noqa: E402
 
 CANDIDATES_PER_GEN = 3  # Reviewer max_mutations
@@ -186,7 +187,9 @@ def main() -> int:
     ap.add_argument("--reviewer-model", choices=sorted(MODELS), default="super")
     ap.add_argument("--thinking", action="store_true", help="v0 solver reasoning on (default off)")
     ap.add_argument("--rpm", type=float, default=None, help="client cap per model (default CRUSOE_RPM or 25)")
+    add_library_args(ap)
     args = ap.parse_args()
+    configure_from_args(args, "ale-bench-ahc039")
 
     scorer.require_data()
     v0 = alebench_v0()

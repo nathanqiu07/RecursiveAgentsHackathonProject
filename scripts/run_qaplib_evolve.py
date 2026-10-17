@@ -33,6 +33,7 @@ from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.evolve import Evolver, Gate, TeamVersion  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
+from team.sa_library import add_library_args, configure_from_args  # noqa: E402
 from team.types import LLM, RunResult, Task  # noqa: E402
 
 CANDIDATES_PER_GEN = 3  # Reviewer max_mutations
@@ -240,6 +241,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--max-tokens", type=int, default=6000, help="per call; reasoning counts against it")
     ap.add_argument("--solver-model", default=SUPER)
     ap.add_argument("--reviewer-model", default=SUPER)
+    add_library_args(ap)
     return ap
 
 
@@ -308,6 +310,7 @@ def run_one(llm: LLM, task: Task, v0: TeamVersion, out: Path) -> RunResult:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    configure_from_args(args, "qaplib")
     v0 = qaplib_v0(args.max_tokens, args.attempts, args.time_limit, args.solver_model)
     if args.offline:
         llm: Any = offline_llm()

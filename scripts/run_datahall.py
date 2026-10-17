@@ -26,6 +26,7 @@ from team.crusoe import NANO, SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.datahall import SPLIT_SIZES, datahall_run_team, datahall_v0, load_tasks  # noqa: E402
 from team.evolve import Evolver, TeamVersion, markdown_table  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
+from team.sa_library import add_library_args, configure_from_args  # noqa: E402
 from team.types import LLM, Task  # noqa: E402
 
 CANDIDATES_PER_GEN = 3  # Reviewer max_mutations
@@ -155,7 +156,9 @@ def main() -> int:
                     help="halls per split (at most 2 large each)")
     ap.add_argument("--worker-model", default=NANO)
     ap.add_argument("--reviewer-model", default=SUPER)
+    add_library_args(ap)
     args = ap.parse_args()
+    configure_from_args(args, "datahall")
 
     v0 = datahall_v0()
     v0.config.update(max_iters=args.max_iters, max_tokens=args.max_tokens, default_model=args.worker_model)

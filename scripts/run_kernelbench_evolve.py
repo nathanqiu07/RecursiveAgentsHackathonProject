@@ -30,6 +30,7 @@ from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.evolve import Evolver, Gate, TeamVersion  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
+from team.sa_library import add_library_args, configure_from_args  # noqa: E402
 from team.types import LLM, RunResult, Task  # noqa: E402
 
 CANDIDATES_PER_GEN = 3  # Reviewer max_mutations
@@ -211,7 +212,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--min-gain", type=float, default=0.05, help="Gate: dev mean score gain to keep a mutation")
     ap.add_argument("--kernel-model", default=SUPER)
     ap.add_argument("--reviewer-model", default=SUPER)
+    add_library_args(ap)
     args = ap.parse_args(argv)
+    configure_from_args(args, "kernelbench")
 
     v0 = kb_v0()
     v0.config.update(attempts=args.attempts, max_tokens=args.max_tokens, default_model=args.kernel_model,

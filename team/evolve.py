@@ -21,6 +21,7 @@ from typing import Any, Callable
 
 from team.brain import MAX_TEXT, SharedBrain
 from team.crusoe import LIGHTNING, NANO, PRICES, SUPER
+from team.sa_library import from_env as library_from_env
 from team.types import LLM, RunResult, Task
 
 RunTeam = Callable[["TeamVersion", SharedBrain, Task, LLM], RunResult]
@@ -351,7 +352,7 @@ class Evolver:
     def __init__(self, run_team: RunTeam, llm: LLM, reviewer_model: str, brain: SharedBrain,
                  versions_dir: str | Path, max_workers: int = 4, seed: int = 0,
                  initial: TeamVersion | None = None, gate: Gate | None = None,
-                 reports_dir: str | Path | None = None, max_disputes: int = 2):
+                 reports_dir: str | Path | None = None, max_disputes: int = 2, library: Any = None):
         self.run_team, self.llm, self.brain, self.seed = run_team, llm, brain, seed
         self.max_disputes = max_disputes
         self.versions_dir = Path(versions_dir)
@@ -371,6 +372,8 @@ class Evolver:
         self._heldout: frozenset[str] = frozenset()
         self._final = False
         self._lock = threading.Lock()
+        # SA's Library (team/sa_library.py): mutations become papers, Gate outcomes their verdicts. No-op unless SA_LIBRARY_URL.
+        self.library = library if library is not None else library_from_env(self.versions_dir)
 
     def _log(self, record: dict) -> None:
         with self._lock, open(self.versions_dir / "ledger.jsonl", "a") as fh:
@@ -423,6 +426,7 @@ class Evolver:
             record = {"generation": g, "dispute": [a, b], "means": {k: round(v, 4) for k, v in means.items()},
                       "winner": winner}
             self._log(record)
+            self.library.publish_dispute(record, len(dev_tasks), {e.id: e.text for e in self.brain.get([a, b])})
             out.append(record)
         return out
 
@@ -443,9 +447,14 @@ class Evolver:
             for d in self.reviewer.dropped:
                 self._log({"generation": g, "parent": parent.version, "mutation": d["mutation"],
                            "accepted": False, "reason": f"invalid: {d['reason']}"})
+                self.library.publish_invalid(g, parent.version, d["mutation"], d["reason"])
+            claims = self.library.publish_claims(g, parent.version, mutations, {
+                "n_dev": len(dev_tasks), "n_train": len(train), "seed": self.seed, "reviewer_model": self.reviewer.model,
+                "train_mean": mean(r.score for r in train) if train else None,
+                "min_gain": self.gate.min_gain, "min_cost_cut": self.gate.min_cost_cut})
             parent_dev = self._batch(parent, self.brain, dev_tasks)
             best = None
-            for m in mutations:
+            for m, claim_id in zip(mutations, claims):
                 cand = apply_mutation(parent, m, self.brain, parent.version + 1)
                 is_consolidation = m["type"] == "promote_brain"
                 view = self.brain.without(m["entry_ids"]) if is_consolidation else self.brain
@@ -454,6 +463,7 @@ class Evolver:
                 record = paper(m, decision)
                 self._log({"generation": g, "parent": parent.version, "mutation": m, **decision, "paper": record})
                 self.papers.append({"generation": g, "type": m["type"], **record})
+                self.library.post_verdict(claim_id, m, decision, record)
                 rank = (decision.get("gain", 0.0), decision.get("cost_cut", 0.0))
                 if decision["accepted"] and (best is None or rank > (best[1]["gain"], best[1]["cost_cut"])):
                     best = (cand, decision, m)
