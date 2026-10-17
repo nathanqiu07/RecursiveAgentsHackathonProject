@@ -80,6 +80,15 @@ Add multiple named model profiles per harness, then select a harness and profile
 | NVIDIA NemoClaw | Installed NemoClaw, OpenShell and working Docker, with `HARNESS_NEMOCLAW_ENABLED=1` after runtime/image preparation. Each run provisions its own OpenShell planner sandbox and inference route, then destroys it on close. |
 | Research harness | Direct compatible chat completions, normally the saved Crusoe connection. A model profile can select another compatible model/endpoint. |
 
+For **NVIDIA NemoClaw**, add an **API key** model profile with the inference provider's base URL, exact model ID and matching key. Examples:
+
+| Inference provider | API base URL | Example model ID | Required key |
+| --- | --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1` | `your-openai-model-id` | OpenAI Platform API key with access to that model |
+| Crusoe | `https://api.inference.crusoecloud.com/v1` | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B` | Crusoe Foundry inference key with access to that model |
+
+Use a model available to your provider account; the Crusoe catalog in Connections lists its exact IDs. NemoClaw forwards these settings through its custom compatible endpoint using `NEMOCLAW_ENDPOINT_URL`, `NEMOCLAW_MODEL` and `COMPATIBLE_API_KEY`. It selects `NEMOCLAW_PREFERRED_API=openai-completions`, as described in [NVIDIA's compatible API guide](https://docs.nvidia.com/nemoclaw/user-guide/openclaw/inference/custom-endpoints/choose-compatible-inference-api). Keys do not need an NVIDIA prefix. Existing Codex ChatGPT sign-in applies to the Codex harness; an OpenAI NemoClaw profile requires its own API key. Installing/configuring NemoClaw, OpenShell and Docker on the worker is still required before launching a NemoClaw run.
+
 Codex and Claude Code run as trusted planning clients with native tools disabled. Their structured tool proposals go through this harness's existing novelty, experiment and publication gates; every generated experiment still executes only in the run's ResourceManager sandbox. NemoClaw additionally isolates its planner in OpenShell. The CLI adapters are not allowed to run model-selected commands on the worker host. Runtime availability reports installation/sign-in prerequisites, while endpoint/model access can still fail on a turn. NemoClaw onboarding can require image downloads and takes longer than an inference request.
 
 The model selected for a run is recorded in its request/runtime metadata. A worker takes a fresh connection snapshot at the start of each run; editing a connection affects later runs. Disconnecting a provider does not interrupt a run already using that connection. ChatGPT OAuth applies to supported Codex models; Claude Code, NemoClaw and Crusoe use their own authentication. These API families are not interchangeable.

@@ -215,6 +215,39 @@ def test_nemoclaw_creates_independent_managed_sandbox_and_destroys_it(monkeypatc
     assert not workdir.exists()
 
 
+@pytest.mark.parametrize(
+    "endpoint,model_id,api_key",
+    [
+        ("https://api.openai.com/v1", "example-openai-model", "sk-dummy-openai-api-key"),
+        (
+            "https://api.inference.crusoecloud.com/v1",
+            "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B",
+            "dummy-crusoe-inference-key",
+        ),
+    ],
+    ids=["openai", "crusoe-nemotron"],
+)
+def test_nemoclaw_forwards_compatible_provider_endpoint_model_and_key(endpoint, model_id, api_key):
+    runner = NemoRunner()
+    with NemoClawModel(model_id, endpoint, api_key, runner=runner) as model:
+        result = model.complete(MESSAGES, TOOLS)
+        onboard = [call for call in runner.calls if "onboard" in call[0]]
+        assert len(onboard) == 1
+        argv, options = onboard[0]
+        assert options["env"]["NEMOCLAW_PROVIDER"] == "custom"
+        assert options["env"]["NEMOCLAW_ENDPOINT_URL"] == endpoint
+        assert options["env"]["NEMOCLAW_MODEL"] == model_id
+        assert options["env"]["NEMOCLAW_PREFERRED_API"] == "openai-completions"
+        assert options["env"]["COMPATIBLE_API_KEY"] == api_key
+        assert api_key not in json.dumps(argv)
+        assert "COMPATIBLE_API_KEY" not in model.env
+        assert api_key not in json.dumps(result)
+        for arguments, settings in runner.calls:
+            if "onboard" not in arguments:
+                assert "COMPATIBLE_API_KEY" not in settings["env"]
+    assert "destroy" in runner.calls[-1][0]
+
+
 def test_nemoclaw_never_reuses_another_runs_sandbox_or_inference_gateway():
     left = NemoClawModel(MODEL, api_key=KEY, runner=NemoRunner())
     right = NemoClawModel(MODEL, api_key=KEY, runner=NemoRunner())

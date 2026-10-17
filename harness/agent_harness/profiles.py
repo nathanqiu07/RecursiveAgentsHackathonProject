@@ -76,6 +76,10 @@ class ProfileRequest(BaseModel):
             raise ValueError("Choose an authentication method supported by this harness")
         if self.harness == "codex" and (self.base_url or self.api_key):
             raise ValueError("Codex OAuth uses the local Codex sign-in and its own endpoint")
+        if self.auth_mode == "environment" and (self.base_url or self.api_key):
+            raise ValueError(
+                "Backend environment authentication uses the worker's endpoint and key"
+            )
         return self
 
 
@@ -112,7 +116,19 @@ class ProfileStore(SettingsStore):
         with self._transaction():
             previous = self.private_profile(identifier) if body.id else None
             key = body.api_key.get_secret_value().strip() if body.api_key else None
+            if (
+                body.auth_mode == "api-key"
+                and previous
+                and previous["api_key"]
+                and not key
+                and (previous["base_url"] != body.base_url or previous["harness"] != body.harness)
+            ):
+                raise SettingsError(
+                    "Enter a new API key when changing the profile endpoint or harness"
+                )
             key = key or (previous and previous["api_key"])
+            if body.auth_mode == "api-key" and not key:
+                raise SettingsError("Enter an API key for this model profile")
             if body.auth_mode != "api-key":
                 key = None
             fields = (body.name, body.model, body.base_url or "")
@@ -221,6 +237,8 @@ def model_for_run(db_path, request):
             profile = store.private_profile(identifier)
         if not profile["enabled"] or profile["harness"] != harness:
             raise ServiceError("model_profile_unavailable")
+        if profile["auth_mode"] == "api-key" and not profile["api_key"]:
+            raise ServiceError("model_profile_unavailable")
     model = request.get("model") or (profile["model"] if profile else None)
     if harness == "builtin":
         if profile and profile["auth_mode"] == "api-key" and profile["api_key"]:
@@ -252,4 +270,8 @@ def model_for_run(db_path, request):
     if not profile:
         raise ServiceError("model_profile_required")
     adapter = ClaudeCodeModel if harness == "claude-code" else NemoClawModel
-    return adapter(model=model, base_url=profile["base_url"], api_key=profile["api_key"])
+    return adapter(
+        model=model,
+        base_url=profile["base_url"] if profile["auth_mode"] == "api-key" else None,
+        api_key=profile["api_key"] if profile["auth_mode"] == "api-key" else None,
+    )

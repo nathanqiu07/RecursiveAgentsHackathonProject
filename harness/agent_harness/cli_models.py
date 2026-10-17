@@ -660,7 +660,7 @@ class NemoClawModel(_CLIPlanner):
                 "NEMOCLAW_PROVIDER": "custom",
                 "NEMOCLAW_MODEL": self.model,
                 "NEMOCLAW_ENDPOINT_URL": self.base_url,
-                "NEMOCLAW_PREFERRED_API": "completions",
+                "NEMOCLAW_PREFERRED_API": "openai-completions",
                 "COMPATIBLE_API_KEY": self.api_key,
             }
             self._execute(

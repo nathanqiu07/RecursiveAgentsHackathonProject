@@ -56,6 +56,8 @@ def test_named_profiles_encrypt_keys_and_keep_only_public_metadata_after_restart
         {"harness": "other"},
         {"model": "$(touch /tmp/untrusted)"},
         {"api_key": "bad\nheader"},
+        {"auth_mode": "environment", "api_key": None},
+        {"auth_mode": "environment", "base_url": None},
     ],
 )
 def test_profiles_reject_unsupported_runtime_and_unsafe_credentials(changes):
@@ -75,6 +77,88 @@ def test_codex_profile_uses_sign_in_without_a_portable_token(tmp_path):
         )
         assert not value["api_key_set"]
         assert store.private_profile(value["id"])["api_key"] is None
+
+
+def test_switching_provider_requires_new_credentials_without_reusing_stored_key(tmp_path):
+    with ProfileStore(tmp_path / "db") as store:
+        original = store.save_profile(
+            profile(
+                harness="nemoclaw",
+                base_url="https://api.inference.crusoecloud.com/v1",
+            )
+        )
+        with pytest.raises(SettingsError, match="new API key"):
+            store.save_profile(
+                profile(
+                    id=original["id"],
+                    harness="nemoclaw",
+                    api_key="",
+                    base_url="https://api.openai.com/v1",
+                )
+            )
+        # Rejected edits retain the original endpoint and credential atomically.
+        unchanged = store.private_profile(original["id"])
+        assert unchanged["base_url"] == "https://api.inference.crusoecloud.com/v1"
+        assert unchanged["api_key"] == SECRET
+        updated = store.save_profile(
+            profile(
+                id=original["id"],
+                harness="nemoclaw",
+                api_key="dummy-openai-key",
+                base_url="https://api.openai.com/v1",
+            )
+        )
+        assert updated["base_url"] == "https://api.openai.com/v1"
+        assert store.private_profile(original["id"])["api_key"] == "dummy-openai-key"
+
+
+def test_switching_harness_cannot_reuse_key_for_a_different_default_endpoint(tmp_path):
+    with ProfileStore(tmp_path / "db") as store:
+        original = store.save_profile(profile(harness="nemoclaw", base_url=None))
+        with pytest.raises(SettingsError, match="new API key"):
+            store.save_profile(
+                profile(id=original["id"], harness="claude-code", base_url=None, api_key="")
+            )
+        unchanged = store.private_profile(original["id"])
+        assert unchanged["harness"] == "nemoclaw"
+        assert unchanged["base_url"] is None
+        assert unchanged["api_key"] == SECRET
+
+
+@pytest.mark.parametrize("api_key", [None, "", "   "])
+def test_api_key_profile_cannot_fall_back_to_worker_credentials(tmp_path, api_key):
+    with ProfileStore(tmp_path / "db") as store:
+        with pytest.raises(SettingsError, match="Enter an API key"):
+            store.save_profile(profile(harness="nemoclaw", api_key=api_key))
+        assert not store.list_profiles()
+
+
+def test_legacy_keyless_profile_cannot_fall_back_to_worker_credentials(tmp_path, monkeypatch):
+    path = tmp_path / "db"
+    with ProfileStore(path) as store:
+        created = store.save_profile(profile(harness="nemoclaw"))
+        store.db.execute("UPDATE agent_model_profiles SET encrypted_key=NULL")
+        store.db.commit()
+    monkeypatch.setenv("HARNESS_NEMOCLAW_API_KEY", "dummy-worker-key")
+    with pytest.raises(ServiceError, match="model_profile_unavailable"):
+        model_for_run(path, {"harness": "nemoclaw", "model_profile_id": created["id"]})
+
+
+def test_legacy_environment_profile_cannot_override_worker_endpoint(tmp_path, monkeypatch):
+    from agent_harness import cli_models
+
+    path = tmp_path / "db"
+    with ProfileStore(path) as store:
+        created = store.save_profile(
+            profile(harness="nemoclaw", auth_mode="environment", base_url=None, api_key=None)
+        )
+        # Older versions allowed endpoint overrides on environment-authenticated profiles.
+        legacy = {**created, "base_url": "https://custom.example/v1"}
+        store.db.execute("UPDATE agent_model_profiles SET public=?", (json.dumps(legacy),))
+        store.db.commit()
+    monkeypatch.setattr(cli_models, "NemoClawModel", lambda **kwargs: kwargs)
+    configuration = model_for_run(path, {"harness": "nemoclaw", "model_profile_id": created["id"]})
+    assert configuration == {"model": "example-model", "base_url": None, "api_key": None}
 
 
 def test_profile_must_match_run_harness_and_still_be_enabled(tmp_path):
