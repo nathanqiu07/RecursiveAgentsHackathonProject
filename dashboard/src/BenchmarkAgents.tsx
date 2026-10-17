@@ -97,9 +97,9 @@ export default function BenchmarkAgents({ benchmark, active = true, launchToken 
   }
 
   return <section className="benchmark-agents" aria-label="Agents for this benchmark">
-    <header className="bma-header"><div><h2>Research agents</h2><p>Give an agent this benchmark. It finds relevant papers, develops an idea, and tests it.</p></div>
+    <header className="bma-header"><div><h2>Research agents</h2><p>Give an agent this benchmark. It develops its own method, runs experiments, and writes an original research paper.</p></div>
       <button type="button" className="button button-primary" disabled={launching || (!pending.current && (!configuration?.configured || loading))} onClick={() => { void launch(); }}>{launching ? 'Spinning out agent…' : pending.current ? 'Retry agent launch' : 'Spin out research agent'}</button></header>
-    <div className="bma-capabilities"><span>You.com MCP · Online papers</span><span>Library API · Prior work and findings</span><span>Resource API · Experiments</span></div>
+    <div className="bma-capabilities"><span>You.com MCP · References</span><span>Library API · Publish original paper</span><span>Resource API · Experiments</span></div>
     <p className="bma-note">Each click starts an independent agent. The benchmark supplies its context automatically. Research starts locally; GPU resources are assigned when an experiment needs them.</p>
     {configuration && !configuration.configured && <p className="bma-warning" role="status">{configuration.message || 'The local agent service needs to be connected.'}</p>}
     {notice && <p className="bma-notice" role="status">{notice}</p>}
@@ -108,8 +108,8 @@ export default function BenchmarkAgents({ benchmark, active = true, launchToken 
     {loading ? <p className="bma-note">Loading agents…</p> : !runs.length ? <p className="bma-note">No research agents yet. Spin one out to start exploring.</p> : <div className="bma-runs">{runs.map((run) => <article className="bma-run" key={run.id}>
       <div className="bma-run-heading"><strong>{run.request.role === 'researcher' ? 'Research agent' : 'Optimization agent'} · {run.id.slice(0, 8)}</strong><span className={`bma-status bma-status-${run.status}`}>{labels[run.status]}</span></div>
       {(run.state.research_summary?.hypothesis || run.state.research_proposal?.hypothesis || run.state.research_idea?.hypothesis) && <p>{run.state.research_summary?.hypothesis || run.state.research_proposal?.hypothesis || run.state.research_idea?.hypothesis}</p>}
-      <p className="bma-note">{new Date(run.created_at * 1000).toLocaleString()} · {run.state.research_summary?.papers_read || 0} papers read · {run.state.experiment_count || 0} experiments{run.state.research_summary?.access_connected ? ' · You.com connected' : ''}</p>
-      {!!run.state.research_summary?.source_urls?.length && <div className="bma-capabilities">{run.state.research_summary.source_urls.filter((url) => url.startsWith('https://')).map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer">Paper {index + 1} ↗</a>)}</div>}
+      <p className="bma-note">{new Date(run.created_at * 1000).toLocaleString()} · {run.state.research_summary?.papers_read || 0} references read · {run.state.experiment_count || 0} experiments{run.state.research_summary?.access_connected ? ' · You.com connected' : ''}</p>
+      {!!run.state.research_summary?.source_urls?.length && <div className="bma-capabilities">{run.state.research_summary.source_urls.filter((url) => url.startsWith('https://')).map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer">Reference {index + 1} ↗</a>)}</div>}
       {run.result?.summary && <p>{run.result.summary}</p>}{run.error && <p className="bma-warning">{run.error === 'research_gpu_capacity_unavailable' ? 'Research is saved. Connect a GPU resource node to conduct the planned experiments.' : run.error === 'you_mcp_unavailable' ? 'You.com could not be reached. Retry later or add a You.com key in Connections.' : run.error}</p>}
       {run.cancel_requested && <p className="bma-note">Stopping; waiting for experiment cleanup.</p>}
       {['queued', 'running'].includes(run.status) && <button type="button" className="button" disabled={run.cancel_requested || stopping.includes(run.id)} onClick={() => { void stop(run); }}>{run.cancel_requested || stopping.includes(run.id) ? 'Stopping…' : 'Stop agent'}</button>}

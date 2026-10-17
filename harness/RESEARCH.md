@@ -1,6 +1,8 @@
-# One-click paper research
+# Original research papers
 
 Open a benchmark, select **Agents**, and start a research agent. The local backend supplies the benchmark objective and default research settings; there is no per-run configuration form. Codex uses its existing local sign-in and configured model.
+
+The deliverable is an original paper: the agent develops its own method, runs controlled experiments, writes measured results and limitations, and submits to the Library for independent verification. Online papers support related work; finding papers or proposing an idea alone does not complete the task. Without compute, the paper remains blocked on experiments.
 
 Each researcher receives online paper research through the local **You.com MCP broker**, access to the **Library API**, and access to the **Resource Manager API**. The harness and broker run on the controller. A GPU VM is allocated only when the agent first executes an experiment, so paper research and experiment planning can proceed before GPU capacity is available.
 
