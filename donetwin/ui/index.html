@@ -251,6 +251,74 @@ body.thermal #legend{display:flex}
   #caption{font-size:13.5px;margin-top:10px} #hero{bottom:116px} #wo{top:62px;padding:12px 14px} .wo-title{font-size:16px;margin-top:8px} #goal{min-height:48px}
   .ag .tx{display:none} #finder{bottom:260px}
 }
+
+/* ---------- live meters (2N hall runs) + object inspector */
+#meters{position:fixed;right:calc(var(--panelW) + 32px);top:64px;width:292px;max-height:calc(100vh - 168px);z-index:6;display:flex;flex-direction:column;overflow:hidden;animation:fade .4s both}
+#meters{transition:top .45s var(--ease)}
+body:has(#banner.show) #meters{top:118px;max-height:calc(100vh - 222px)}
+#meters[hidden],#insp[hidden]{display:none}
+.mt-h{display:flex;align-items:center;gap:8px;padding:9px 10px 8px 14px;font:600 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);flex:0 0 auto}
+.mt-h b{color:var(--ink2);font-weight:500;letter-spacing:.06em}
+.mt-h .sp{flex:1}
+.mt-x{font:500 13px/1 var(--mono);width:22px;height:22px;border-radius:4px;border:1px solid var(--line);background:rgba(255,255,255,.85);color:var(--ink2);cursor:pointer;padding:0;display:grid;place-items:center;flex:0 0 auto}
+.mt-x:hover{background:#fff;color:var(--ink)}
+#meters.min #mtBody{display:none}
+#mtBody{overflow:auto;padding:0 14px 12px;border-top:1px solid var(--hair)}
+.mt-sec{padding-top:10px}
+.mt-sec h5{margin:0 0 6px;font:600 9.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.mt-sec h5 span+span{letter-spacing:.04em;text-transform:none;font-weight:500}
+.mt-score{display:grid;grid-template-columns:116px 1fr;gap:10px;align-items:center}
+.mt-score svg{display:block}
+.mt-score .v{font:600 21px/1 var(--mono);letter-spacing:-.02em;fill:var(--ink)}
+.mt-score .u{font:500 7.5px/1 var(--mono);letter-spacing:.12em;fill:var(--muted)}
+.mt-d{font:600 12px/1.2 var(--mono);color:var(--ink2)}
+.mt-d.up{color:var(--green)}.mt-d.dn{color:var(--red)}
+.mt-stage{font:400 11px/1.35 var(--sans);color:var(--muted);margin-top:4px}
+.mt-spark{margin-top:8px;display:flex;align-items:center;gap:6px;font:500 9px/1 var(--mono);color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
+.mt-spark svg{display:block;overflow:visible}
+.mcomp{padding:3px 0}
+.mcomp .h{display:flex;justify-content:space-between;gap:8px;font:500 10.5px/1.2 var(--mono);color:var(--ink);margin-bottom:4px}
+.mcomp .h span:last-child{color:var(--muted);font-size:10px;white-space:nowrap}
+.mrow{display:grid;grid-template-columns:50px 1fr auto auto;gap:7px;align-items:center;padding:3px 4px;margin:0 -4px;border-radius:5px;font:500 10.5px/1.2 var(--mono);color:var(--ink2)}
+.mrow .k{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.mrow .n{white-space:nowrap;color:var(--muted);font-size:10px;text-align:right}
+.mrow[data-obj],.mfeed[data-obj]{cursor:pointer}
+.mrow[data-obj]:hover,.mfeed[data-obj]:hover{background:rgba(11,11,12,.05)}
+.mbar{height:6px;border-radius:3px;background:rgba(11,11,12,.08);overflow:hidden}
+.mbar i{display:block;height:100%;background:var(--green);border-radius:3px;transition:width .6s var(--ease)}
+.mbar i.c{background:var(--accent)} .mbar i.w{background:var(--amber)} .mbar i.r{background:var(--red)}
+.bdg{font:600 8.5px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:3px 5px;border-radius:3px;white-space:nowrap}
+.bdg.ok{background:rgba(47,179,90,.14);color:#1d7a3b}.bdg.no{background:rgba(224,53,43,.12);color:var(--red)}
+.mpair{display:grid;grid-template-columns:40px 1fr 1fr;gap:8px;align-items:center;padding:2px 0;font:500 10.5px/1.2 var(--mono)}
+.mpair .k{color:var(--ink)}
+.mfeed{border-radius:5px;padding:3px 4px;margin:-1px -4px;min-width:0}
+.mfeed .n{display:flex;justify-content:space-between;gap:4px;font-size:9.5px;color:var(--muted);margin-bottom:3px;white-space:nowrap}
+.mfeed .n b{font-weight:600;color:var(--ink2)}
+.mmix{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.mmix span{font:500 10px/1 var(--mono);padding:4px 6px;border-radius:3px;border:1px solid var(--line);background:rgba(255,255,255,.75);color:var(--ink2);display:inline-flex;align-items:center;gap:5px}
+.mmix span i{width:6px;height:6px;border-radius:50%;background:var(--faint)}
+.mmix span i.liq{background:#13a8bd}
+details.mgaps summary{cursor:pointer;list-style:none;font:600 9.5px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+details.mgaps summary::-webkit-details-marker{display:none}
+details.mgaps summary .tw{display:inline-block;transition:transform .2s;margin-left:4px}
+details.mgaps[open] summary .tw{transform:rotate(90deg)}
+details.mgaps ul{margin:6px 0 0;padding:0 0 0 14px;font:400 10.5px/1.4 var(--mono);color:var(--ink2);max-height:150px;overflow:auto}
+details.mgaps li{margin-bottom:4px}
+.mt-none{font:400 10.5px/1.4 var(--mono);color:var(--faint)}
+#insp{position:fixed;left:0;top:0;z-index:8;width:252px;padding:10px 12px 12px;animation:pop .25s var(--ease) both}
+.in-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.in-h .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.in-h .t i{font:600 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-style:normal}
+.in-h .t b{font:600 14px/1.1 var(--mono);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#insp .mbar{margin:0 0 8px}
+.in-g{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin:0;font:500 11px/1.3 var(--mono)}
+.in-g dt{color:var(--muted)}
+.in-g dd{margin:0;color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ilink{font:inherit;color:var(--accent);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
+.anno.isel .pill{display:flex!important;border-color:var(--accent)}
+.anno.isel .stem{display:block!important;background:var(--accent)}
+@media (max-width:1440px){#meters{width:270px}}
+@media (max-height:820px){#meters{max-height:calc(100vh - 150px)}}
 </style>
 <script type="importmap">
 {"imports":{
@@ -326,6 +394,12 @@ body.thermal #legend{display:flex}
 </aside>
 
 <div id="toast"></div>
+
+<section id="meters" class="glass" hidden aria-label="Live meters">
+  <div class="mt-h"><span>Live meters</span><b id="mtIter"></b><span class="sp"></span><button class="mt-x" id="mtTog" type="button" title="Collapse meters (M)">–</button></div>
+  <div id="mtBody"></div>
+</section>
+<div id="insp" class="glass" hidden role="dialog" aria-label="Object readings"></div>
 
 <script type="module">
 import * as THREE from 'three';
@@ -1434,6 +1508,181 @@ const ui = { head: $('#headline'), cap: $('#caption'), kick: $('#kick'), goal: $
   interp: $('#interp'), iters: $('#iters'), viewing: $('#viewing'), log: $('#log'), vision: $('#vision'), code: $('#code'), codeTitle: $('#codeTitle'), note: $('#note'),
   banner: $('#banner'), toast: $('#toast'), models: $('#models'), panel: $('#panel'), finder: $('#finder'), flash: $('#flash'), crew: $('#crew') };
 
+/* ---------- live meters + object inspector (only when the viewed report carries `meters`, i.e. 2N hall runs) */
+const MT = { min: false, gapsOpen: false, insp: null, inspV: null };
+const mtEl = { box: $('#meters'), body: $('#mtBody'), iter: $('#mtIter'), tog: $('#mtTog'), insp: $('#insp') };
+function metersOf(rec) { const m = rec?.report?.meters; return m && typeof m === 'object' && !Array.isArray(m) ? m : null; }
+const mtEntries = (o) => (o && typeof o === 'object' ? Object.entries(o).filter(([, v]) => v && typeof v === 'object') : []);
+const kwN = (v) => (num(v) ? String(Math.round(v)) : '–');
+const mtFrac = (a, b) => (num(a) && num(b) && b > 0 ? a / b : null);
+function utilCls(load, cap) { const p = mtFrac(load, cap) ?? 0; return p > 1 ? 'r' : p > .9 ? 'w' : ''; }
+function barHTML(frac, cls = '') { const p = num(frac) ? clamp(frac, 0, 1) * 100 : 0; return `<div class="mbar"><i class="${cls}" style="width:${p.toFixed(1)}%"></i></div>`; }
+const loadBar = (load, cap) => barHTML(mtFrac(load, cap), utilCls(load, cap));
+const coolingOf = (o) => { const md = String(o?.model || ''); return /GB[23]00/i.test(md) ? 'liquid' : /HGX/i.test(md) ? 'air' : (o?.cooling ? String(o.cooling) : '–'); };
+function scoreSeries() { return [...S.iters.values()].filter((r) => num(r?.report?.score)).sort((a, b) => a.n - b.n).map((r) => ({ n: r.n, s: r.report.score })); }
+function gaugeSVG(score) {
+  const p = num(score) ? clamp(score, 0, 100) : 0, arc = 'M10 58 A48 48 0 0 1 106 58';
+  return `<svg width="116" height="66" viewBox="0 0 116 66" role="img" aria-label="score ${num(score) ? score.toFixed(1) : 'n/a'} of 100">`
+    + `<path d="${arc}" style="fill:none;stroke:rgba(11,11,12,.09);stroke-width:9;stroke-linecap:round"/>`
+    + (p > 0 ? `<path d="${arc}" pathLength="100" style="fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;stroke-dasharray:${p.toFixed(2)} 100"/>` : '')
+    + `<text x="58" y="50" text-anchor="middle" class="v">${num(score) ? score.toFixed(1) : '—'}</text><text x="58" y="63" text-anchor="middle" class="u">SCORE / 100</text></svg>`;
+}
+function sparkSVG(series, sel) {
+  if (!series.length) return '';
+  const w = 150, h = 26, pad = 4, ss = series.map((p) => p.s), lo = Math.min(...ss), hi = Math.max(...ss);
+  const X = (i) => (series.length === 1 ? w / 2 : pad + (i * (w - 2 * pad)) / (series.length - 1));
+  const Y = (s) => (hi === lo ? h / 2 : h - pad - ((s - lo) / (hi - lo)) * (h - 2 * pad));
+  let best = -Infinity, dots = '';
+  series.forEach((p, i) => {
+    const imp = p.s > best + 1e-9; if (imp) best = p.s;
+    const x = X(i).toFixed(1), y = Y(p.s).toFixed(1);
+    if (p.n === sel) dots += `<circle cx="${x}" cy="${y}" r="4.6" style="fill:none;stroke:var(--ink);stroke-width:1"/>`;
+    dots += `<circle cx="${x}" cy="${y}" r="${imp ? 2.6 : 2.1}" style="fill:${imp ? 'var(--accent)' : '#fff'};stroke:${imp ? 'var(--accent)' : 'var(--faint)'};stroke-width:1.2"><title>iter ${p.n}: ${p.s.toFixed(2)}${imp ? (i ? ' · new best (accepted)' : ' · baseline') : ''}</title></circle>`;
+  });
+  const line = series.length > 1 ? `<polyline points="${series.map((p, i) => `${X(i).toFixed(1)},${Y(p.s).toFixed(1)}`).join(' ')}" style="fill:none;stroke:var(--ink2);stroke-width:1.2;opacity:.5"/>` : '';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="score per iteration">${line}${dots}</svg>`;
+}
+function renderMeters() {
+  const box = mtEl.box; if (!box) return;
+  const rec = viewRec(), m = metersOf(rec);
+  if (!m) { box.hidden = true; closeInspector(); return; }
+  const rep = rec.report, comp = rep.components && typeof rep.components === 'object' ? rep.components : {};
+  box.hidden = false; box.classList.toggle('min', MT.min);
+  mtEl.tog.textContent = MT.min ? '+' : '–'; mtEl.tog.title = MT.min ? 'Open meters (M)' : 'Collapse meters (M)';
+  mtEl.iter.textContent = `iter ${rec.n}${S.view != null ? ' · past' : ''}`;
+  if (!MT.min) {
+    const series = scoreSeries(), base = series[0], score = num(rep.score) ? rep.score : null;
+    let delta = '';
+    if (score != null && base) {
+      if (base.n === rec.n) delta = '<div class="mt-d">baseline</div>';
+      else { const d = score - base.s; delta = `<div class="mt-d ${d > 1e-9 ? 'up' : d < -1e-9 ? 'dn' : ''}">${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(2)} vs baseline</div>`; }
+    }
+    const cdus = mtEntries(m.cdus), bws = mtEntries(m.busways);
+    const surv = cdus.filter(([, c]) => c.survivable === true).length;
+    const dens = mtFrac(rep.it_kw, rep.upper_bound_kw) ?? (num(comp.density) ? comp.density : null);
+    const comps = [
+      ['Density', dens, num(rep.it_kw) ? `${kwN(rep.it_kw)}${num(rep.upper_bound_kw) ? ` / ${kwN(rep.upper_bound_kw)}` : ''} kW` : fmt(dens)],
+      ['Resilience', num(comp.resilience) ? comp.resilience : (cdus.length ? surv / cdus.length : null), cdus.length ? `${surv} / ${cdus.length} CDUs survive a failure` : fmt(comp.resilience)],
+      ['Hose', num(comp.hose) ? comp.hose : null, fmt(comp.hose)],
+    ];
+    let h = `<div class="mt-sec"><div class="mt-score">${gaugeSVG(score)}<div>${delta}<div class="mt-stage">${esc(rep.stage || (rep.all_pass ? 'all checks pass' : ''))}</div></div></div>`
+      + (series.length ? `<div class="mt-spark">${sparkSVG(series, rec.n)}<span>${series.length} iter${series.length === 1 ? '' : 's'}</span></div>` : '') + '</div>';
+    h += `<div class="mt-sec"><h5><span>Score components</span></h5>${comps.map(([k, f, lbl]) => `<div class="mcomp"><div class="h"><span>${k}</span><span>${esc(lbl)}</span></div>${barHTML(f, 'c')}</div>`).join('')}</div>`;
+    if (cdus.length) {
+      h += `<div class="mt-sec"><h5><span>Cooling · CDUs</span><span>${surv}/${cdus.length} failover</span></h5>` + cdus.map(([id, c]) => {
+        const sv = c.survivable === true;
+        return `<div class="mrow" data-obj="${esc(id)}" title="${esc(`${id} · ${num(c.racks) ? c.racks : '?'} racks · hose ${num(c.hose_m) ? c.hose_m : '?'} m`)}"><span class="k">${esc(id)}</span>${loadBar(c.load_kw, c.cap_kw)}<span class="n">${kwN(c.load_kw)}/${kwN(c.cap_kw)} kW</span><span class="bdg ${sv ? 'ok' : 'no'}">${sv ? 'failover OK' : 'no failover'}</span></div>`;
+      }).join('') + '</div>';
+    }
+    if (bws.length) {
+      const rows = new Map();
+      bws.forEach(([id, b], i) => {
+        const row = b.row != null ? String(b.row) : (String(id).match(/^BW_([A-Za-z]+)/)?.[1] || '?');
+        const feed = b.feed != null ? String(b.feed) : (i % 2 ? 'B' : 'A');
+        if (!rows.has(row)) rows.set(row, []); rows.get(row).push([id, b, feed]);
+      });
+      const feedHTML = (f) => (f ? `<div class="mfeed" data-obj="${esc(f[0])}" title="${esc(`${f[0]} · feed ${f[2]} · ${num(f[1].racks) ? f[1].racks : '?'} racks`)}"><div class="n"><b>${esc(f[2])}</b><span>${kwN(f[1].load_kw)}/${kwN(f[1].cap_kw)} kW</span></div>${loadBar(f[1].load_kw, f[1].cap_kw)}</div>` : '<div></div>');
+      h += `<div class="mt-sec"><h5><span>Power · 2N busways</span><span>feed A | feed B</span></h5>` + [...rows.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([row, list]) => {
+        list.sort((a, b) => a[2].localeCompare(b[2]));
+        let out = '';
+        for (let i = 0; i < list.length; i += 2) out += `<div class="mpair"><span class="k">${i ? '' : `Row ${esc(row)}`}</span>${feedHTML(list[i])}${feedHTML(list[i + 1])}</div>`;
+        return out;
+      }).join('') + '</div>';
+    }
+    const models = m.rack_models && typeof m.rack_models === 'object' ? Object.entries(m.rack_models).filter(([, n]) => num(n)) : [];
+    if (num(m.air_kw) || num(m.air_cap_kw) || models.length) {
+      h += `<div class="mt-sec">${num(m.air_kw) || num(m.air_cap_kw) ? `<div class="mcomp"><div class="h"><span>Air cooling</span><span>${kwN(m.air_kw)} / ${kwN(m.air_cap_kw)} kW</span></div>${loadBar(m.air_kw, m.air_cap_kw)}</div>` : ''}`
+        + (models.length ? `<div class="mmix">${models.map(([md, n]) => `<span title="${esc(coolingOf({ model: md }))}-cooled"><i class="${coolingOf({ model: md }) === 'liquid' ? 'liq' : ''}"></i>${esc(md)} × ${n}</span>`).join('')}</div>` : '') + '</div>';
+    }
+    const gaps = Array.isArray(m.resilience_gaps) ? m.resilience_gaps.filter((g) => g != null && g !== '') : [];
+    h += `<div class="mt-sec">${gaps.length ? `<details class="mgaps"${MT.gapsOpen ? ' open' : ''}><summary><span>Resilience gaps</span><span>${gaps.length}<span class="tw">▸</span></span></summary><ul>${gaps.map((g) => `<li>${esc(g)}</li>`).join('')}</ul></details>` : '<div class="mt-none">No resilience gaps reported.</div>'}</div>`;
+    mtEl.body.innerHTML = h;
+  }
+  refreshInspector();
+}
+function inspHTML(id) {
+  const rec = viewRec(), m = metersOf(rec); if (!m || !id) return null;
+  const v = visuals.get(id), o = findObj(rec?.scene || S.sceneNow, id) || v?.o || null;
+  const kind = o?.kind || v?.kind; if (!kind) return null;
+  const rows = [], row = (k, val) => rows.push(`<dt>${esc(k)}</dt><dd>${val}</dd>`);
+  const link = (x) => (x ? (visuals.has(x) ? `<button class="ilink" type="button" data-obj="${esc(x)}">${esc(x)}</button>` : esc(x)) : '–');
+  let head = '', badge = '', bar = '';
+  if (kind === 'rack') {
+    head = 'Rack';
+    row('model', esc(o?.model || '–')); row('kW', num(o?.kw) ? esc(o.kw) : '–'); row('cooling', esc(coolingOf(o)));
+    row('cdu', link(o?.cdu)); row('feed A', link(o?.feed_a)); row('feed B', link(o?.feed_b));
+    row('x / y', `${fmt(o?.x)} / ${fmt(o?.y)} m`); row('rot', `${num(o?.rot) ? Math.round(o.rot) : 0}°`);
+  } else if (kind === 'cdu') {
+    const c = m.cdus && typeof m.cdus[id] === 'object' && m.cdus[id] ? m.cdus[id] : {};
+    const cap = num(c.cap_kw) ? c.cap_kw : o?.capacity_kw, f = mtFrac(c.load_kw, cap);
+    head = 'CDU'; bar = loadBar(c.load_kw, cap);
+    if (typeof c.survivable === 'boolean') badge = `<span class="bdg ${c.survivable ? 'ok' : 'no'}">${c.survivable ? 'failover OK' : 'no failover'}</span>`;
+    row('load / cap', `${kwN(c.load_kw)} / ${kwN(cap)} kW`); row('utilisation', f == null ? '–' : `${Math.round(f * 100)}%`);
+    row('racks', num(c.racks) ? esc(c.racks) : '–'); row('hose_m', num(c.hose_m) ? `${c.hose_m} m` : num(o?.hose_m) ? `${o.hose_m} m` : '–');
+  } else if (kind === 'busway') {
+    const b = m.busways && typeof m.busways[id] === 'object' && m.busways[id] ? m.busways[id] : {};
+    const f = mtFrac(b.load_kw, b.cap_kw);
+    head = 'Busway'; bar = loadBar(b.load_kw, b.cap_kw);
+    row('row', esc(b.row ?? o?.row ?? '–')); row('feed', esc(b.feed ?? o?.feed ?? '–'));
+    row('load / cap', `${kwN(b.load_kw)} / ${kwN(b.cap_kw)} kW`); row('utilisation', f == null ? '–' : `${Math.round(f * 100)}%`);
+    row('racks', num(b.racks) ? esc(b.racks) : '–');
+  } else return null;
+  return `<div class="in-h"><span class="t"><i>${head} · iter ${esc(rec.n)}</i><b>${esc(id)}</b></span>${badge}<button class="mt-x" type="button" data-close title="Close (Esc)">×</button></div>${bar}<dl class="in-g">${rows.join('')}</dl>`;
+}
+function markSel(id) {
+  MT.inspV?.anno?.el.classList.remove('isel');
+  MT.inspV = id ? visuals.get(id) || null : null;
+  MT.inspV?.anno?.el.classList.add('isel');
+}
+function openInspector(id, at = null) {
+  const el = mtEl.insp; if (!el) return;
+  const html = inspHTML(id); if (!html) { closeInspector(); return; }
+  const wasOpen = !el.hidden;
+  MT.insp = id; el.innerHTML = html; el.hidden = false; markSel(id);
+  const r = el.getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
+  let x, y;
+  if (at) { x = at.x + 18; y = at.y - 24; if (x + r.width > vw - 12) x = at.x - r.width - 18; }
+  else if (wasOpen) { x = r.left; y = r.top; }
+  else { const mb = mtEl.box.getBoundingClientRect(); x = mb.left - r.width - 12; y = mb.top; }
+  el.style.left = `${clamp(x, 12, Math.max(12, vw - r.width - 12))}px`; el.style.top = `${clamp(y, 64, Math.max(64, vh - r.height - 12))}px`;
+}
+function refreshInspector() { if (!MT.insp) return; const html = inspHTML(MT.insp); if (!html) { closeInspector(); return; } mtEl.insp.innerHTML = html; markSel(MT.insp); }
+function closeInspector() { if (mtEl.insp) mtEl.insp.hidden = true; MT.insp = null; markSel(null); }
+function toggleMeters() { MT.min = !MT.min; renderMeters(); }
+mtEl.tog?.addEventListener('click', toggleMeters);
+mtEl.body?.addEventListener('click', (e) => { if (e.target.closest('summary')) return; const r = e.target.closest('[data-obj]'); if (r?.dataset.obj) { openInspector(r.dataset.obj); focusObj(r.dataset.obj); } });
+mtEl.body?.addEventListener('toggle', (e) => { if (e.target?.classList?.contains('mgaps')) MT.gapsOpen = e.target.open; }, true);
+mtEl.insp?.addEventListener('click', (e) => {
+  if (e.target.closest('[data-close]')) { closeInspector(); return; }
+  const b = e.target.closest('[data-obj]'); if (b?.dataset.obj) { openInspector(b.dataset.obj); focusObj(b.dataset.obj); }
+});
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && MT.insp) { closeInspector(); return; }
+  if (e.target === ui.goal || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key.toLowerCase() === 'm' && !mtEl.box.hidden) toggleMeters();
+});
+// click (not drag) on a rack / CDU / busway in the 3D view opens the inspector
+const mtRay = new THREE.Raycaster(), mtPtr = new THREE.Vector2(); let mtDown = null;
+const mtShown = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+function pickHallObj(cx, cy) {
+  mtPtr.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1);
+  mtRay.setFromCamera(mtPtr, camera);
+  const groups = []; for (const v of visuals.values()) if (['rack', 'cdu', 'busway'].includes(v.kind) && !v.exit && mtShown(v.group)) groups.push(v.group);
+  if (!groups.length) return null;
+  for (const hit of mtRay.intersectObjects(groups, true)) {
+    if (!hit.object.isMesh || !mtShown(hit.object)) continue;
+    for (let p = hit.object; p; p = p.parent) { const v = p.name ? visuals.get(p.name) : null; if (v && v.group === p) return v.id; }
+  }
+  return null;
+}
+renderer.domElement.addEventListener('pointerdown', (e) => { mtDown = e.button === 0 ? { x: e.clientX, y: e.clientY, t: performance.now() } : null; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  const d = mtDown; mtDown = null;
+  if (!d || e.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5 || performance.now() - d.t > 700) return;
+  if (!metersOf(viewRec())) return;
+  try { const id = pickHallObj(e.clientX, e.clientY); if (id) openInspector(id, { x: e.clientX, y: e.clientY }); else closeInspector(); } catch (_) { /* picking is best-effort */ }
+});
+
 let lastHead = '', lastCap = '';
 function setHead(h, c) {
   if (h != null && h !== lastHead) { lastHead = h; ui.head.classList.remove('in'); void ui.head.offsetWidth; ui.head.textContent = h; ui.head.classList.add('in'); }
@@ -1627,7 +1876,7 @@ function renderModels() {
   const m = S.models || {}, strip = (s) => String(s).replace(/^nvidia\//i, '');
   ui.models.innerHTML = (m.planner ? `<span class="chip" title="${esc(m.planner)}"><b>Planner</b>${esc(strip(m.planner))}</span>` : '') + (m.vision ? `<span class="chip" title="${esc(m.vision)}"><b>Vision</b>${esc(strip(m.vision))}</span>` : '');
 }
-function renderAll() { renderChecks(); renderIters(); renderVision(); renderCode(); renderKPIs(); walkAway(); }
+function renderAll() { renderChecks(); renderIters(); renderVision(); renderCode(); renderKPIs(); walkAway(); renderMeters(); }
 
 /* =========================================================== verify rendering */
 function kindOf(id) { return visuals.get(id)?.kind; }
@@ -1883,7 +2132,7 @@ function onVerify(e) {
     // links may still be scheduled; make sure they exist before colouring them
     if (S.hall) { clearTimeout(hallTimer); rebuildHall(r.scene || S.sceneNow, r); }
     renderVerify(r, { sweep: true }); renderAll();
-  } else renderIters();
+  } else { renderIters(); renderMeters(); }
   if (!rep) { setHead(null, 'Verifier returned no report.'); return; }
   if (rep.all_pass) { S.lastFail = null; setHead(`All ${rep.total ?? ''} checks pass.`.replace('  ', ' '), 'Geometry, power and cooling verified. Sending renders to the vision inspector.'); }
   else { const hf = headFor(rep, r); S.lastFail = hf; if (hf) setHead(hf.h, hf.cap); }
