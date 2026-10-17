@@ -30,6 +30,10 @@ SUPER = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B"
 VENV_PYTHON = ROOT / ".venv" / "bin" / "python"
 PASS_GAP_PCT = 1.0
 MAX_TEXT = 280
+# The Evolver range-checks max_tokens and temperature but not these solver knobs, so a Reviewer
+# config_set cannot turn one run into hundreds of calls or minutes of program time.
+ATTEMPTS_RANGE = (1, 6)
+TIME_LIMIT_RANGE_S = (0.1, 30.0)
 
 DEFAULT_SOLVER_PROMPT = (
     "You write heuristic optimization programs for the Quadratic Assignment Problem. "
@@ -80,6 +84,7 @@ def run_program(code: str, instance_json: Path, time_limit: float, workdir: Path
     program = workdir / f"solver_{k}.py"
     program.write_text(code)
     python = str(VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable))
+    # Built from scratch rather than copied from os.environ, so CRUSOE_API_KEY and every other secret stays out.
     env = {"PATH": "/usr/bin:/bin", "HOME": str(workdir), "PYTHONHASHSEED": "0",
            "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
     proc = subprocess.Popen([python, "-I", str(program), str(instance_json), f"{time_limit:g}"], cwd=workdir, env=env,
@@ -144,12 +149,21 @@ def system_prompt(version: Any, brain_text: str) -> str:
     return "\n\n".join(parts)
 
 
+def bounded(cfg: dict[str, Any], key: str, default: float, lo: float, hi: float) -> float:
+    """A missing or non-numeric value falls back to the default, so one bad config_set fails its Gate, not the run."""
+    value = cfg.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        value = default
+    return min(max(float(value), lo), hi)
+
+
 def run_team(version: Any, brain: Any, task: Task, llm: Any) -> RunResult:
     start = time.monotonic()
     cfg = getattr(version, "config", {}) or {}
-    model = (cfg.get("models") or {}).get("solver", SUPER)
-    attempts = int(cfg.get("attempts", 3))
-    time_limit = float(cfg.get("time_limit_s", 10))
+    model = (cfg.get("models") or {}).get("solver") or cfg.get("default_model") or SUPER
+    thinking = (cfg.get("thinking") or {}).get("solver")  # None leaves the model's default
+    attempts = int(bounded(cfg, "attempts", 3, *ATTEMPTS_RANGE))
+    time_limit = bounded(cfg, "time_limit_s", 10.0, *TIME_LIMIT_RANGE_S)
     temperature = float(cfg.get("temperature", 0.4))
     max_tokens = int(cfg.get("max_tokens", 6000))
     p = task.payload
@@ -167,7 +181,8 @@ def run_team(version: Any, brain: Any, task: Task, llm: Any) -> RunResult:
         instance_json = workdir / "instance.json"
         instance_json.write_text(json.dumps({"name": p["name"], "n": n, "A": a, "B": b}))
         for k in range(1, attempts + 1):
-            reply = llm.chat(model, list(messages), temperature=temperature, max_tokens=max_tokens, role="solver")
+            reply = llm.chat(model, list(messages), temperature=temperature, max_tokens=max_tokens, role="solver",
+                             thinking=thinking)
             result.calls += 1
             result.prompt_tokens += reply.prompt_tokens
             result.completion_tokens += reply.completion_tokens

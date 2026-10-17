@@ -1,6 +1,9 @@
-"""QAPLIB benchmark: loader BKS validation, exact verifier, frozen splits, and run_team's best-of-attempts loop."""
+"""QAPLIB benchmark: loader BKS validation, exact verifier, frozen splits, run_team's best-of-attempts loop,
+and case study 2: the same Evolver loop as the data hall, run offline through scripts/run_qaplib_evolve.py."""
 from __future__ import annotations
 
+import contextlib
+import io
 import itertools
 import json
 import os
@@ -13,13 +16,17 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.qaplib.fetch import check_solution  # noqa: E402
-from benchmarks.qaplib.splits import FrozenSplitError, freeze, make_splits  # noqa: E402
+from benchmarks.qaplib.splits import FrozenSplitError, freeze, load_splits, make_splits  # noqa: E402
 from benchmarks.qaplib.team_runner import run_team  # noqa: E402
 from benchmarks.qaplib.verify import INSTANCES, cost, parse_dat, verify  # noqa: E402
+from scripts.run_qaplib_evolve import (  # noqa: E402
+    BASELINE_JSON, Recorder, build_parser, final_rows, main, make_evolver, offline_llm, qaplib_v0, select_tasks)
 from team.fake_llm import ScriptedLLM  # noqa: E402
-from team.types import Task  # noqa: E402
+from team.types import RunResult, Task  # noqa: E402
 
 HAVE_DATA = (INSTANCES / "nug20.dat").exists() and (INSTANCES / "kra30a.dat").exists()
+HAVE_SPLITS = BASELINE_JSON.exists() and all(
+    (INSTANCES / f"{name}.dat").exists() for split in ("train", "dev", "heldout") for name in load_splits()[split])
 A = [[0, 1, 1, 9], [1, 0, 4, 1], [1, 4, 0, 1], [9, 1, 1, 0]]
 B = [[0, 1, 2, 3], [1, 0, 1, 2], [2, 1, 0, 1], [3, 2, 1, 0]]
 
@@ -168,6 +175,91 @@ class RunTeamTest(TinyInstance):
         self.assertEqual(brain.reads, [("solver", self.task.text)])
         self.assertEqual(r.brain_ids_read, ["abc123"])
         self.assertEqual(r.iterations, 1)
+
+    def test_thinking_and_model_per_role_reach_the_llm(self) -> None:
+        llm = ScriptedLLM({"solver": [BRUTE]})
+        run_team(self.version(thinking={"solver": False}, models={"solver": "m-solver"}), None, self.task, llm)
+        call = llm.calls_for("solver")[0]
+        self.assertIs(call["thinking"], False)
+        self.assertEqual(call["model"], "m-solver")
+        unset = ScriptedLLM({"solver": [BRUTE]})
+        run_team(self.version(), None, self.task, unset)
+        self.assertIsNone(unset.calls_for("solver")[0]["thinking"])
+
+    def test_unchecked_solver_knobs_are_clamped_or_defaulted(self) -> None:
+        many = run_team(self.version(attempts=50), None, self.task, ScriptedLLM({"solver": [WEAK]}))
+        self.assertEqual(many.calls, 6)
+        garbage = run_team(self.version(attempts="lots"), None, self.task, ScriptedLLM({"solver": [WEAK]}))
+        self.assertEqual(garbage.calls, 3)
+
+
+def quiet(fn, *args, **kwargs):
+    with contextlib.redirect_stdout(io.StringIO()):
+        return fn(*args, **kwargs)
+
+
+@unittest.skipUnless(HAVE_SPLITS, "instances or reports/qaplib_baseline.json missing")
+class EvolveCaseStudyTest(unittest.TestCase):
+    """The QAPLIB case study plugs into the unchanged Evolver through run_team."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_task_selection_is_seeded_disjoint_and_small(self) -> None:
+        first, again = select_tasks((6, 4, 8), seed=0), select_tasks((6, 4, 8), seed=0)
+        self.assertEqual([[t.id for t in s] for s in first], [[t.id for t in s] for s in again])
+        self.assertEqual([len(s) for s in first], [6, 4, 8])
+        ids = [{t.id for t in s} for s in first]
+        self.assertFalse(ids[0] & ids[1] or ids[0] & ids[2] or ids[1] & ids[2])
+        frozen = load_splits()
+        for split, tasks in zip(("train", "dev", "heldout"), first):
+            self.assertTrue(all(t.payload["n"] <= 50 and t.payload["name"] in frozen[split] for t in tasks))
+
+    def test_offline_evolve_accepts_local_search_over_random(self) -> None:
+        code = quiet(main, ["--offline", "--out", str(self.out), "--split", "2", "2", "2", "--generations", "1",
+                            "--workers", "2"])
+        self.assertEqual(code, 0)
+        history = json.loads((self.out / "reports" / "before_after.json").read_text())["history"]
+        self.assertEqual(history[0]["accepted"], "playbook_add")
+        rows = json.loads((self.out / "reports" / "qaplib_rows.json").read_text())
+        self.assertEqual([r["config"] for r in rows[:3]], ["v0 + empty brain (cold)", "v0 + final brain", "v1 + final brain"])
+        self.assertGreater(rows[2]["mean_score"], rows[0]["mean_score"] + 0.1)
+        self.assertLess(rows[2]["mean_gap_pct"], rows[0]["mean_gap_pct"])
+        self.assertTrue(rows[3]["config"].startswith("2-swap baseline"))
+        self.assertEqual(rows[3]["n"], 2)
+        self.assertIn("2-swap baseline", (self.out / "reports" / "vs_2swap.md").read_text())
+
+    def test_heldout_is_untouched_until_final_report(self) -> None:
+        train, dev, heldout = select_tasks((2, 2, 2))
+        llm, recorder = offline_llm(), Recorder()
+        args = build_parser().parse_args(["--offline", "--workers", "2"])
+        evolver = make_evolver(llm, args, self.out, qaplib_v0(), recorder)
+        quiet(evolver.run, 1, train, dev, heldout)
+        held_ids, held_names = {t.id for t in heldout}, [t.payload["name"] for t in heldout]
+        self.assertTrue(recorder.order)
+        self.assertFalse(held_ids & set(recorder.order))
+        reviewer_text = json.dumps([c["messages"] for c in llm.calls_for("reviewer")])
+        self.assertTrue(reviewer_text)
+        for name in held_names:
+            self.assertNotIn(name, reviewer_text)
+        rows = final_rows(evolver, recorder, heldout)
+        self.assertTrue(held_ids <= set(recorder.order))
+        self.assertTrue(all(r["mean_gap_pct"] is not None for r in rows))
+
+    def test_min_gain_flag_reaches_the_gate(self) -> None:
+        default = make_evolver(ScriptedLLM({}), build_parser().parse_args(["--offline"]), self.out / "a", qaplib_v0())
+        self.assertEqual(default.gate.min_gain, 0.003)
+        args = build_parser().parse_args(["--offline", "--min-gain", "0.02"])
+        evolver = make_evolver(ScriptedLLM({}), args, self.out / "b", qaplib_v0())
+        self.assertEqual(evolver.gate.min_gain, 0.02)
+        parent = [RunResult(task_id=f"t{i}", version=0, score=0.98, passed=True) for i in range(2)]
+        small = [RunResult(task_id=f"t{i}", version=1, score=0.99, passed=True) for i in range(2)]
+        self.assertFalse(evolver.gate.decide(parent, small)["accepted"])
+        self.assertTrue(default.gate.decide(parent, small)["accepted"])
 
 
 if __name__ == "__main__":
