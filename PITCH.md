@@ -2,19 +2,33 @@
 
 ## 1. One line
 
-An agent team on Crusoe and Nemotron that stores only verifier-measured lessons in shared memory and ships a new version of itself only when it scores higher.
+One harness on Crusoe and Nemotron that turns any problem with a programmatic verifier into a self-improving agent team, keeping a change only when the verifier measures a gain.
 
-**Tagline:** Learn only what a verifier can measure.
+**Tagline:** Bring a verifier. Get a team that improves.
 
 ## 2. What we do
 
-A task arrives. Each role, a Nemotron model on Crusoe, reads its slice of the Shared Brain, then works. A non-LLM verifier scores the result. Failures become proposed memory entries that cite the run and its score. A curator admits only cited entries, merges duplicates (never when the numbers differ), and marks contradictions disputed until a test run settles them. Later scores credit entries with helps or hurts; losers are pruned. After each round a Reviewer proposes up to 3 self-edits: a prompt, a playbook rule, a config value, a tool, a role, or promoting proven memory into a playbook. A gate keeps an edit only if dev scores rise and no pass is lost. Held-out tasks score the final before/after.
+The harness is general. The solver is not. A domain plugs in with 3 things: tasks split into train, dev and held-out; a verifier that returns a number; and role prompts. The harness supplies the rest.
+
+A task arrives. Each role, a Nemotron model on Crusoe, reads its slice of the Shared Brain, then works, and the verifier scores the result. Lessons enter memory only with a cited measurement. After each round a research agent writes papers: one typed change to the team plus a predicted gain. The verifier reruns dev with and without the change. A change is kept only for a measured gain or a 15% cost cut. Held-out tasks score the final version.
 
 ## 3. Why it matters
 
-Most agent teams score the same on run 100 as on run 1, and their shared notes fill with stale or wrong claims. If an LLM judge decides what the team learns, the team learns what sounds right, and the errors compound across runs. A verifier that recomputes the answer gives a measurement no agent can argue past. For Crusoe, the AI data-center build-out is full of checkable layout and capacity problems. Each lesson that moves from memory into a playbook trims tokens from every later call, so verified work per token gets cheaper.
+Most agent teams score the same on run 100 as on run 1, and their shared notes fill with stale or wrong claims. If an LLM judge decides what the team learns, the team learns what sounds right, and the errors compound. A verifier that recomputes the answer gives a measurement no agent can argue past. Many valuable problems already have one: layouts, schedules, solvers, kernels. For Crusoe, the AI data-center build-out is full of them, and a gate that also keeps cheaper versions makes each verified point cost fewer tokens.
 
-## 4. Track fit
+## 4. What is general, and the evidence
+
+| Piece | Lines | Changes per domain? |
+|---|---|---|
+| Shared Brain: evidence-gated memory, dedup, dispute tests, pruning (`team/brain.py`) | 390 | No |
+| Version N+1: papers, claimed vs measured, score and cost gate, held-out report (`team/evolve.py`) | 547 | No |
+| Crusoe client: retries, rate limits, cost per role (`team/crusoe.py`) | 482 | No |
+| Data-hall adapter (`team/datahall.py`) | 484 | Yes |
+| QAPLIB adapter (`benchmarks/qaplib/team_runner.py`) | 204 | Yes |
+
+Each adapter is one function with the same signature: `run_team(version, brain, task, llm) -> RunResult`.
+
+## 5. Track fit
 
 ### Shared Brain
 
@@ -24,33 +38,36 @@ Most agent teams score the same on run 100 as on run 1, and their shared notes f
 | Every agent updates afterward | Agents never write entries. `propose()` is the only write path, and the curator decides what lands | `team/brain.py`, `team/evolve.py` (`proposals_from_run`) |
 | Keep it current | An entry earns helps or hurts when a later run that read it beats or trails the last score on that task | `team/brain.py` (`credit`) |
 | Keep it lean | 280-character entries, a 40-entry active cap, retire after 3 uses when hurts exceed helps + 1, and proven entries leave memory once promoted | `team/brain.py` (`prune`), `team/evolve.py` |
-| Conflict-aware | Same wording with different numbers is never a duplicate. A contradiction keeps the better-supported entry or marks both disputed; each generation, up to 2 disputed pairs are settled by running dev once with each side hidden, and the loser is retired with the measurement on record. Writes are file-locked, and every decision goes to `ledger.jsonl` | `team/brain.py` (`Curator`, `SharedBrain`) |
+| Conflict-aware | Same wording with different numbers is never a duplicate. A contradiction keeps the better-supported entry or marks both disputed. Each generation, up to 2 disputed pairs are settled by running dev once with each side hidden, and the loser is retired with the measurement on record. Writes are file-locked, and every decision goes to `ledger.jsonl` | `team/brain.py`, `team/evolve.py` |
 | Measurable gains | Held-out ablation: v0 with empty memory vs v0 with learned memory | `team/evolve.py` (`final_report`) |
-| Cheap on Crusoe | Cost, tokens and calls are tracked per role and model on every call. Promoting proven entries into playbooks shrinks what every later call reads. The gate also keeps a change that cuts cost per task by 15% or more at equal score. `stable_prefix()` renders byte-identical text, but Crusoe reported 0 cached tokens in our 2026-10-17 probe, so we claim no cache savings | `team/brain.py`, `team/crusoe.py`, `team/evolve.py` |
+| Cheap on Crusoe | Cost, tokens and calls are tracked per role and model. Promoted entries shrink what later calls read. Crusoe reported 0 cached tokens in our 2026-10-17 probe, so we claim no cache savings | `team/crusoe.py`, `team/evolve.py` |
 
 ### Version N+1
 
 | Track asks | Mechanism | File |
 |---|---|---|
 | Review what worked and what didn't | The Reviewer reads mean score, pass rate, cost, the top 15 failures by count, and the most helpful memory entries | `team/evolve.py` (`Reviewer`) |
-| Rewrite prompts, playbooks, tools, team structure | 8 typed edits: prompt edit, playbook add or remove, config set, tool on/off from an allowlist, add or remove a role, promote memory into a playbook. Each is validated before it runs | `team/evolve.py` (`MUTATIONS`) |
-| Keep a change only if it helps | The gate runs candidate and parent on the same dev tasks and needs a mean gain of at least 0.05 with no lost passes. Promotion is accepted at equal score, with the promoted entries hidden, because memory gets smaller | `team/evolve.py` (`Gate`) |
-| Before/after on unseen tasks | Train, dev and held-out splits must be disjoint, and touching a held-out task before the final report raises an error | `team/evolve.py` (`Evolver`) |
+| Rewrite prompts, playbooks, tools, team structure | 8 typed edits: prompt edit, playbook add or remove, config set, tool on/off from an allowlist, add or remove a role, promote memory into a playbook. Each must carry a numeric claim (dev gain, cost change) or it is dropped | `team/evolve.py` (`MUTATIONS`, `claim_error`) |
+| Keep a change only if it helps | Candidate and parent run on the same dev tasks. A change is kept for a mean gain of 0.05 or more with no lost passes, or a cost cut of 15% or more at equal score | `team/evolve.py` (`Gate`) |
+| Before/after on unseen tasks | Train, dev and held-out splits must be disjoint. Touching a held-out task before the final report raises an error | `team/evolve.py` (`Evolver`) |
 
-## 5. What we will show
+## 6. Case studies
 
-| Config (held-out tasks) | Mean score | Pass rate | Tokens | Cost (USD) |
-|---|---|---|---|---|
-| v0 + empty memory | [before] | [before] | [tokens] | [cost] |
-| v0 + learned memory | [after] | [after] | [tokens] | [cost] |
-| vN + learned memory | [after] | [after] | [tokens] | [cost] |
+| Case study | Verifier | Baseline | Status |
+|---|---|---|---|
+| GPU data-hall layout | Rikin's DoneTwin scorer, 0 to 100, no LLM | Greedy, about 68 to 70 | Live |
+| QAPLIB facility layout | Exact cost of the permutation, as a gap to the best-known answer | 2-swap, 0.989 on held-out | Being wired in |
+| Inference cost (an axis on every case study) | Measured Crusoe cost, tokens and calls per verified point | v0's bill | Live |
 
-All numbers are pending. No live Crusoe run exists yet, and the offline demo (`scripts/demo_offline.py`, toy domain in `team/bench.py`) uses a scripted LLM.
+Named as fitting the same interface, not run: AlgoTune, ALE-Bench, KernelBench. Details and the before/after tables are in `DEMO.md`.
 
-**Benchmarks.** Each is an open-ended hill climb scored by a non-LLM verifier against a best-known score.
+**Closest prior work:**
+- ACE (Agentic Context Engineering, 2025) already has a curator with helpful/harmful counters.
+- GEPA, DGM and ADAS optimize prompts or code against a score.
 
-1. **GPU data-hall layout** (`optimizer/`). Generated halls with GB200 NVL72 racks at 132 kW, busway power with derate, CDU liquid cooling with N+1, hose limits, columns and keep-outs. `verify.py` shares no code with the solver. An OR-Tools CP-SAT model gives the optimum over a discrete slot grid. This is a stated 2D model built from published specs, not an engineering design tool: no airflow, A/B power or structural design.
-2. **QAPLIB facility layout** (`benchmarks/qaplib/`, in progress). Best-known solutions, some not proven optimal.
-3. **Inference or code optimization** (AlgoTune). Still being checked.
-
-**Closest prior work.** ACE (Agentic Context Engineering, 2025) already has helpful/harmful counters and a curator. GEPA, DGM and ADAS optimize prompts or code against a score. What we add: memory is admitted only when it cites a verifier's measurement, disputes are settled by a test run rather than a judge, and proven lessons move into role playbooks through a gated A/B on dev tasks, then leave memory.
+**What we add:**
+- Memory admits a claim only when a verifier's measurement reproduces it.
+- Disputes are settled by a test run, not a judge.
+- Proven lessons move into role playbooks, then leave memory.
+- The same gate keeps cheaper versions.
+- All of it is reused unchanged across domains.
