@@ -45,7 +45,7 @@ class Task:
 class RunResult:
     task_id: str
     version: int
-    score: float  # 0..1 from the independent verifier, never from an LLM
+    score: float  # from the independent verifier, never an LLM; 1.0 = best known, >1.0 = beat the best known
     passed: bool
     claimed_done: bool = False
     iterations: int = 0
