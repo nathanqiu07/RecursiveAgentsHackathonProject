@@ -39,8 +39,7 @@ DATAHALL_REVIEWER_NOTE = (
     " Data-hall evidence from earlier measurements: Layout with thinking on and max_tokens 32000 is the only setting "
     "that beat greedy; at 16000 most reasoning replies were cut off (truncated); Super with thinking on stalled "
     "(~340 s per call, cut off). Feasible gains came from swapping single GB200 racks to GB300 and reassigning CDUs, "
-    "not from re-laying out rows. Super is currently throttled by Crusoe (HTTP 429 on every call); do not assign it "
-    "to a role. Data-hall config_set knobs: polish (true or false, default false): run a verifier-guided local search "
+    "not from re-laying out rows. Data-hall config_set knobs: polish (true or false, default false): run a verifier-guided local search "
     "over single-rack moves after the team's layout; polish_checks (int in [0, 1500], default 1500): the most "
     "verifier calls that search may use. polish needs no LLM call (about 7 s per hall) and keeps a polished layout "
     "only if it stays feasible and scores higher. config_set keys must be existing config keys; others are dropped.")
@@ -65,8 +64,14 @@ def drop_unknown_config_keys(reviewer: Any) -> None:
 _HALL_NAME = re.compile(r"HALL (\S+):")
 
 
+# Same fix as scripts/run_inference_opt.py: the exact reply shape, so claims stay nested and keys stay top-level.
+REVIEW_FORMAT = ('\n\nExact reply shape (claim is a nested object): {"mutations": [{"type": "config_set", '
+                 '"key": "temperature", "value": 0.4, "rationale": "...", "claim": {"dev_gain": 0.0, '
+                 '"cost_change_pct": 0.0, "why": "..."}}]}. Propose up to 3 different single-key changes.')
+
+
 class ReviewerBudget:
-    """Gives the Reviewer's call its own token budget and reasoning switch; every other call passes through."""
+    """Gives the Reviewer's call its own token budget, reasoning switch and reply shape; other calls pass through."""
 
     def __init__(self, llm: Any, max_tokens: int, thinking: bool | None) -> None:
         self.llm, self.max_tokens, self.thinking = llm, max_tokens, thinking
@@ -76,6 +81,7 @@ class ReviewerBudget:
             kwargs["max_tokens"] = self.max_tokens
             if self.thinking is not None:
                 kwargs["thinking"] = self.thinking
+            messages = messages[:-1] + [{**messages[-1], "content": messages[-1]["content"] + REVIEW_FORMAT}]
         return self.llm.chat(model, messages, **kwargs)
 
     def __getattr__(self, name: str) -> Any:

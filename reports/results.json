@@ -1,6 +1,6 @@
 {
  "schema_version": 1,
- "generated_at": "2026-10-17 16:42:22 PDT",
+ "generated_at": "2026-10-17 16:51:14 PDT",
  "command": ".venv/bin/python scripts/collect_results.py",
  "case_studies": [
   {
@@ -2539,6 +2539,421 @@
    "notes": []
   },
   {
+   "id": "qaplib-dc-research-3",
+   "name": "GPU rack placement (data-center QAP), research, 4 generations",
+   "verifier": "exact traffic x cable-length cost of the rack placement on generated GPU halls; score = reference cost / cost",
+   "digits": 4,
+   "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.4295,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "2-swap local search, 10 s restarts (no LLM)",
+    "score": 0.9666,
+    "source": "final held-out table"
+   },
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 159 paid calls, $0.0737",
+   "started_at": "16:50 PDT",
+   "last_update": "16:50 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.4295,
+     "pass_rate": 0.0,
+     "tokens": 17200,
+     "cost_usd": 0.001853,
+     "mean_gap_pct": 138.88,
+     "at_bks": 0,
+     "invalid": 1,
+     "vs_reference": {
+      "abs": -0.5371,
+      "pct": -55.566
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.626,
+     "pass_rate": 0.0,
+     "tokens": 34695,
+     "cost_usd": 0.002624,
+     "mean_gap_pct": 87.116,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.3406,
+      "pct": -35.237
+     },
+     "vs_v0_cold": {
+      "abs": 0.1965,
+      "pct": 45.751
+     }
+    },
+    {
+     "config": "v3 + final brain",
+     "version": 3,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.9213,
+     "pass_rate": 0.1667,
+     "tokens": 54897,
+     "cost_usd": 0.006738,
+     "mean_gap_pct": 8.948,
+     "at_bks": 1,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.0453,
+      "pct": -4.687
+     },
+     "vs_v0_cold": {
+      "abs": 0.4918,
+      "pct": 114.505
+     }
+    },
+    {
+     "config": "2-swap baseline (no LLM, 10 s restarts)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.9666,
+     "pass_rate": 0.1667,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": 3.519,
+     "at_bks": 1,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.5371,
+      "pct": 125.052
+     }
+    }
+   ],
+   "final": {
+    "config": "v3 + final brain",
+    "score": 0.9213,
+    "gain": 0.4918,
+    "gain_pct": 114.505,
+    "vs_reference": {
+     "abs": -0.0453,
+     "pct": -4.687
+    }
+   },
+   "cost_headline": null,
+   "rating": null,
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 1,
+     "train_mean": 0.7573,
+     "dev_mean": 0.8039,
+     "accepted": "config_set"
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "version": 2,
+     "train_mean": 0.8266,
+     "dev_mean": 0.5668,
+     "accepted": "prompt_edit"
+    },
+    {
+     "gen": 2,
+     "parent": 2,
+     "version": 3,
+     "train_mean": 0.783,
+     "dev_mean": 0.5993,
+     "accepted": "config_set"
+    },
+    {
+     "gen": 3,
+     "parent": 3,
+     "version": 3,
+     "train_mean": 0.8056,
+     "dev_mean": 0.9356,
+     "accepted": null
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "playbook_add",
+     "change": "solver step: Add a pre\u2011run sanity check that validates the permutation syntax an...",
+     "claim": "dev gain +0.020, cost -0.1%: Fixes the dc-medium-1381 UnboundLocalError failures, reducing waste...",
+     "measured_gain": -0.1092,
+     "measured_cost_change_pct": 9.23,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.109 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "playbook_add",
+     "change": "solver step: Replace Simulated annealing with a hybrid Tabu\u2011Search + 2\u2011opt local...",
+     "claim": "dev gain +0.040, cost -0.1%: Hybrid approach improves gap percentages (targeting ~12% gap vs 2\u2011s...",
+     "measured_gain": -0.441,
+     "measured_cost_change_pct": 35.72,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.441 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "thinking = {\"solver\": true}",
+     "claim": "dev gain +0.015, cost -0.1%: Enabling reasoning for the solver role adds systematic exploration,...",
+     "measured_gain": 0.0414,
+     "measured_cost_change_pct": 150.04,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "accepted, effect smaller than claimed"
+    },
+    {
+     "gen": 1,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "prompt_edit",
+     "change": "solver prompt: You write heuristic optimization programs for the Quadratic Assignm...",
+     "claim": "dev gain +0.020, cost -0.1%: Adds explicit error handling to prevent uncaught exceptions (e.g.,...",
+     "measured_gain": 0.3449,
+     "measured_cost_change_pct": -1.67,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "playbook_add",
+     "change": "solver step: Validate input dimensions and raise a clear error if they are not s...",
+     "claim": "dev gain +0.015, cost -0.1%: Prevents invalid QAP instances from causing runtime errors; improve...",
+     "measured_gain": 0.1509,
+     "measured_cost_change_pct": -14.0,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 8000",
+     "claim": "dev gain +0.010, cost -0.2%: Increasing max_tokens to 8000 allows full reasoning traces without...",
+     "measured_gain": 0.2239,
+     "measured_cost_change_pct": -15.17,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    },
+    {
+     "gen": 2,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 2,
+     "parent": 2,
+     "mutation_type": "playbook_remove",
+     "change": "{\"role\": \"solver\", \"index\": 0}",
+     "claim": "dev gain +0.000, cost -0.1%: Removing the placeholder playbook eliminates unused steps, reducing...",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: playbook index 0 out of range",
+     "verdict": null
+    },
+    {
+     "gen": 2,
+     "parent": 2,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 4000",
+     "claim": "dev gain +0.020, cost -0.2%: Reducing max_tokens from 6000 to 4000 cuts token consumption per ca...",
+     "measured_gain": 0.2358,
+     "measured_cost_change_pct": -6.3,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    },
+    {
+     "gen": 2,
+     "parent": 2,
+     "mutation_type": "config_set",
+     "change": "temperature = 0.2",
+     "claim": "dev gain +0.010, cost -0.1%: Lowering temperature to 0.2 makes outputs more deterministic, reduc...",
+     "measured_gain": 0.2048,
+     "measured_cost_change_pct": 19.12,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "accepted, effect smaller than claimed"
+    },
+    {
+     "gen": 3,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 3,
+     "parent": 3,
+     "mutation_type": "prompt_edit",
+     "change": "solver prompt: You write heuristic optimization programs for the Quadratic Assignm...",
+     "claim": "dev gain +0.050, cost -0.1%: Enforcing valid permutation first and immediate error abort should...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": 0.0,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.000 < 0.003; cost +0% misses the -15% cut",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 3,
+     "parent": 3,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 2500",
+     "claim": "dev gain +0.020, cost -0.0%: Lower token ceiling reduces truncation failures observed in brain e...",
+     "measured_gain": -0.1313,
+     "measured_cost_change_pct": -11.03,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.131 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 3,
+     "parent": 3,
+     "mutation_type": "config_set",
+     "change": "attempts = 3",
+     "claim": "dev gain +0.040, cost -0.0%: More attempts allow retry after transient errors; cost impact is mi...",
+     "measured_gain": -0.0557,
+     "measured_cost_change_pct": 58.85,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.056 < 0.003",
+     "verdict": "not reproduced"
+    }
+   ],
+   "papers": {
+    "total": 16,
+    "accepted": 6,
+    "verdicts": {
+     "not reproduced": 5,
+     "accepted, effect smaller than claimed": 2,
+     "reproduced": 4
+    }
+   },
+   "totals": {
+    "calls": 159,
+    "errors": 0,
+    "prompt_tokens": 332512,
+    "completion_tokens": 285156,
+    "cached_tokens": 0,
+    "tokens": 617668,
+    "cost_usd": 0.073657,
+    "wall_s": 1419.5,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+      "calls": 159,
+      "cost_usd": 0.073657
+     }
+    }
+   },
+   "sources": [
+    "reports/qaplib_live/dc_research3_nano/before_after.json",
+    "reports/qaplib_live/dc_research3_nano/vs_2swap.md",
+    "reports/qaplib_live/dc_research3_nano/qaplib_rows.json",
+    "reports/qaplib_live/dc_research3_nano/usage.json",
+    "reports/qaplib_live/dc_research3_nano/version_ledger.jsonl",
+    "reports/qaplib_live/dc_research3_nano/run.log"
+   ],
+   "notes": [
+    "v0 cold found no valid placement on dc-large-10035 in either attempt (score 0). Without that hall, v0 cold averages 0.5154 on the other 5 and v3 0.9138 (+0.398); v3 is higher on all 6 halls."
+   ]
+  },
+  {
    "id": "alebench-live-1",
    "name": "ALE-Bench AHC039 (Purse Seine Fishing)",
    "verifier": "ALE-Bench AHC039 scorer on private Lite seeds; score = mean case score / greedy case score (1.0 = greedy); rank vs 583 contestants on all 150 private seeds",
@@ -3234,6 +3649,10 @@
    "reason": "no paid usage.json: offline, scripted or a service log"
   },
   {
+   "run": "runs/datahall-live-6",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
    "run": "runs/inference-opt-1",
    "reason": "no paid usage.json: offline, scripted or a service log"
   },
@@ -3247,10 +3666,6 @@
   },
   {
    "run": "runs/localhost",
-   "reason": "no paid usage.json: offline, scripted or a service log"
-  },
-  {
-   "run": "runs/qaplib-dc-research-3",
    "reason": "no paid usage.json: offline, scripted or a service log"
   },
   {

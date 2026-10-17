@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-17 16:42:48 PDT",
+ "generated_at": "2026-10-17 16:51:50 PDT",
  "command": ".venv/bin/python scripts/build_datacenter_view.py",
  "pitch": "Every layer of an AI data center as a verifiable optimization problem.",
  "layers": [
@@ -16,17 +16,17 @@
    },
    "note": "v0 starts from the greedy layout, so v0 cold equals greedy here.",
    "best": {
-    "run": "datahall-live-3",
-    "label": "final (v0: no change passed the gate)",
-    "score": 0.6879,
+    "run": "datahall-live-5",
+    "label": "v1 + final brain",
+    "score": 0.7275,
     "baseline": 0.6879,
-    "delta": 0.0,
+    "delta": 0.0396,
     "n": 6,
     "family": null,
     "v0_invalid": 0
    },
    "status": "done",
-   "summary": "From v0 0.688 to 0.688 (+0.000) on 6 unseen halls. datahall-live-5 is running: 0 candidate changes scored on dev so far, 0 accepted.",
+   "summary": "From v0 0.688 to 0.728 (+0.040) on 6 unseen halls. datahall-live-6 is running: 3 candidate changes scored on dev so far, 1 accepted.",
    "runs": [
     {
      "id": "datahall-live-1",
@@ -378,8 +378,85 @@
     },
     {
      "id": "datahall-live-5",
+     "status": "done",
+     "status_detail": "final report and live usage written",
+     "baseline": {
+      "name": "v0 cold",
+      "score": 0.6879
+     },
+     "vs_v0": {
+      "v0": 0.6879,
+      "final": 0.7275,
+      "final_label": "v1 + final brain",
+      "delta": 0.0396
+     },
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.008659
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.008473
+      },
+      {
+       "label": "v1 + final brain",
+       "kind": "final",
+       "score": 0.7275,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.007473
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.6916
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.7247,
+       "parent_score": 0.6916,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "polish = true"
+      },
+      {
+       "gen": 0,
+       "score": 0.6925,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.001 < 0.02; cost -14% misses the -15% cut",
+       "change": "polish_checks = 800"
+      },
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost -3% misses the -15% cut",
+       "change": "temperature = 0.0"
+      }
+     ],
+     "cost_usd": 0.046833,
+     "calls": 152,
+     "last_update": "16:51 PDT",
+     "n_heldout": 6
+    },
+    {
+     "id": "datahall-live-6",
      "status": "running",
-     "status_detail": "1 candidate scored on dev, generation 0; started 16:41 PDT, last write 16:42 PDT",
+     "status_detail": "5 candidates scored on dev, generation 1; started 16:46 PDT, last write 16:51 PDT",
      "baseline": {
       "name": "v0 cold",
       "score": null
@@ -391,11 +468,41 @@
       "delta": null
      },
      "heldout": [],
-     "dev": [],
-     "candidates": [],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.6916
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.7247,
+       "parent_score": 0.6916,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "polish = true"
+      },
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost +1% misses the -15% cut",
+       "change": "polish_checks = 800"
+      },
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost +16% misses the -15% cut",
+       "change": "temperature = 0.0"
+      }
+     ],
      "cost_usd": null,
      "calls": null,
-     "last_update": "16:42 PDT",
+     "last_update": "16:51 PDT",
      "n_heldout": null
     }
    ],
@@ -432,7 +539,7 @@
     "v0_invalid": 0
    },
    "status": "done",
-   "summary": "From v0 0.597 to 0.845 (+0.248) on 6 unseen rack placements. QAPLIB: 3.6% from best-known solutions (SOTA) on 6 unseen instances (qaplib-research-1 final); v0 cold: 4.3% from best-known. qaplib-dc-research-3 is running: 8 candidate changes scored on dev so far, 6 accepted.",
+   "summary": "From v0 0.597 to 0.845 (+0.248) on 6 unseen rack placements. QAPLIB: 3.6% from best-known solutions (SOTA) on 6 unseen instances (qaplib-research-1 final); v0 cold: 4.3% from best-known.",
    "runs": [
     {
      "id": "qaplib-evolve-3",
@@ -987,19 +1094,44 @@
     },
     {
      "id": "qaplib-dc-research-3",
-     "status": "running",
-     "status_detail": "12 candidates scored on dev, generation 2; started 16:26 PDT, last write 16:42 PDT",
+     "status": "done",
+     "status_detail": "final report and live usage written",
      "baseline": {
       "name": "v0 cold",
-      "score": null
+      "score": 0.4295
      },
      "vs_v0": {
-      "v0": null,
-      "final": null,
-      "final_label": null,
-      "delta": null
+      "v0": 0.4295,
+      "final": 0.9213,
+      "final_label": "v3 + final brain",
+      "delta": 0.4918
      },
-     "heldout": [],
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.4295,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.001853
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.626,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.002624
+      },
+      {
+       "label": "v3 + final brain",
+       "kind": "final",
+       "score": 0.9213,
+       "pass_rate": 0.1667,
+       "n": 6,
+       "cost_usd": 0.006738
+      }
+     ],
      "dev": [
       {
        "gen": 0,
@@ -1012,6 +1144,10 @@
       {
        "gen": 2,
        "score": 0.5993
+      },
+      {
+       "gen": 3,
+       "score": 0.9356
       }
      ],
      "candidates": [
@@ -1078,12 +1214,36 @@
        "accepted": true,
        "reason": "accepted",
        "change": "temperature = 0.2"
+      },
+      {
+       "gen": 3,
+       "score": 0.9356,
+       "parent_score": 0.9356,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.003; cost +0% misses the -15% cut",
+       "change": "solver prompt: You write heuristic optimization programs for the Quadratic Assignm..."
+      },
+      {
+       "gen": 3,
+       "score": 0.8043,
+       "parent_score": 0.9356,
+       "accepted": false,
+       "reason": "gain -0.131 < 0.003",
+       "change": "max_tokens = 2500"
+      },
+      {
+       "gen": 3,
+       "score": 0.8799,
+       "parent_score": 0.9356,
+       "accepted": false,
+       "reason": "gain -0.056 < 0.003",
+       "change": "attempts = 3"
       }
      ],
-     "cost_usd": null,
-     "calls": null,
-     "last_update": "16:42 PDT",
-     "n_heldout": null,
+     "cost_usd": 0.073657,
+     "calls": 159,
+     "last_update": "16:50 PDT",
+     "n_heldout": 6,
      "family": "GPU rack placement"
     }
    ]
@@ -2052,9 +2212,9 @@
    "layer": "hall",
    "layer_name": "Hall layout",
    "benchmark": "DoneTwin data hall",
-   "status": "running",
+   "status": "stopped",
    "started": "2026-10-17 16:25",
-   "ended": null,
+   "ended": "2026-10-17 16:40",
    "solver": "Nano",
    "reviewer": "Nano",
    "research": true,
@@ -2115,24 +2275,268 @@
    "layer": "hall",
    "layer_name": "Hall layout",
    "benchmark": "DoneTwin data hall",
-   "status": "running",
+   "status": "done",
    "started": "2026-10-17 16:41",
+   "ended": "2026-10-17 16:51",
+   "solver": "Nano",
+   "reviewer": "Super",
+   "research": true,
+   "generations": 1,
+   "candidates": 3,
+   "accepted": 1,
+   "heldout": {
+    "metric": "held-out mean",
+    "final": 0.7275,
+    "v0": 0.6879,
+    "delta": 0.0396,
+    "final_label": "v1 + final brain",
+    "lower_is_better": false,
+    "v0_invalid": 0
+   },
+   "cost_usd": 0.046833,
+   "calls": 152,
+   "climb": {
+    "metric": "dev score",
+    "baseline": 0.6916,
+    "baseline_label": "v0 at gen 0, dev",
+    "candidates": [
+     {
+      "i": 0,
+      "gen": 0,
+      "id": "g0-c0",
+      "parent": 0,
+      "type": "config_set",
+      "target": "polish",
+      "change": "polish = true",
+      "rationale": "Enabling polish runs a verifier-guided local search over single-rack moves after the team's layout, which can fix rec...",
+      "claim_gain": 0.05,
+      "claim_cost_pct": -10.0,
+      "score": 0.7247,
+      "parent_score": 0.6916,
+      "gain": 0.033,
+      "cost": 0.00086295,
+      "parent_cost": 0.0010295,
+      "cost_pct": -16.18,
+      "n": 4,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "reproduced",
+      "research_query": "data center GPU rack placement quadratic assignment heuristic cdu capacity power 2n",
+      "sources": [
+       "https://intuitionlabs.ai/articles/nvidia-hgx-data-center-requirements",
+       "https://www.leviathansystems.co/articles/cdu-sizing-guide-gpu-clusters",
+       "https://introl.com/blog/building-100kw-gpu-racks-power-cooling-architecture"
+      ],
+      "incumbent": 0.7247
+     },
+     {
+      "i": 1,
+      "gen": 0,
+      "id": "g0-c1",
+      "parent": 0,
+      "type": "config_set",
+      "target": "polish_checks",
+      "change": "polish_checks = 800",
+      "rationale": "Reducing polish_checks from 1500 to 800 decreases verifier calls during local search, lowering cost while still allow...",
+      "claim_gain": 0.02,
+      "claim_cost_pct": -15.0,
+      "score": 0.6925,
+      "parent_score": 0.6916,
+      "gain": 0.0009,
+      "cost": 0.00088393,
+      "parent_cost": 0.0010295,
+      "cost_pct": -14.14,
+      "n": 4,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain +0.001 < 0.02; cost -14% misses the -15% cut",
+      "verdict": "not reproduced",
+      "research_query": "data center GPU rack placement quadratic assignment heuristic cdu capacity power 2n",
+      "sources": [
+       "https://intuitionlabs.ai/articles/nvidia-hgx-data-center-requirements",
+       "https://www.leviathansystems.co/articles/cdu-sizing-guide-gpu-clusters",
+       "https://introl.com/blog/building-100kw-gpu-racks-power-cooling-architecture"
+      ],
+      "incumbent": 0.7247
+     },
+     {
+      "i": 2,
+      "gen": 0,
+      "id": "g0-c2",
+      "parent": 0,
+      "type": "config_set",
+      "target": "temperature",
+      "change": "temperature = 0.0",
+      "rationale": "Lowering temperature to 0.0 promotes deterministic, greedy outputs from the Layout and Planner roles, reducing explor...",
+      "claim_gain": 0.03,
+      "claim_cost_pct": -5.0,
+      "score": 0.6916,
+      "parent_score": 0.6916,
+      "gain": 0.0,
+      "cost": 0.00100375,
+      "parent_cost": 0.0010295,
+      "cost_pct": -2.5,
+      "n": 4,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain +0.000 < 0.02; cost -3% misses the -15% cut",
+      "verdict": "not reproduced",
+      "research_query": "data center GPU rack placement quadratic assignment heuristic cdu capacity power 2n",
+      "sources": [
+       "https://intuitionlabs.ai/articles/nvidia-hgx-data-center-requirements",
+       "https://www.leviathansystems.co/articles/cdu-sizing-guide-gpu-clusters",
+       "https://introl.com/blog/building-100kw-gpu-racks-power-cooling-architecture"
+      ],
+      "incumbent": 0.7247
+     }
+    ],
+    "generations": [
+     {
+      "gen": 0,
+      "start": 0.6916,
+      "end": 0.7247
+     }
+    ],
+    "heldout": [
+     {
+      "kind": "cold",
+      "label": "v0 + empty brain (cold)",
+      "score": 0.6879
+     },
+     {
+      "kind": "brain",
+      "label": "v0 + final brain",
+      "score": 0.6879
+     },
+     {
+      "kind": "final",
+      "label": "v1 + final brain",
+      "score": 0.7275
+     }
+    ]
+   }
+  },
+  {
+   "name": "datahall-live-6",
+   "layer": "hall",
+   "layer_name": "Hall layout",
+   "benchmark": "DoneTwin data hall",
+   "status": "running",
+   "started": "2026-10-17 16:46",
    "ended": null,
    "solver": "Nano",
    "reviewer": "Super",
    "research": true,
-   "generations": 0,
-   "candidates": 0,
-   "accepted": 0,
+   "generations": 1,
+   "candidates": 3,
+   "accepted": 1,
    "heldout": null,
    "cost_usd": null,
    "calls": null,
    "climb": {
     "metric": "dev score",
-    "baseline": null,
-    "baseline_label": null,
-    "candidates": [],
-    "generations": [],
+    "baseline": 0.6916,
+    "baseline_label": "v0 at gen 0, dev",
+    "candidates": [
+     {
+      "i": 0,
+      "gen": 0,
+      "id": "g0-c0",
+      "parent": 0,
+      "type": "config_set",
+      "target": "polish",
+      "change": "polish = true",
+      "rationale": "Enabling polish runs a verifier-guided local search over single-rack moves after the team's layout, which can improve...",
+      "claim_gain": 0.05,
+      "claim_cost_pct": -10.0,
+      "score": 0.7247,
+      "parent_score": 0.6916,
+      "gain": 0.033,
+      "cost": 0.00098349,
+      "parent_cost": 0.00092239,
+      "cost_pct": 6.62,
+      "n": 4,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "accepted, effect smaller than claimed",
+      "research_query": "data center GPU rack placement quadratic assignment heuristic power 2n no improvement",
+      "sources": [
+       "https://arxiv.org/html/2307.11248v1",
+       "https://www.mdpi.com/1999-4893/18/7/385",
+       "https://arxiv.org/html/2504.00277v1"
+      ],
+      "incumbent": 0.7247
+     },
+     {
+      "i": 1,
+      "gen": 0,
+      "id": "g0-c1",
+      "parent": 0,
+      "type": "config_set",
+      "target": "polish_checks",
+      "change": "polish_checks = 800",
+      "rationale": "Reducing polish_checks from 1500 to 800 decreases verifier calls during the local search, cutting cost while still al...",
+      "claim_gain": 0.0,
+      "claim_cost_pct": -25.0,
+      "score": 0.6916,
+      "parent_score": 0.6916,
+      "gain": 0.0,
+      "cost": 0.00093606,
+      "parent_cost": 0.00092239,
+      "cost_pct": 1.48,
+      "n": 4,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain +0.000 < 0.02; cost +1% misses the -15% cut",
+      "verdict": "not reproduced",
+      "research_query": "data center GPU rack placement quadratic assignment heuristic power 2n no improvement",
+      "sources": [
+       "https://arxiv.org/html/2307.11248v1",
+       "https://www.mdpi.com/1999-4893/18/7/385",
+       "https://arxiv.org/html/2504.00277v1"
+      ],
+      "incumbent": 0.7247
+     },
+     {
+      "i": 2,
+      "gen": 0,
+      "id": "g0-c2",
+      "parent": 0,
+      "type": "config_set",
+      "target": "temperature",
+      "change": "temperature = 0.0",
+      "rationale": "Setting temperature to 0.0 (greedy) for all roles may reduce token variance and cost, especially since thinking is of...",
+      "claim_gain": -0.02,
+      "claim_cost_pct": -15.0,
+      "score": 0.6916,
+      "parent_score": 0.6916,
+      "gain": 0.0,
+      "cost": 0.0010724,
+      "parent_cost": 0.00092239,
+      "cost_pct": 16.26,
+      "n": 4,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain +0.000 < 0.02; cost +16% misses the -15% cut",
+      "verdict": "not reproduced",
+      "research_query": "data center GPU rack placement quadratic assignment heuristic power 2n no improvement",
+      "sources": [
+       "https://arxiv.org/html/2307.11248v1",
+       "https://www.mdpi.com/1999-4893/18/7/385",
+       "https://arxiv.org/html/2504.00277v1"
+      ],
+      "incumbent": 0.7247
+     }
+    ],
+    "generations": [
+     {
+      "gen": 0,
+      "start": 0.6916,
+      "end": 0.7247
+     }
+    ],
     "heldout": []
    }
   },
@@ -3463,18 +3867,26 @@
    "layer": "placement",
    "layer_name": "Equipment placement",
    "benchmark": "GPU rack placement",
-   "status": "running",
+   "status": "done",
    "started": "2026-10-17 16:26",
-   "ended": null,
+   "ended": "2026-10-17 16:50",
    "solver": "Nano",
    "reviewer": "Nano",
    "research": true,
-   "generations": 3,
-   "candidates": 8,
+   "generations": 4,
+   "candidates": 11,
    "accepted": 6,
-   "heldout": null,
-   "cost_usd": null,
-   "calls": null,
+   "heldout": {
+    "metric": "held-out mean",
+    "final": 0.9213,
+    "v0": 0.4295,
+    "delta": 0.4918,
+    "final_label": "v3 + final brain",
+    "lower_is_better": false,
+    "v0_invalid": 1
+   },
+   "cost_usd": 0.073657,
+   "calls": 159,
    "climb": {
     "metric": "dev score",
     "baseline": 0.8039,
@@ -3719,6 +4131,96 @@
        "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
       ],
       "incumbent": 0.835
+     },
+     {
+      "i": 8,
+      "gen": 3,
+      "id": "g3-c0",
+      "parent": 3,
+      "type": "prompt_edit",
+      "target": "solver",
+      "change": "solver prompt: You write heuristic optimization programs for the Quadratic Assignm...",
+      "rationale": "The current solver prompt lacks explicit instructions to enforce a valid permutation before the time limit and to abo...",
+      "claim_gain": 0.05,
+      "claim_cost_pct": -0.12,
+      "score": 0.9356,
+      "parent_score": 0.9356,
+      "gain": 0.0,
+      "cost": 0.0013459,
+      "parent_cost": 0.0013459,
+      "cost_pct": 0.0,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain +0.000 < 0.003; cost +0% misses the -15% cut",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.9356
+     },
+     {
+      "i": 9,
+      "gen": 3,
+      "id": "g3-c1",
+      "parent": 3,
+      "type": "config_set",
+      "target": "max_tokens",
+      "change": "max_tokens = 2500",
+      "rationale": "Reducing max_tokens from 4000 to 2500 prevents truncation of longer heuristic programs that often exceed token limits...",
+      "claim_gain": 0.02,
+      "claim_cost_pct": -0.03,
+      "score": 0.8043,
+      "parent_score": 0.9356,
+      "gain": -0.1313,
+      "cost": 0.0011975,
+      "parent_cost": 0.0013459,
+      "cost_pct": -11.03,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.131 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.9356
+     },
+     {
+      "i": 10,
+      "gen": 3,
+      "id": "g3-c2",
+      "parent": 3,
+      "type": "config_set",
+      "target": "attempts",
+      "change": "attempts = 3",
+      "rationale": "Increasing attempts from 2 to 3 gives the verifier a higher chance to accept a correct solution within the fixed time...",
+      "claim_gain": 0.04,
+      "claim_cost_pct": -0.01,
+      "score": 0.8799,
+      "parent_score": 0.9356,
+      "gain": -0.0557,
+      "cost": 0.0021379,
+      "parent_cost": 0.0013459,
+      "cost_pct": 58.85,
+      "n": 3,
+      "accepted": false,
+      "accepted_by": null,
+      "reason": "gain -0.056 < 0.003",
+      "verdict": "not reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.9356
      }
     ],
     "generations": [
@@ -3736,9 +4238,30 @@
       "gen": 2,
       "start": 0.5993,
       "end": 0.835
+     },
+     {
+      "gen": 3,
+      "start": 0.9356,
+      "end": 0.9356
      }
     ],
-    "heldout": []
+    "heldout": [
+     {
+      "kind": "cold",
+      "label": "v0 + empty brain (cold)",
+      "score": 0.4295
+     },
+     {
+      "kind": "brain",
+      "label": "v0 + final brain",
+      "score": 0.626
+     },
+     {
+      "kind": "final",
+      "label": "v3 + final brain",
+      "score": 0.9213
+     }
+    ]
    }
   },
   {

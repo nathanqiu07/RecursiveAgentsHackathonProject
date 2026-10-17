@@ -1,0 +1,135 @@
+{
+ "rows": [
+  {
+   "config": "v0 + empty brain (cold)",
+   "version": 0,
+   "n": 6,
+   "mean_score": 0.4295,
+   "pass_rate": 0.0,
+   "mean_iterations": 2.0,
+   "calls_per_task": 2.0,
+   "tokens_per_task": 2866.7,
+   "cost_per_task_usd": 0.00030881,
+   "cost_per_point_usd": 0.00071902,
+   "tokens": 17200,
+   "cost_usd": 0.001853,
+   "infra_failures": 0
+  },
+  {
+   "config": "v0 + final brain",
+   "version": 0,
+   "n": 6,
+   "mean_score": 0.626,
+   "pass_rate": 0.0,
+   "mean_iterations": 2.0,
+   "calls_per_task": 2.0,
+   "tokens_per_task": 5782.5,
+   "cost_per_task_usd": 0.00043732,
+   "cost_per_point_usd": 0.00069859,
+   "tokens": 34695,
+   "cost_usd": 0.002624,
+   "infra_failures": 0
+  },
+  {
+   "config": "v3 + final brain",
+   "version": 3,
+   "n": 6,
+   "mean_score": 0.9213,
+   "pass_rate": 0.1667,
+   "mean_iterations": 2.0,
+   "calls_per_task": 2.0,
+   "tokens_per_task": 9149.5,
+   "cost_per_task_usd": 0.00112295,
+   "cost_per_point_usd": 0.00121887,
+   "tokens": 54897,
+   "cost_usd": 0.006738,
+   "infra_failures": 0
+  }
+ ],
+ "history": [
+  {
+   "generation": 0,
+   "parent": 0,
+   "version": 1,
+   "train_mean": 0.7573,
+   "dev_mean": 0.8039,
+   "mutations": 3,
+   "accepted": "config_set",
+   "accepted_reason": "accepted",
+   "pruned": 0,
+   "disputes_settled": 0,
+   "brain": {
+    "version": 5,
+    "active": 12,
+    "disputed": 0,
+    "retired": 0,
+    "total_chars": 1459,
+    "avg_helps": 0.0,
+    "avg_hurts": 0.0
+   }
+  },
+  {
+   "generation": 1,
+   "parent": 1,
+   "version": 2,
+   "train_mean": 0.8266,
+   "dev_mean": 0.5668,
+   "mutations": 3,
+   "accepted": "prompt_edit",
+   "accepted_reason": "accepted",
+   "pruned": 0,
+   "disputes_settled": 0,
+   "brain": {
+    "version": 14,
+    "active": 24,
+    "disputed": 0,
+    "retired": 0,
+    "total_chars": 2449,
+    "avg_helps": 1.625,
+    "avg_hurts": 0.5
+   }
+  },
+  {
+   "generation": 2,
+   "parent": 2,
+   "version": 3,
+   "train_mean": 0.783,
+   "dev_mean": 0.5993,
+   "mutations": 2,
+   "accepted": "config_set",
+   "accepted_reason": "accepted",
+   "pruned": 0,
+   "disputes_settled": 0,
+   "brain": {
+    "version": 23,
+    "active": 34,
+    "disputed": 0,
+    "retired": 0,
+    "total_chars": 3275,
+    "avg_helps": 2.441,
+    "avg_hurts": 1.647
+   }
+  },
+  {
+   "generation": 3,
+   "parent": 3,
+   "version": 3,
+   "train_mean": 0.8056,
+   "dev_mean": 0.9356,
+   "mutations": 3,
+   "accepted": null,
+   "accepted_reason": null,
+   "pruned": 6,
+   "disputes_settled": 0,
+   "brain": {
+    "version": 32,
+    "active": 40,
+    "disputed": 0,
+    "retired": 6,
+    "total_chars": 3743,
+    "avg_helps": 2.3,
+    "avg_hurts": 2.525
+   }
+  }
+ ]
+}

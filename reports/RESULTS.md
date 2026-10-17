@@ -17,6 +17,7 @@ Every number here comes from a live run on Crusoe Managed Inference (Nemotron-3 
 | QAPLIB, live run 3 (Shared Brain only) | 0.8529 | v0 + final brain 0.9300 | +0.0771 (+9.0%) | done | $0.0111 (54 calls) |
 | QAPLIB, live run with research on the fixed runner | 0.6741 | v1 + final brain 0.7537 | +0.0796 (+11.8%) | done | $0.0208 (102 calls) |
 | GPU rack placement (data-center QAP), research on the fixed runner | 0.5973 | v3 + final brain 0.8452 | +0.2479 (+41.5%) | done | $0.0477 (112 calls) |
+| GPU rack placement (data-center QAP), research, 4 generations | 0.4295 | v3 + final brain 0.9213 | +0.4918 (+114.5%) | done | $0.0737 (159 calls) |
 | ALE-Bench AHC039 (Purse Seine Fishing) | n/a | n/a | n/a | blocked: crashed: RateLimitError, HTTP 429, max_requests_limit; 1 candidate scored before the crash; last write 15:09 PDT | n/a (crashed before usage.json) |
 | KernelBench mini (CUDA kernels) | n/a | n/a | n/a | blocked: needs a Crusoe GPU VM (no runs/kernelbench-* yet) | n/a |
 | KernelBench mini on Apple GPU (MPS) | 0.195 | v0 + final brain 0.439 | +0.244 (+125.6%) | done | $0.1908 (98 calls) |
@@ -26,6 +27,7 @@ Every number here comes from a live run on Crusoe Managed Inference (Nemotron-3 
 QAPLIB and rack placement: a 10 s 2-swap search scores 0.995 / 0.967 on the same tasks.
 Note, GPU rack placement (data-center QAP), live run with research: v0 cold saved a solution for 5 of the 6 held-out halls. The missing hall is scored as invalid (score 0), so 0.4773 is the mean over all 6 with that hall at 0 (the 5 saved halls average 0.5728).
 Note, QAPLIB, live run with research on the fixed runner: v0 cold found no valid permutation on tai15a in either attempt, so it scores 0 there. Without tai15a, v0 cold averages 0.8089 on the other 5 and v1 0.7410 (-0.068): no gain on QAPLIB.
+Note, GPU rack placement (data-center QAP), research, 4 generations: v0 cold found no valid placement on dc-large-10035 in either attempt (score 0). Without that hall, v0 cold averages 0.5154 on the other 5 and v3 0.9138 (+0.398); v3 is higher on all 6 halls.
 Note, KernelBench mini on Apple GPU (MPS): correct kernels 20% -> 60% (v0 cold -> final). No kernel beat PyTorch eager (fast_1 0%); MPS timings are not comparable to CUDA. Full numbers: reports/kernelbench_mps/SUMMARY.md.
 Note, Inference serving cost (exact-answer data-center ops Q&A): accuracy 47/48 -> 48/48 is one question, so no accuracy gain is claimed; the headline is cost per correct answer. Median call latency 9.7 s -> 19.0 s; time per hall 163 s -> 77 s.
 
@@ -392,6 +394,52 @@ Dev mean of the parent by generation: gen 0 0.7129, gen 1 0.8561, gen 2 0.8561.
 
 Sources: `reports/qaplib_live/dc_research2_nano/before_after.json`, `reports/qaplib_live/dc_research2_nano/vs_2swap.md`, `reports/qaplib_live/dc_research2_nano/qaplib_rows.json`, `reports/qaplib_live/dc_research2_nano/usage.json`, `reports/qaplib_live/dc_research2_nano/version_ledger.jsonl`, `reports/qaplib_live/dc_research2_nano/run.log`.
 
+## GPU rack placement (data-center QAP), research, 4 generations
+
+- Verifier: exact traffic x cable-length cost of the rack placement on generated GPU halls; score = reference cost / cost.
+- Baseline: v0 cold (v0 + empty brain (cold)), held-out mean 0.4295 (source: held-out table).
+- Status: done; final report and live usage written.
+- Live evidence: usage.json: 159 paid calls, $0.0737.
+- Totals: 159 calls, 617,668 tokens (332,512 prompt + 285,156 completion, 0 cached), $0.0737, 0 errors, wall 1419.5 s.
+- By model: NVIDIA-Nemotron-3-Nano-30B-A3B 159 calls $0.0737.
+
+### Held-out
+
+| Config | n | Mean score | Pass rate | Gap to BKS (%) | Tokens | Cost (USD) | vs v0 cold |
+|---|---|---|---|---|---|---|---|
+| v0 + empty brain (cold) | 6 | 0.4295 | 0% | 138.88 | 17,200 | $0.0019 | baseline |
+| v0 + final brain | 6 | 0.6260 | 0% | 87.12 | 34,695 | $0.0026 | +0.1965 (+45.8%) |
+| v3 + final brain | 6 | 0.9213 | 17% | 8.95 | 54,897 | $0.0067 | +0.4918 (+114.5%) |
+
+Note: v0 cold found no valid placement on dc-large-10035 in either attempt (score 0). Without that hall, v0 cold averages 0.5154 on the other 5 and v3 0.9138 (+0.398); v3 is higher on all 6 halls.
+
+Dev mean of the parent by generation: gen 0 0.8039, gen 1 0.5668, gen 2 0.5993, gen 3 0.9356.
+
+### Generations (each candidate is gated on the dev set)
+
+16 candidates, 6 accepted; claim vs measured verdicts: 5 not reproduced, 4 reproduced, 2 accepted, effect smaller than claimed.
+
+| Gen | Mutation | Change | Claim | Measured dev gain | Decision | Why |
+|---|---|---|---|---|---|---|
+| 0 | None | {} | none recorded (ledger predates claims) | n/a | rejected | None |
+| 0 | playbook_add | solver step: Add a pre‑run sanity check that validates the permutation syntax an... | dev gain +0.020, cost -0.1%: Fixes the dc-medium-1381 UnboundLocalError failures, reducing waste... | -0.1092 | rejected | gain -0.109 < 0.003 |
+| 0 | playbook_add | solver step: Replace Simulated annealing with a hybrid Tabu‑Search + 2‑opt local... | dev gain +0.040, cost -0.1%: Hybrid approach improves gap percentages (targeting ~12% gap vs 2‑s... | -0.4410 | rejected | gain -0.441 < 0.003 |
+| 0 | config_set | thinking = {"solver": true} | dev gain +0.015, cost -0.1%: Enabling reasoning for the solver role adds systematic exploration,... | +0.0414 | accepted (score) | accepted |
+| 1 | None | {} | none recorded (ledger predates claims) | n/a | rejected | None |
+| 1 | prompt_edit | solver prompt: You write heuristic optimization programs for the Quadratic Assignm... | dev gain +0.020, cost -0.1%: Adds explicit error handling to prevent uncaught exceptions (e.g.,... | +0.3449 | accepted (score) | accepted |
+| 1 | playbook_add | solver step: Validate input dimensions and raise a clear error if they are not s... | dev gain +0.015, cost -0.1%: Prevents invalid QAP instances from causing runtime errors; improve... | +0.1509 | accepted (score) | accepted |
+| 1 | config_set | max_tokens = 8000 | dev gain +0.010, cost -0.2%: Increasing max_tokens to 8000 allows full reasoning traces without... | +0.2239 | accepted (score) | accepted |
+| 2 | None | {} | none recorded (ledger predates claims) | n/a | rejected | None |
+| 2 | playbook_remove | {"role": "solver", "index": 0} | dev gain +0.000, cost -0.1%: Removing the placeholder playbook eliminates unused steps, reducing... | n/a | rejected | invalid: playbook index 0 out of range |
+| 2 | config_set | max_tokens = 4000 | dev gain +0.020, cost -0.2%: Reducing max_tokens from 6000 to 4000 cuts token consumption per ca... | +0.2358 | accepted (score) | accepted |
+| 2 | config_set | temperature = 0.2 | dev gain +0.010, cost -0.1%: Lowering temperature to 0.2 makes outputs more deterministic, reduc... | +0.2048 | accepted (score) | accepted |
+| 3 | None | {} | none recorded (ledger predates claims) | n/a | rejected | None |
+| 3 | prompt_edit | solver prompt: You write heuristic optimization programs for the Quadratic Assignm... | dev gain +0.050, cost -0.1%: Enforcing valid permutation first and immediate error abort should... | +0.0000 | rejected | gain +0.000 < 0.003; cost +0% misses the -15% cut |
+| 3 | config_set | max_tokens = 2500 | dev gain +0.020, cost -0.0%: Lower token ceiling reduces truncation failures observed in brain e... | -0.1313 | rejected | gain -0.131 < 0.003 |
+| 3 | config_set | attempts = 3 | dev gain +0.040, cost -0.0%: More attempts allow retry after transient errors; cost impact is mi... | -0.0557 | rejected | gain -0.056 < 0.003 |
+
+Sources: `reports/qaplib_live/dc_research3_nano/before_after.json`, `reports/qaplib_live/dc_research3_nano/vs_2swap.md`, `reports/qaplib_live/dc_research3_nano/qaplib_rows.json`, `reports/qaplib_live/dc_research3_nano/usage.json`, `reports/qaplib_live/dc_research3_nano/version_ledger.jsonl`, `reports/qaplib_live/dc_research3_nano/run.log`.
+
 ## ALE-Bench AHC039 (Purse Seine Fishing)
 
 - Verifier: ALE-Bench AHC039 scorer on private Lite seeds; score = mean case score / greedy case score (1.0 = greedy); rank vs 583 contestants on all 150 private seeds.
@@ -526,6 +574,6 @@ Sources: `runs/alebench-one/logs/ahc039-train0-v0.json`, `runs/alebench-one/usag
 
 ## Not counted
 
-These run directories are not results: `runs/alebench-live-2` (no paid usage.json: offline, scripted or a service log); `runs/alebench-offline` (no paid usage.json: offline, scripted or a service log); `runs/dashboard` (no paid usage.json: offline, scripted or a service log); `runs/datahall-20261017-143109` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-4` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-5` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1-attempt0` (no paid usage.json: offline, scripted or a service log); `runs/kernelbench-mps-1` (not a named live run); `runs/localhost` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-dc-research-3` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-2` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-4` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-5` (no paid usage.json: offline, scripted or a service log).
+These run directories are not results: `runs/alebench-live-2` (no paid usage.json: offline, scripted or a service log); `runs/alebench-offline` (no paid usage.json: offline, scripted or a service log); `runs/dashboard` (no paid usage.json: offline, scripted or a service log); `runs/datahall-20261017-143109` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-4` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-5` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-6` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1-attempt0` (no paid usage.json: offline, scripted or a service log); `runs/kernelbench-mps-1` (not a named live run); `runs/localhost` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-2` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-4` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-5` (no paid usage.json: offline, scripted or a service log).
 
-Generated 2026-10-17 16:42:22 PDT. Regenerate with `.venv/bin/python scripts/collect_results.py` (rewrites reports/RESULTS.md and reports/results.json).
+Generated 2026-10-17 16:51:14 PDT. Regenerate with `.venv/bin/python scripts/collect_results.py` (rewrites reports/RESULTS.md and reports/results.json).

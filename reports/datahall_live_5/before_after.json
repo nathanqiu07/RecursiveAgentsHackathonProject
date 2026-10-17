@@ -1,0 +1,72 @@
+{
+ "rows": [
+  {
+   "config": "v0 + empty brain (cold)",
+   "version": 0,
+   "n": 6,
+   "mean_score": 0.6879,
+   "pass_rate": 1.0,
+   "mean_iterations": 2.0,
+   "calls_per_task": 4.0,
+   "tokens_per_task": 16242.8,
+   "cost_per_task_usd": 0.00144309,
+   "cost_per_point_usd": 0.00209767,
+   "tokens": 97457,
+   "cost_usd": 0.008659,
+   "infra_failures": 0
+  },
+  {
+   "config": "v0 + final brain",
+   "version": 0,
+   "n": 6,
+   "mean_score": 0.6879,
+   "pass_rate": 1.0,
+   "mean_iterations": 2.0,
+   "calls_per_task": 4.0,
+   "tokens_per_task": 16573.2,
+   "cost_per_task_usd": 0.00141208,
+   "cost_per_point_usd": 0.0020526,
+   "tokens": 99439,
+   "cost_usd": 0.008473,
+   "infra_failures": 0
+  },
+  {
+   "config": "v1 + final brain",
+   "version": 1,
+   "n": 6,
+   "mean_score": 0.7275,
+   "pass_rate": 1.0,
+   "mean_iterations": 2.0,
+   "calls_per_task": 4.0,
+   "tokens_per_task": 15842.5,
+   "cost_per_task_usd": 0.00124545,
+   "cost_per_point_usd": 0.00171204,
+   "tokens": 95055,
+   "cost_usd": 0.007473,
+   "infra_failures": 0
+  }
+ ],
+ "history": [
+  {
+   "generation": 0,
+   "parent": 0,
+   "version": 1,
+   "train_mean": 0.6838,
+   "dev_mean": 0.6916,
+   "mutations": 3,
+   "accepted": "config_set",
+   "accepted_reason": "accepted",
+   "pruned": 0,
+   "disputes_settled": 0,
+   "brain": {
+    "version": 5,
+    "active": 17,
+    "disputed": 0,
+    "retired": 0,
+    "total_chars": 1154,
+    "avg_helps": 0.0,
+    "avg_hurts": 0.0
+   }
+  }
+ ]
+}

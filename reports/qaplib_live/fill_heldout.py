@@ -36,7 +36,14 @@ def main(run_dir: str, version_number: str, label: str, workers: int = 3) -> int
     out = run / "solutions" / (re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-") or "run")
     out.mkdir(parents=True, exist_ok=True)
     have = {json.loads(f.read_text())["solution"]["instance"] for f in out.glob("*.json")}
-    tasks = [t for t in load_tasks("heldout") if t.payload["name"] not in have]
+    # An instance in the run's own held-out sample was already attempted; a missing answer there is the run's failure
+    # (score 0), and re-running it would hand this arm a second try (qaplib-research-2 cold: tai15a, 0.674 -> 0.805).
+    log = run.parent / f"{run.name}.log"
+    match = re.search(r"^held-out: (.*)$", log.read_text(), re.M) if log.exists() else None
+    if match is None:
+        raise SystemExit(f"cannot read the run's held-out sample from {log}; refusing to fill blind")
+    sampled = set(re.findall(r"([A-Za-z0-9_.-]+)\(n=\d+\)", match.group(1)))
+    tasks = [t for t in load_tasks("heldout") if t.payload["name"] not in have | sampled]
     print(f"{run.name} {label}: {len(have)} held-out solutions saved, running {len(tasks)}: "
           + ", ".join(t.payload["name"] for t in tasks), flush=True)
     llm = CrusoeLLM()

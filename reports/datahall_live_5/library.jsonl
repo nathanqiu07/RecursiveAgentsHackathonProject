@@ -1,0 +1,6 @@
+{"key": "8e5326a2fb656352", "paper_id": "f8984465-cb7f-43a8-b363-52575235f16b", "title": "[datahall] g0 v0: config_set polish: True", "kind": "mutation", "generation": 0}
+{"key": "b12f8f63f4426fa8", "paper_id": "4d6b8265-c93f-4484-9a6b-a44f02dd807a", "title": "[datahall] g0 v0: config_set polish_checks: 800", "kind": "mutation", "generation": 0}
+{"key": "3d8b9408243f314d", "paper_id": "5e2c2058-8bba-48a0-ae8f-8222681c09b3", "title": "[datahall] g0 v0: config_set temperature: 0.0", "kind": "mutation", "generation": 0}
+{"key": "8e5326a2fb656352", "paper_id": "f8984465-cb7f-43a8-b363-52575235f16b", "verdict": "verified", "verdict_via": "experimental_report"}
+{"key": "b12f8f63f4426fa8", "paper_id": "4d6b8265-c93f-4484-9a6b-a44f02dd807a", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "3d8b9408243f314d", "paper_id": "5e2c2058-8bba-48a0-ae8f-8222681c09b3", "verdict": "not_verified", "verdict_via": "report"}

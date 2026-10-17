@@ -74,6 +74,11 @@ CASE_STUDIES: list[dict[str, Any]] = [
     dict(id="qaplib-dc-research-2", name="GPU rack placement (data-center QAP), research on the fixed runner",
          dirs=["reports/qaplib_live/dc_research2_nano"], aliases=["runs/qaplib-dc-research-2"],
          log="reports/qaplib_live/dc_research2_nano/run.log", **DC_QAP),
+    dict(id="qaplib-dc-research-3", name="GPU rack placement (data-center QAP), research, 4 generations",
+         dirs=["reports/qaplib_live/dc_research3_nano"], aliases=["runs/qaplib-dc-research-3"],
+         log="reports/qaplib_live/dc_research3_nano/run.log", **DC_QAP,
+         note="v0 cold found no valid placement on dc-large-10035 in either attempt (score 0). Without that hall, "
+              "v0 cold averages 0.5154 on the other 5 and v3 0.9138 (+0.398); v3 is higher on all 6 halls."),
     dict(id="alebench-live-1", name="ALE-Bench AHC039 (Purse Seine Fishing)", dirs=["runs/alebench-live-1"],
          log="runs/alebench-live-1.log", digits=3, baseline_kind="fixed", baseline_score=1.0,
          verifier="ALE-Bench AHC039 scorer on private Lite seeds; score = mean case score / greedy case score "

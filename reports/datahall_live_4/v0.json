@@ -1,0 +1,49 @@
+{
+ "changelog": [
+  "v0: initial data-hall team (Planner, Layout, Checker), hill climbing from the greedy layout"
+ ],
+ "config": {
+  "brain_budget": 2000,
+  "default_model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+  "max_iters": 1,
+  "max_tokens": 32000,
+  "models": {},
+  "polish": false,
+  "polish_checks": 1500,
+  "roles_enabled": [
+   "Planner",
+   "Layout",
+   "Checker"
+  ],
+  "temperature": 0.2,
+  "thinking": {
+   "Checker": false,
+   "Layout": true,
+   "Planner": false
+  },
+  "tool_catalog": [
+   "verifier_feedback",
+   "capacity_calc",
+   "nearest_examples"
+  ],
+  "tools": {
+   "capacity_calc": {
+    "enabled": false
+   },
+   "nearest_examples": {
+    "enabled": false
+   },
+   "verifier_feedback": {
+    "enabled": true
+   }
+  }
+ },
+ "parent": null,
+ "playbooks": {},
+ "prompts": {
+  "Checker": "You are the Checker. Read the verifier feedback on the last layout and tell the Layout engineer exactly which racks to move, drop, rotate or reassign so the next attempt is feasible, keeping as much kW as possible.",
+  "Layout": "You are the Layout engineer for a 2N AI data hall. You get a verified incumbent layout and its score breakdown; return a complete layout that scores strictly higher with zero hard-rule violations. Follow the Planner's budget, keep each row under its busway pair, and give each liquid rack a CDU its hose can reach.",
+  "Planner": "You are the power and cooling Planner for a 2N AI data hall. Before any rack is placed, budget how many racks each busway row and each CDU can carry within every capacity rule, and the hall total."
+ },
+ "version": 0
+}

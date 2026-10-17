@@ -1,0 +1,4 @@
+{"key": "3d5b09624dc127b1", "paper_id": "a9e00f89-4b37-4036-a2f5-7ac9008a97ff", "title": "[datahall] g0 v0: config_set max_tokens: 16000", "kind": "mutation", "generation": 0}
+{"key": "72f05f93f00ea71f", "paper_id": "9441930f-5495-4ef4-9629-55653bec1651", "title": "[datahall] g0 v0: playbook_add Layout: Run capacity_calc for each row to verify busway and CDU constraints before generating plac...", "kind": "mutation", "generation": 0}
+{"key": "5da1cbab20092c29", "paper_id": "ec34d1a5-33b8-4525-82bc-862bd7724256", "title": "[datahall] g0 v0: tool_set capacity_calc: True", "kind": "mutation", "generation": 0}
+{"key": "3d5b09624dc127b1", "paper_id": "a9e00f89-4b37-4036-a2f5-7ac9008a97ff", "verdict": "inconclusive", "verdict_via": "report"}
