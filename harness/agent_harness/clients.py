@@ -5,12 +5,14 @@ reads use a numeric address vetted before connection and the original TLS name;
 DNS cannot redirect a later connection to the service network.
 """
 
+import hashlib
 import ipaddress
 import json
+import re
 import socket
 import time
 from html.parser import HTMLParser
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import UUID
 
 import httpx
@@ -19,6 +21,50 @@ MAX_JSON_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 2 * 1024 * 1024
 MAX_WEB_BYTES = 512 * 1024
 YOU_SEARCH_URL = "https://ydc-index.io/v1/search"
+PAPER_DOMAINS = (
+    "arxiv.org",
+    "openreview.net",
+    "proceedings.mlr.press",
+    "aclanthology.org",
+    "papers.nips.cc",
+    "papers.neurips.cc",
+    "proceedings.neurips.cc",
+    "openaccess.thecvf.com",
+    "dl.acm.org",
+    "ieeexplore.ieee.org",
+)
+_ARXIV_ID = re.compile(r"(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?/\d{7})(?:v\d+)?\Z")
+
+
+def paper_source_url(value):
+    """Canonical primary-paper URLs; no model-selected arbitrary destinations."""
+    parsed = urlsplit(str(_url(value, https=True)))
+    if parsed.port not in {None, 443}:
+        raise ServiceError("paper_source_not_primary")
+    hostname = (parsed.hostname or "").lower()
+    hostname = hostname.removeprefix("www.")
+    if hostname == "export.arxiv.org":
+        hostname = "arxiv.org"
+    if hostname not in PAPER_DOMAINS or not parsed.path.strip("/"):
+        raise ServiceError("paper_source_not_primary")
+    if hostname == "arxiv.org":
+        match = re.fullmatch(r"/(?:abs|pdf|html)/(.+?)(?:\.pdf)?/?", parsed.path)
+        if not match or not _ARXIV_ID.fullmatch(match[1]):
+            raise ServiceError("paper_source_not_primary")
+        return "https://arxiv.org/abs/" + match[1]
+    if hostname == "openreview.net":
+        identifier = parse_qs(parsed.query).get("id", [])
+        if (
+            parsed.path not in {"/forum", "/pdf"}
+            or len(identifier) != 1
+            or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", identifier[0])
+        ):
+            raise ServiceError("paper_source_not_primary")
+        return "https://openreview.net/forum?" + urlencode({"id": identifier[0]})
+    # Strip tracking queries; preserve a concrete publication path.
+    return "https://" + hostname + parsed.path
+
+
 MAX_PAPERS = 1000
 TIMEOUT = httpx.Timeout(30, connect=5, write=10, pool=5)
 JOB_STATUSES = {"queued", "provisioning", "running", "completed", "failed", "cancelled"}
@@ -358,8 +404,11 @@ class Services(_HTTP):
     def resource_status(self):
         result = self._manager("GET", "/resources/status")
         resources = result.get("resources")
-        if (not isinstance(resources, list) or len(resources) > 100
-                or any(not isinstance(item, dict) for item in resources)):
+        if (
+            not isinstance(resources, list)
+            or len(resources) > 100
+            or any(not isinstance(item, dict) for item in resources)
+        ):
             raise ServiceError("invalid_response")
         return result
 
@@ -594,6 +643,89 @@ class WebResearch(_HTTP):
             extensions={"timeout": timeout} if timeout else None,
             deadline=deadline,
         )
+
+    def research_capabilities(self):
+        from .you_mcp import YouMCP
+
+        return YouMCP(self.search_key if self.provider == "you" else None).capabilities()
+
+    def search_papers(self, query):
+        from .you_mcp import YouMCP
+
+        if not isinstance(query, str) or not query.strip() or len(query) > 2000:
+            raise ServiceError("invalid_query")
+        response = YouMCP(self.search_key if self.provider == "you" else None).search(
+            query, PAPER_DOMAINS
+        )
+        if (
+            isinstance(response, dict)
+            and "results" not in response
+            and isinstance(response.get("data"), dict)
+        ):
+            response = response["data"]
+        if not isinstance(response, dict):
+            raise ServiceError("you_mcp_invalid_response")
+        documents = self._you_results(response)["results"]["web"]
+        papers, seen = [], set()
+        for document in documents:
+            try:
+                canonical = paper_source_url(document["url"])
+            except ServiceError:
+                continue
+            if canonical in seen:
+                continue
+            seen.add(canonical)
+            papers.append({**document, "url": canonical, "source_type": "primary_paper"})
+        return {"provider": "you_mcp", "query": query, "papers": papers[:5]}
+
+    def read_paper(self, url):
+        from .you_mcp import YouMCP
+
+        canonical = paper_source_url(url)
+        arxiv = canonical.startswith("https://arxiv.org/abs/")
+        preferred = canonical.replace("/abs/", "/html/", 1) if arxiv else canonical
+        try:
+            source = self.read(preferred)
+            content_kind = "full_text" if arxiv else "publication_page"
+            if len(source["text"].strip()) < 200:
+                raise ServiceError("paper_text_unavailable")
+        except ServiceError:
+            # Contents extraction remains fixed-origin and receives only validated paper URLs.
+            # It is useful for publication pages rendered by JavaScript; keys never reach them.
+            read_url = canonical
+            if self.provider == "you" and self.search_key:
+                result = YouMCP(self.search_key).contents(read_url)
+                if isinstance(result, dict):
+                    result = result.get("results", result.get("data"))
+            else:
+                source = self.read(canonical)
+                result = [{"url": canonical, "markdown": source["text"]}]
+
+            if len(result) != 1 or not isinstance(result[0], dict):
+                raise ServiceError("invalid_response")
+            item = result[0]
+            if paper_source_url(item.get("url", "")) != canonical:
+                raise ServiceError("paper_source_identity_mismatch")
+            text = item.get("markdown")
+            if not isinstance(text, str) or len(text.strip()) < 200:
+                raise ServiceError("paper_text_unavailable")
+            source = {"url": read_url, "text": text[:100000], "truncated": len(text) > 100000}
+            content_kind = "abstract_page" if arxiv else "publication_page"
+        text = (
+            source["text"].replace(self.search_key, "[redacted]")
+            if self.search_key
+            else source["text"]
+        )
+        return {
+            "url": canonical,
+            "read_url": source["url"],
+            "text": text,
+            "text_sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "truncated": source.get("truncated", False),
+            "content_kind": content_kind,
+            "retrieved_at": time.time(),
+            "provider": "you_mcp_and_public_page",
+        }
 
     def _you_results(self, result):
         """Only expose bounded search documents, never provider diagnostics."""

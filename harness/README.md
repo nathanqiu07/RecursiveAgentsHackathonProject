@@ -183,3 +183,5 @@ uv run ruff check .
 ```
 
 Tests exercise actual bounded shell execution in temporary test directories, simulated ResourceManager I/O, model/service contracts, role permissions, publication requirements, complete Library scans, uncertainty, cleanup, persistence and HTTP routes. A live end-to-end run additionally requires a reachable model provider and an enabled ResourceManager pool backed by a working Docker daemon and the installed harness image.
+
+For one-click benchmark research, the You.com MCP broker, Library and Resource API access, and recorded paper evidence, see [One-click paper research](RESEARCH.md).

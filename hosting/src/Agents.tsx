@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type FormEvent, type MutableRefObject } fr
 import './agents.css';
 import { harnessLabel, type HarnessCatalog, type HarnessId } from './harnesses';
 import LibraryNovelty, { type LibraryNoveltyReview } from './LibraryNovelty';
+import ExperimentResources from './ExperimentResources';
 
 type Role = 'researcher' | 'attempt';
 type RunStatus = 'queued' | 'running' | 'submitted' | 'completed' | 'failed' | 'cancelled' | 'needs_attention';
 type Allocation = { resource_id: string; node_id: string; cpus: number; memory_mb: number; scratch_mb: number; timeout_seconds: number };
-type RunRequest = { role: Role; objective: string; benchmark_id: string | null; allocation: Allocation; max_steps: number; harness?: HarnessId; model_profile_id?: string | null; model?: string | null };
+type RunRequest = { role: Role; objective: string; benchmark_id: string | null; allocation: Allocation | null; max_steps: number; harness?: HarnessId; model_profile_id?: string | null; model?: string | null };
 type Experiment = { id: string; command: string; purpose: string; timeout_seconds: number; exit_code: number; output: string; truncated: boolean; step?: number; command_sha256?: string };
 type Novelty = { approved: boolean; rationale: string; compared_paper_ids: string[]; related_paper_ids?: string[]; scope?: string; snapshot_sha256?: string; idea?: string };
 type PublicationRef = { kind: 'paper' | 'attempt'; status: string; id?: string };
@@ -49,6 +50,7 @@ const reasonLabels: Record<string, string> = {
   publication_outcome_unknown_do_not_resubmit: 'The submission may have been accepted. Check the destination before launching a replacement.',
   publication_already_started_do_not_replay: 'A submission was already started. Check the destination before launching a replacement.',
   agent_runtime_error: 'The agent could not continue. Review its latest activity and experiments.',
+  research_gpu_capacity_unavailable: 'Research is saved. A GPU resource is needed to run the proposed experiments.',
 };
 const PAGE_SIZE = 20;
 const pendingHarnessCatalog: HarnessCatalog = {
@@ -364,10 +366,10 @@ function RunDetail({ id, active, refreshToken, harnesses, onClose, onUpdated, on
       <div className="agent-run-title"><span className="agent-role-label">{roleLabel(run.request.role)}</span><Status status={run.status} /></div>
       <p className="agent-run-objective">{run.request.objective}</p>
       <div className="agent-current-phase" aria-live="polite"><strong>{currentPhase(run, events)}</strong></div>
-      <div className="agent-step-budget"><span>{stepCount} of {run.request.max_steps} steps used</span><span>{run.request.allocation.timeout_seconds.toLocaleString()} second time limit</span></div>
+      <div className="agent-step-budget"><span>{stepCount} steps recorded</span><span>{run.request.allocation ? `${run.request.allocation.timeout_seconds.toLocaleString()} second job limit` : 'Research first · GPU requested only for experiments'}</span></div>
       <progress className="agent-step-progress" aria-label="Agent step budget used" value={Math.min(stepCount, run.request.max_steps)} max={run.request.max_steps} />
       <p className="agent-field-note">Steps measure the run budget, not the likelihood of finding a solution.</p>
-      <dl className="agent-run-meta"><div><dt>Harness</dt><dd>{harnessLabel(run.state.runtime?.harness || run.request.harness)}</dd></div><div><dt>Model</dt><dd>{run.state.runtime?.model || run.request.model || modelProfile?.model || (run.request.model_profile_id ? 'Saved model profile' : 'Runtime default')}</dd></div>{modelProfile && <div><dt>Model profile</dt><dd>{modelProfile.name}</dd></div>}<div><dt>Started</dt><dd>{run.started_at ? date(run.started_at) : 'Waiting to start'}</dd></div><div><dt>Sandbox pool</dt><dd>{run.request.allocation.resource_id}</dd></div><div><dt>Allocation</dt><dd>{run.request.allocation.cpus} CPU · {run.request.allocation.memory_mb.toLocaleString()} MiB</dd></div></dl>
+      <dl className="agent-run-meta"><div><dt>Harness</dt><dd>{harnessLabel(run.state.runtime?.harness || run.request.harness)}</dd></div><div><dt>Model</dt><dd>{run.state.runtime?.model || run.request.model || modelProfile?.model || (run.request.model_profile_id ? 'Saved model profile' : 'Runtime default')}</dd></div>{modelProfile && <div><dt>Model profile</dt><dd>{modelProfile.name}</dd></div>}<div><dt>Started</dt><dd>{run.started_at ? date(run.started_at) : 'Waiting to start'}</dd></div>{run.request.allocation && <><div><dt>Sandbox pool</dt><dd>{run.request.allocation.resource_id}</dd></div><div><dt>Allocation</dt><dd>{run.request.allocation.cpus} CPU · {run.request.allocation.memory_mb.toLocaleString()} MiB</dd></div></>}</dl>
       {(run.status === 'queued' || run.status === 'running') && <div className="agent-cancel-action"><button className="button" disabled={cancelling || run.cancel_requested} onClick={() => { void cancel(); }}>{cancelling || run.cancel_requested ? 'Stopping…' : 'Cancel run'}</button><span className="agent-field-note">{run.cancel_requested ? 'Waiting for the worker to confirm that the sandbox has stopped.' : 'Stops this run and requests sandbox cleanup.'}</span></div>}
       {cancelError && <p className="error-text" role="alert">{cancelError}</p>}
       {run.cleanup_required && run.status !== 'running' && <p className="agent-warning">Sandbox cleanup is still pending. Its capacity remains reserved until termination is confirmed.</p>}
@@ -419,6 +421,9 @@ export default function Agents({ active }: { active: boolean }) {
   const [refreshToken, setRefreshToken] = useState(0);
   const [notice, setNotice] = useState('');
   const pendingLaunch = useRef<PendingLaunch | null>(null);
+  const pendingResearch = useRef<{ benchmarkId: string; key: string } | null>(null);
+  const [spinningResearch, setSpinningResearch] = useState(false);
+  const researchGuard = useRef(false);
 
   useEffect(() => {
     if (!active) return;
@@ -463,16 +468,32 @@ export default function Agents({ active }: { active: boolean }) {
   const signInUrl = configuration?.sign_in_url?.startsWith('/signin-with-chatgpt?') ? configuration.sign_in_url : null;
   function refresh() { setRefreshing(true); setRefreshToken((value) => value + 1); }
   function newAgent(role: Role, seed: RunRequest | null = null) {
+    if (role === 'researcher') { void spinResearch(seed?.benchmark_id || benchmarks[0]?.id); return; }
     if (seed) pendingLaunch.current = null; // An independent run must never replay its source.
     setLaunchSeed(seed); setLaunchRole(role);
   }
+  async function spinResearch(benchmarkId?: string) {
+    if (researchGuard.current) return;
+    if (!benchmarkId) { setNotice('Open or create a benchmark to give the research agent its context.'); return; }
+    if (pendingResearch.current?.benchmarkId !== benchmarkId) pendingResearch.current = { benchmarkId, key: crypto.randomUUID() };
+    researchGuard.current = true; setSpinningResearch(true); setError('');
+    try {
+      const run = await api<Run>('/agents/research-runs', { method: 'POST', headers: {
+        'Content-Type': 'application/json', 'Idempotency-Key': pendingResearch.current.key,
+      }, body: JSON.stringify({ benchmark_id: benchmarkId }) });
+      pendingResearch.current = null; setSelectedId(run.id); setOffset(0);
+      setNotice('Research agent queued. It will research papers first and request a GPU only when an experiment needs one.'); refresh();
+    } catch (failure) { setError(`${errorText(failure, 'Unable to spin out the research agent.')} Retry to safely recover this launch.`); }
+    finally { researchGuard.current = false; setSpinningResearch(false); }
+  }
   return <div className="agents">
-    <header className="agents-header"><div><h1>Agents</h1><p>Explore new research and turn existing ideas into benchmark attempts.</p></div><div className="agents-header-actions"><button className="button" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh'}</button><button className="button" disabled={!connected} onClick={() => newAgent('attempt')}>New attempt</button><button className="button button-primary" disabled={!connected} onClick={() => newAgent('researcher')}>New agent</button></div></header>
+    <header className="agents-header"><div><h1>Agents</h1><p>Explore new research and turn existing ideas into benchmark attempts.</p></div><div className="agents-header-actions"><button className="button" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh'}</button><button className="button" disabled={!connected} onClick={() => newAgent('attempt')}>New attempt</button><button className="button button-primary" disabled={!connected || spinningResearch || !benchmarks.length} onClick={() => newAgent('researcher')}>{spinningResearch ? 'Spinning out…' : 'Spin out research agent'}</button></div></header>
     {notice && <p className="agent-success" role="status">{notice}</p>}
     {configuration && !connected && <div className="agent-connection-note"><h2>{configuration.requires_sign_in ? 'Sign in to manage agents' : 'Agent service is not connected'}</h2><p>{configuration.message || 'Connect the Agent Harness to launch runs and see their progress.'}</p>{signInUrl && <a className="button button-primary" href={signInUrl} target="_top">Sign in to manage agents</a>}</div>}
     {error && <p className="error-banner" role="alert">{error} {historyReady && connected && 'Showing the last available run history.'}</p>}
-    {connected && poolError && <p className="error-banner" role="alert">{poolError} Launching is unavailable until sandbox capacity can be checked.</p>}
-    {connected && poolsReady && !pools.length && <p className="agent-warning">No eligible sandbox pools are currently available. Existing runs remain visible; new runs need registered capacity in ResourceManager.</p>}
+    {connected && poolError && <p className="error-banner" role="alert">{poolError} GPU job availability is unknown; research can still start.</p>}
+    {connected && poolsReady && !pools.length && <p className="agent-warning">No GPU resources are available yet. Research agents can read papers and plan experiments; execution will need resource capacity.</p>}
+    {connected && <ExperimentResources active={active} refreshToken={refreshToken} />}
     {connected && harnessError && <p className="error-banner" role="alert">{harnessError}</p>}
     {connected && harnessesReady && !harnesses?.harnesses.some((item) => item.available) && <p className="agent-warning">No agent harness is available. Open Connections to check Codex sign-in, external runtimes, and model profiles.</p>}
     {connected && <div className="agent-worker-status" aria-live="polite">{workerError ? <span>{workerError}</span> : workers ? <><span className={workers.workers_online ? 'agent-worker-online' : ''}>{workers.workers_online} {workers.workers_online === 1 ? 'worker' : 'workers'} online</span><span>{workers.running_runs} running · {workers.queued_runs} queued</span>{workers.workers_online === 0 && <span>Queued agents will wait until a worker connects.</span>}</> : <span>Checking worker availability…</span>}</div>}

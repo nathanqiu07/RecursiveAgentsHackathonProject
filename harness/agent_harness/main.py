@@ -1,6 +1,7 @@
 import os
 import secrets
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
@@ -11,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
 from .clients import ServiceError
 from .config import database_path, services_from_env
-from .models import RunRequest
+from .models import ResearchRunRequest, RunRequest
 from .profiles import ProfileRequest, ProfileStore, harness_catalog
 from .prompts import tools_for
 from .providers import check_provider, provider_models
@@ -209,10 +210,57 @@ def public_run(run, summary=False):
         if key not in {"messages", "runtime_cleanup"}
     }
     if summary:
+        proposal = state.get("research_proposal")
+        proposal = proposal if isinstance(proposal, dict) else {}
+        sources = state.get("research_sources")
+        sources = sources if isinstance(sources, dict) else {}
+        access = state.get("research_access")
+        access = access if isinstance(access, dict) else {}
+        mcp = access.get("you_mcp")
+        mcp = mcp if isinstance(mcp, dict) else {}
+        urls = []
+        candidates = proposal.get("source_urls", [])
+        candidates = candidates if isinstance(candidates, list) else []
+        for value in [*candidates, *sources]:
+            if not isinstance(value, str) or not 1 <= len(value) <= 1024 or value not in sources:
+                continue
+            try:
+                url = urlsplit(value)
+                _ = url.port
+                if (
+                    url.scheme != "https"
+                    or not url.hostname
+                    or url.username
+                    or url.password
+                    or url.fragment
+                    or "\\" in value
+                    or any(ord(character) <= 32 or ord(character) == 127 for character in value)
+                ):
+                    continue
+            except ValueError:
+                continue
+            if value not in urls:
+                urls.append(value)
+            if len(urls) == 3:
+                break
+        research_summary = {
+            "source_urls": urls,
+            "papers_read": len(sources),
+            "access_connected": isinstance(mcp.get("tools"), list) and "you-search" in mcp["tools"],
+        }
+        hypothesis = proposal.get("hypothesis")
+        if isinstance(hypothesis, str) and hypothesis.strip():
+            research_summary["hypothesis"] = hypothesis[:1200]
         state = {
             "steps": state.get("steps", 0),
             "experiment_count": len(state.get("experiments", [])),
             "publication": state.get("publication"),
+            **(
+                {"research_summary": research_summary}
+                if run["request"]["role"] == "researcher"
+                and (run["request"].get("allocation") is None or sources or proposal or access)
+                else {}
+            ),
         }
     return {**run, "state": state}
 
@@ -265,6 +313,8 @@ def resource_status():
 
 @app.post("/runs", status_code=202, dependencies=[Depends(authenticate)])
 def create_run(body: RunRequest, request: Request, response: Response, store=Depends(database)):
+    if body.allocation is None:
+        raise HTTPException(422, "Use /research-runs for automatic research setup")
     try:
         original = body.model_copy(deep=True)
         key = request.headers.get("idempotency-key")
@@ -289,6 +339,79 @@ def create_run(body: RunRequest, request: Request, response: Response, store=Dep
         run = store.create(body, key, original_request=original)
     except RunConflict as exc:
         raise HTTPException(409, str(exc)) from None
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    response.headers["Location"] = "/runs/" + run["id"]
+    return public_run(run)
+
+
+@app.post("/research-runs", status_code=202, dependencies=[Depends(authenticate)])
+def create_research_run(
+    body: ResearchRunRequest, request: Request, response: Response, store=Depends(database)
+):
+    # Identity is the user's one-field request, independent of mutable profiles,
+    # titles and current GPU availability. Existing idempotency machinery owns
+    # publication-safe creation atomically.
+    identity = RunRequest(
+        role="researcher",
+        benchmark_id=body.benchmark_id,
+        objective=f"Research benchmark {body.benchmark_id}",
+        allocation=None,
+        harness="codex",
+    )
+    key = request.headers.get("idempotency-key")
+    try:
+        repeated = store.replay(identity, key)
+        if repeated:
+            response.headers["Location"] = "/runs/" + repeated["id"]
+            return public_run(repeated)
+        with services_from_env() as services:
+            benchmark = services.benchmark(str(body.benchmark_id))
+        title = benchmark.get("title")
+        if not isinstance(title, str) or not title.strip():
+            raise HTTPException(502, "The benchmark context is unavailable")
+        catalog = harness_catalog(request.app.state.db_path)
+        available = {item["id"]: item for item in catalog["harnesses"] if item["available"]}
+        profiles = [item for item in catalog["profiles"] if item["enabled"]]
+        selected = None
+        for harness in ("codex", "builtin", "claude-code", "nemoclaw"):
+            if harness not in available:
+                continue
+            options = [item for item in profiles if item["harness"] == harness]
+            profile = next((item for item in options if item["auth_mode"] == "codex-oauth"), None)
+            profile = profile or next(
+                (item for item in options if item["api_key_set"] and item.get("base_url")), None
+            )
+            if (
+                harness == "codex"
+                or profile
+                or (harness == "builtin" and available[harness]["models"])
+            ):
+                selected = harness, profile
+                break
+        if selected is None:
+            raise HTTPException(409, "Sign in to Codex or connect a research model in Connections")
+        harness, profile = selected
+        run_request = RunRequest(
+            role="researcher",
+            benchmark_id=body.benchmark_id,
+            allocation=None,
+            objective=(
+                f"Research {title[:200]} (benchmark {body.benchmark_id}). "
+                "Read the complete benchmark contract, search the Library and external papers, "
+                "propose a distinct supported optimization, and document the evidence. "
+                "Begin research immediately; request GPU execution only when needed. "
+                "Submit a supported research paper to the Library when evidence is sufficient."
+            ),
+            harness=harness,
+            model_profile_id=profile["id"] if profile else None,
+            model=profile["model"] if profile else None,
+        )
+        run = store.create(run_request, key, original_request=identity)
+    except RunConflict as exc:
+        raise HTTPException(409, str(exc)) from None
+    except ServiceError as exc:
+        raise HTTPException(502, exc.code) from None
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
     response.headers["Location"] = "/runs/" + run["id"]

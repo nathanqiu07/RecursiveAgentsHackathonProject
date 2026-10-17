@@ -34,6 +34,38 @@ def target():
 
 
 class ServerSetupTests(unittest.TestCase):
+    def test_failed_controller_import_closes_unverified_forward(self):
+        with tempfile.TemporaryDirectory() as directory:
+            exported = Path(directory) / "export.json"
+            document = {
+                "node_id": "server-01",
+                "status": "ready",
+                "transport": "server-local",
+                "target": target(),
+                "gpu_uuid": target()["gpu_uuid"],
+                "key": "rn_private_fixture",
+            }
+            common.private_json(exported, document)
+            with (
+                patch.object(
+                    server_setup, "open_tunnel", return_value="/private/socket"
+                ),
+                patch.object(server_setup, "close_tunnel") as close,
+                patch.object(
+                    server_setup,
+                    "verify_connection",
+                    side_effect=common.Blocked("invalid_node_key"),
+                ),
+                self.assertRaisesRegex(common.Blocked, "invalid_node_key"),
+            ):
+                server_setup.connect_receipt(
+                    exported, Path(directory) / "laptop", "trusted-server"
+                )
+            self.assertEqual(close.call_args.args[1], "/private/socket")
+            self.assertFalse(
+                (Path(directory) / "laptop" / "server-01" / "connection.json").exists()
+            )
+
     def test_local_install_reuses_real_installer_without_ssh_or_key_arguments(self):
         with tempfile.TemporaryDirectory() as directory:
             calls = []

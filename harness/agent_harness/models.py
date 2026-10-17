@@ -24,16 +24,23 @@ class RunRequest(BaseModel):
     role: Literal["researcher", "attempt"]
     objective: Text
     benchmark_id: UUID | None = None
-    allocation: Allocation
+    allocation: Allocation | None = None
     max_steps: int = Field(default=40, ge=1, le=100, strict=True)
     harness: Literal["builtin", "codex", "claude-code", "nemoclaw"] = "builtin"
     model_profile_id: UUID | None = None
-    model: Annotated[
-        str, StringConstraints(max_length=256, pattern=r"^[A-Za-z0-9._/:-]+$")
-    ] | None = None
+    model: (
+        Annotated[str, StringConstraints(max_length=256, pattern=r"^[A-Za-z0-9._/:-]+$")] | None
+    ) = None
 
     @model_validator(mode="after")
     def benchmark_required(self):
         if self.role == "attempt" and self.benchmark_id is None:
             raise ValueError("An attempt agent requires benchmark_id")
+        if self.role == "attempt" and self.allocation is None:
+            raise ValueError("An attempt agent requires allocation")
         return self
+
+
+class ResearchRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    benchmark_id: UUID

@@ -125,6 +125,23 @@ test('launcher validates and forwards a normalized role request and stable idemp
   assert.equal(actual.body.id, RUN);
 });
 
+test('one-click research forwards only benchmark context and preserves its idempotency key', async () => {
+  const actual = await call('research-runs', 'POST', { benchmark_id: BENCHMARK }, fetcher((url, init) => {
+    assert.equal(url, env.AGENT_HARNESS_URL + '/research-runs');
+    assert.equal(init.method, 'POST');
+    assert.equal(new Headers(init.headers).get('Idempotency-Key'), 'one-click-research');
+    assert.deepEqual(JSON.parse(String(init.body)), { benchmark_id: BENCHMARK });
+    return reply({ ...result, request: { ...body, allocation: null, benchmark_id: BENCHMARK } }, 202);
+  }), { 'Idempotency-Key': 'one-click-research' });
+  assert.equal(actual.response.status, 202);
+  for (const extra of [{ objective: 'user option' }, { allocation: null }, { max_steps: 1 }, { count: 3 }]) {
+    const invalid = await call('research-runs', 'POST', { benchmark_id: BENCHMARK, ...extra },
+      fetcher(() => { throw new Error('Do not forward extra controls'); }));
+    assert.equal(invalid.response.status, 422);
+  }
+  assert.equal((await call('research-runs', 'GET')).response.status, 405);
+});
+
 test('launch defaults match the harness request contract without accepting caller-selected images', async () => {
   const input = { ...body } as Record<string, unknown>;
   delete input.max_steps;

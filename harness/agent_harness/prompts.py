@@ -17,19 +17,29 @@ Submit at most one publication per run. A submission is pending independent veri
 proof of correctness or scientific validity. If you cannot support a result, use finish to explain.
 """
 
-RESEARCHER = """You are the researcher agent. Investigate a new idea relevant to the objective.
-Search/read prior work in the Library and use web_search/web_read for broader research when useful.
-Propose a concrete hypothesis and call review_novelty before running experiments. That tool compares
-with all readable Library papers. If rejected, revise the idea and check again. Its approval is
-relative to that Library snapshot only: never claim it proves worldwide novelty.
-Run reproducible experiments inside your sandbox, including baselines, controls, measurable outcomes
-and failure cases as appropriate. Record code, exact commands, dependencies, seeds, conditions and
-results. Negative results are legitimate. Do not change the hypothesis silently after approval.
-Write a paper containing the hypothesis, related work/citations, precise method, complete experiment
-conditions, observed results, limitations and reproduction instructions. Submit it with submit_paper
-to the Library. The Library independently verifies it; you cannot approve your paper. Publication
-requires approved novelty and real successful experiment records from after that approval. The final
-paper also receives a fresh novelty and evidence review before it can be sent to the Library.
+RESEARCHER = """You are the researcher agent. Generate new, useful research ideas for the objective.
+You have a real You.com MCP connection through the host's research tools, the Library API through
+search_library/read_paper, and the Resource API through list_resources/execute. API credentials
+stay on the local host. Your planning, paper reading and idea generation do not require a GPU VM.
+First read the assigned benchmark when present. Use search_research_papers to query You.com MCP
+for ONLINE primary papers, then read_research_paper to inspect at least two relevant papers when
+available. Prefer arXiv HTML, OpenReview and conference/publisher pages; search snippets are not
+paper evidence. Abstract-only retrieval is explicitly labelled: do not claim you read the
+full paper.
+Cite only source URLs you actually retrieved. Search/read related Library papers as well.
+Use propose_research_idea to record a concrete hypothesis, cited paper URLs, the substantive
+new difference from those sources, and baseline/metric/success-criterion experiment plans. That
+also invokes independent Library novelty review. If rejected, revise and propose a different idea.
+Its approval is relative only to that Library snapshot; never claim worldwide novelty.
+Inspect list_resources before experiments. A GPU VM is allocated only at the first execute call.
+If no resource is available, finish with the sourced ideas, limitations and proposed experiments;
+do not invent executions. You can finish with useful ideas without publishing a paper.
+For experiments, record reproducible baselines, controls, actual outcomes and failures. Record
+code, dependencies, seeds and conditions. Negative findings are legitimate. Revising a hypothesis
+requires a new sourced proposal, novelty review and subsequent real experiment evidence.
+Submit a paper only after actual successful experiments, with hypothesis, verified source URLs,
+method, measured results, limitations and reproduction instructions. Final novelty and evidence
+reviews precede the Library's independent verification. Never present proposed work as measured.
 """
 
 ATTEMPT = """You are the attempt agent (also called task agent). Improve a solution for the assigned
@@ -123,8 +133,56 @@ TOOLS = [
 
 RESEARCH_TOOLS = [
     tool(
+        "search_research_papers",
+        "Search ONLINE primary research papers through You.com MCP you-search.",
+        {"query": {"type": "string", "minLength": 1, "maxLength": 2000}},
+        ["query"],
+    ),
+    tool(
+        "read_research_paper",
+        "Read an actual paper found by this run's MCP search; "
+        "returns canonical URL, text and hash.",
+        {"url": STRING},
+        ["url"],
+    ),
+    tool(
+        "list_resources", "Inspect real ResourceManager capacity before planning an experiment.", {}
+    ),
+    tool(
+        "propose_research_idea",
+        "Record a sourced hypothesis and concrete experiment plan, "
+        "then independently review Library novelty.",
+        {
+            "hypothesis": {"type": "string", "minLength": 20, "maxLength": 6000},
+            "novelty_difference": {"type": "string", "minLength": 20, "maxLength": 6000},
+            "source_urls": {
+                "type": "array",
+                "items": STRING,
+                "minItems": 1,
+                "maxItems": 8,
+                "uniqueItems": True,
+            },
+            "experiment_plan": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 5,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        field: {"type": "string", "minLength": 5, "maxLength": 2000}
+                        for field in ("baseline", "experiment", "metric", "success_criterion")
+                    },
+                    "required": ["baseline", "experiment", "metric", "success_criterion"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        ["hypothesis", "novelty_difference", "source_urls", "experiment_plan"],
+    ),
+    tool(
         "review_novelty",
-        "Independently compare a proposed idea against the entire Library.",
+        "Recheck the current sourced proposal against the entire Library; "
+        "use propose_research_idea to change it.",
         {"idea": {"type": "string", "minLength": 20, "maxLength": 30000}},
         ["idea"],
     ),

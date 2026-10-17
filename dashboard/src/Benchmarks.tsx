@@ -258,6 +258,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
   const [verifier, setVerifier] = useState<NemotronVerifierStatus>();
   const [measuring, setMeasuring] = useState(false);
   const [view, setView] = useState<BenchmarkView>('overview');
+  const [agentLaunchToken, setAgentLaunchToken] = useState(0);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -291,7 +292,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
   }, [active, load]);
 
   function openBenchmark(id: string) {
-    setDetail(null); setSelectedId(id); setOffset(0); setView('overview'); setMessage(''); setError('');
+    setDetail(null); setSelectedId(id); setOffset(0); setView('overview'); setAgentLaunchToken(0); setMessage(''); setError('');
   }
 
   async function measureBaseline() {
@@ -309,14 +310,14 @@ export default function Benchmarks({ active }: { active: boolean }) {
   const benchmark = detail?.benchmark;
   return <div className="benchmarks">
     {selectedId && <nav className="benchmark-breadcrumb" aria-label="Benchmark navigation"><button onClick={() => {
-      setSelectedId(null); setDetail(null); setOffset(0); setMessage(''); setError('');
+      setSelectedId(null); setDetail(null); setOffset(0); setAgentLaunchToken(0); setMessage(''); setError('');
     }}>Benchmarks</button><span aria-hidden="true">/</span><span>{benchmark?.title ?? 'Loading…'}</span></nav>}
     <div className="benchmarks-header">
       <div><h1>{selectedId ? benchmark?.title ?? 'Benchmark' : 'Benchmarks'}{benchmark && <span className="benchmark-version">Version {benchmark.version}</span>}</h1>
         <p>{selectedId ? 'Open-ended solutions. Independently verified scores.' : 'Create open-ended challenges and rank solutions by verified results.'}</p></div>
       <div className="benchmark-actions">
         <button className="button" onClick={() => { setRefreshing(true); void load(); }} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
-        {selectedId ? <><button className="button" disabled={!benchmark} onClick={() => setView('agents')}>Launch agents</button><button className="button button-primary" disabled={!benchmark || (isNemotronBenchmark(benchmark) && !verifier?.baseline_ready)} onClick={() => setSubmitting(true)}>Submit solution</button></>
+        {selectedId ? <><button className="button" disabled={!benchmark} onClick={() => { setView('agents'); setAgentLaunchToken((value) => value + 1); }}>Spin out research agent</button><button className="button button-primary" disabled={!benchmark || (isNemotronBenchmark(benchmark) && !verifier?.baseline_ready)} onClick={() => setSubmitting(true)}>Submit solution</button></>
           : <button className="button button-primary" onClick={() => setCreating('custom')}>Create benchmark</button>}
       </div>
     </div>
@@ -340,7 +341,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
         <div className="benchmark-description">
           <div><h2>Objective</h2><p className="benchmark-prompt">{isNemotronBenchmark(detail.benchmark) ? detail.benchmark.prompt.split('\n')[0] : detail.benchmark.prompt}</p>
             <p className="benchmark-overview-flow">{isNemotronBenchmark(detail.benchmark) ? 'Prepare the reference in Verifier instructions, launch agents to explore improvements, then submit a pinned implementation.' : 'Read the verifier and submission instructions, launch agents to explore improvements, then submit a pinned implementation.'} Verified results appear on the leaderboard.</p>
-            <div className="benchmark-actions"><button className="button" onClick={() => setView('verifier')}>Set up verification</button><button className="button button-primary" onClick={() => setView('agents')}>Launch benchmark agents</button></div>
+            <div className="benchmark-actions"><button className="button" onClick={() => setView('verifier')}>Set up verification</button><button className="button button-primary" onClick={() => { setView('agents'); setAgentLaunchToken((value) => value + 1); }}>Spin out research agent</button></div>
           </div>
           <aside className="benchmark-verifier" aria-label="Verification details"><dl>
             <div><dt>Scoring</dt><dd>{detail.benchmark.score_name} · {detail.benchmark.score_direction === 'higher' ? 'Higher' : 'Lower'} is better</dd></div>
@@ -355,7 +356,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
           <BenchmarkVerifier benchmark={detail.benchmark} verifier={verifier} measuring={measuring} onMeasure={() => { void measureBaseline(); }} />
         </section>
         <section role="tabpanel" id="benchmark-panel-agents" aria-labelledby="benchmark-tab-agents" hidden={view !== 'agents'}>
-          <BenchmarkAgents benchmark={detail.benchmark} active={active && view === 'agents'} />
+          <BenchmarkAgents benchmark={detail.benchmark} active={active && view === 'agents'} launchToken={agentLaunchToken} />
         </section>
         <section className="benchmark-section" role="tabpanel" id="benchmark-panel-leaderboard" aria-labelledby="benchmark-tab-leaderboard" hidden={view !== 'leaderboard'}>
           <div className="section-heading"><div><h2 id="leaderboard-title">Leaderboard</h2><p className="muted">Verified results, ranked by {detail.benchmark.score_name.toLowerCase()}.</p></div></div>
@@ -397,7 +398,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
         <td className="benchmark-score">{score(item.best_score)}<span className="cell-secondary">{item.score_name} · {item.score_direction === 'higher' ? 'Higher' : 'Lower'} is better</span></td><td className="muted">{date(item.created_at)}</td>
       </tr>)}</tbody></table></div>}
     {creating && <CreateBenchmark verifier={verifier} measuring={measuring} onMeasure={() => { void measureBaseline(); }} preset={creating === 'nemotron' ? nemotronBenchmark : undefined} onClose={() => setCreating(null)} onCreated={(created) => {
-      setCreating(null); setBenchmarks((items) => [created, ...items]); setSelectedId(created.id); setOffset(0); setView('overview'); setDetail(null);
+      setCreating(null); setBenchmarks((items) => [created, ...items]); setSelectedId(created.id); setOffset(0); setView('overview'); setAgentLaunchToken(0); setDetail(null);
       setMessage('Benchmark created. Submit a solution to start verification.');
     }} />}
     {submitting && benchmark && <SubmitSolution benchmark={benchmark} onClose={() => setSubmitting(false)} onSubmitted={() => {

@@ -21,11 +21,28 @@ PAPER_ID = "22222222-2222-4222-8222-222222222222"
 OTHER_PAPER_ID = "33333333-3333-4333-8333-333333333333"
 CHECKPOINT = "https://github.com/example/base/commit/" + "a" * 40
 IDEA = "Use a deterministic triangular-number recurrence and compare it with summation."
+ONLINE_PAPER = "https://arxiv.org/abs/2401.12345"
+PROPOSAL = {
+    "hypothesis": IDEA,
+    "novelty_difference": (
+        "Use the retrieved baseline to isolate recurrence correctness from throughput."
+    ),
+    "source_urls": [ONLINE_PAPER],
+    "experiment_plan": [
+        {
+            "baseline": "Direct Python summation",
+            "experiment": "Compare recurrence with direct summation at n=10",
+            "metric": "Integer result equality",
+            "success_criterion": "Both implementations produce 55 with an assertion",
+        }
+    ],
+}
 PAPER_TEXT = (
     "Hypothesis: triangular recurrence agrees with direct summation. Related work: the Library "
     "baseline uses direct summation. Method: compare both implementations at n=10 using Python. "
     "Observed result: both return 55. Reproduction: execute the included Python command. "
-    "Limitation: this is a small CPU correctness experiment, not a performance claim."
+    "Limitation: this is a small CPU correctness experiment, not a performance claim. "
+    "Retrieved related work: " + ONLINE_PAPER
 )
 EXPERIMENT = (
     "python3 -c 'n=10; baseline=sum(range(n+1)); candidate=n*(n+1)//2; "
@@ -108,11 +125,13 @@ class FakeModel:
         return {
             "role": "assistant",
             "content": None,
-            "tool_calls": [{
-                "id": f"call-{len(self.model_calls)}",
-                "type": "function",
-                "function": {"name": name, "arguments": json.dumps(arguments)},
-            }],
+            "tool_calls": [
+                {
+                    "id": f"call-{len(self.model_calls)}",
+                    "type": "function",
+                    "function": {"name": name, "arguments": json.dumps(arguments)},
+                }
+            ],
         }
 
     def complete_json(self, system, value):
@@ -133,6 +152,36 @@ class FakeModel:
 class FakeWeb:
     def __init__(self):
         self.searches, self.reads = [], []
+
+    def research_capabilities(self):
+        return {
+            "provider": "you_mcp",
+            "profile": "free",
+            "tools": ["you-search"],
+            "contents_available": False,
+        }
+
+    def search_papers(self, query):
+        self.searches.append(query)
+        return {
+            "provider": "you_mcp",
+            "papers": [{"url": ONLINE_PAPER, "title": "Recorded test source"}],
+        }
+
+    def read_paper(self, url):
+        self.reads.append(url)
+        return {
+            "url": url,
+            "read_url": url.replace("/abs/", "/html/"),
+            "text": (
+                "An explicit test fixture of a retrieved primary paper "
+                "describing a recurrence and baseline. "
+            )
+            * 8,
+            "retrieved_at": 1000,
+            "content_kind": "full_text",
+            "truncated": False,
+        }
 
     def search(self, query):
         self.searches.append(query)
@@ -166,6 +215,18 @@ class FakeServices:
             "score_direction": "higher",
         }
 
+    def resources(self):
+        return [
+            {
+                "id": "test-cpu",
+                "node_id": "test-node",
+                "cpus": 1.0,
+                "memory_mb": 128,
+                "scratch_mb": 16,
+                "max_timeout_seconds": 600,
+            }
+        ]
+
     def papers(self):
         return copy.deepcopy(self.library)
 
@@ -193,8 +254,11 @@ class FakeServices:
         return self.job(self.allocations[key])
 
     def job(self, job_id):
-        return {key: value for key, value in self.jobs[job_id].items()
-                if key not in {"directory", "lines"}}
+        return {
+            key: value
+            for key, value in self.jobs[job_id].items()
+            if key not in {"directory", "lines"}
+        }
 
     def send(self, job_id, message_id, line):
         # This direct local execution exists only in this fixture. The production
@@ -247,7 +311,7 @@ def harness(tmp_path):
     store.close()
 
 
-def owned_engine(harness, role="researcher", model=None, allocate=True):
+def owned_engine(harness, role="researcher", model=None, allocate=True, online=True):
     store, services, web, _ = harness
     store.create(request(role))
     run, token, _ = store.claim()
@@ -255,12 +319,19 @@ def owned_engine(harness, role="researcher", model=None, allocate=True):
     if allocate:
         engine.allocate()
     engine.state.update(steps=0, experiments=[])
+    if role == "researcher" and online:
+        engine.tool("search_research_papers", {"query": "fixture recurrence paper"})
+        engine.tool("read_research_paper", {"url": ONLINE_PAPER})
     engine.save()
     return engine
 
 
 def tool(engine, step, name, **arguments):
     engine.state["steps"] = step
+    if name == "review_novelty" and engine.role == "researcher":
+        return engine.tool("propose_research_idea", {**PROPOSAL, "hypothesis": arguments["idea"]})[
+            "novelty"
+        ]
     return engine.tool(name, arguments)
 
 
@@ -268,9 +339,9 @@ def researcher_actions():
     return [
         action("search_library", query="summation"),
         action("read_paper", paper_id=PAPER_ID),
-        action("web_search", query="triangular recurrence"),
-        action("web_read", url="https://example.org/math"),
-        action("review_novelty", idea=IDEA),
+        action("search_research_papers", query="triangular recurrence"),
+        action("read_research_paper", url=ONLINE_PAPER),
+        action("propose_research_idea", **PROPOSAL),
         action("execute", command=EXPERIMENT, purpose="experiment", timeout_seconds=2),
         action("submit_paper", **paper_args(evidence_ids=["execute-6"])),
     ]
@@ -288,8 +359,11 @@ def attempt_actions():
 
 def test_researcher_submits_paper_to_library_with_real_recorded_experiments(harness):
     store, services, web, _ = harness
-    services.library.append(paper_record(OTHER_PAPER_ID, "An unverified alternative.",
-                                         status="pending_verification", report=None))
+    services.library.append(
+        paper_record(
+            OTHER_PAPER_ID, "An unverified alternative.", status="pending_verification", report=None
+        )
+    )
     run = store.create(request())
     model = FakeModel(researcher_actions())
 
@@ -307,14 +381,16 @@ def test_researcher_submits_paper_to_library_with_real_recorded_experiments(harn
     assert "Harness experiment records" in paper["paper_text"]
     assert paper["submitted_by"] == "researcher:" + run["id"]
     assert len(model.novelty_calls) == 2
-    assert all({paper["id"] for paper in call["library_papers"]}
-               == {PAPER_ID, OTHER_PAPER_ID} for call in model.novelty_calls)
+    assert all(
+        {paper["id"] for paper in call["library_papers"]} == {PAPER_ID, OTHER_PAPER_ID}
+        for call in model.novelty_calls
+    )
     assert model.novelty_calls[0]["final_paper"] is False
     assert model.novelty_calls[1]["candidate"] == PAPER_TEXT
     assert model.novelty_calls[1]["final_paper"] is True
     assert model.evidence_calls[0]["recorded_executions"][0]["output"] == "observed 55 55\n"
     assert web.searches == ["triangular recurrence"]
-    assert web.reads == ["https://example.org/math"]
+    assert web.reads == [ONLINE_PAPER]
     kinds = [event["kind"] for event in store.events(run["id"])]
     assert kinds.index("novelty_review") < kinds.index("experiment_started")
     assert kinds.index("experiment_result") < kinds.index("publication_started")
@@ -346,20 +422,32 @@ def test_attempt_reads_existing_paper_tests_candidate_and_submits_to_benchmark(h
 def test_each_run_gets_a_different_workspace_and_compute_job(harness):
     store, services, web, _ = harness
     first = store.create(request("attempt"))
-    first_model = FakeModel([
-        action("read_benchmark"),
-        action("execute", command="printf private > private.txt", purpose="setup",
-               timeout_seconds=1),
-        action("finish", summary="First workspace prepared."),
-    ])
+    first_model = FakeModel(
+        [
+            action("read_benchmark"),
+            action(
+                "execute",
+                command="printf private > private.txt",
+                purpose="setup",
+                timeout_seconds=1,
+            ),
+            action("finish", summary="First workspace prepared."),
+        ]
+    )
     assert run_once(store, services, first_model, web)
     second = store.create(request("attempt"))
-    second_model = FakeModel([
-        action("read_benchmark"),
-        action("execute", command="test ! -f private.txt && printf isolated", purpose="test",
-               timeout_seconds=1),
-        action("finish", summary="Second workspace isolated."),
-    ])
+    second_model = FakeModel(
+        [
+            action("read_benchmark"),
+            action(
+                "execute",
+                command="test ! -f private.txt && printf isolated",
+                purpose="test",
+                timeout_seconds=1,
+            ),
+            action("finish", summary="Second workspace isolated."),
+        ]
+    )
     assert run_once(store, services, second_model, web)
     first_saved, second_saved = store.get(first["id"]), store.get(second["id"])
     assert first_saved["compute_job_id"] != second_saved["compute_job_id"]
@@ -368,26 +456,38 @@ def test_each_run_gets_a_different_workspace_and_compute_job(harness):
     assert all(key.startswith("harness-") for key in services.allocations)
 
 
-@pytest.mark.parametrize("role,name,args", [
-    ("researcher", "submit_attempt", attempt_args()),
-    ("attempt", "submit_paper", paper_args()),
-    ("attempt", "review_novelty", {"idea": IDEA}),
-])
+@pytest.mark.parametrize(
+    "role,name,args",
+    [
+        ("researcher", "submit_attempt", attempt_args()),
+        ("attempt", "submit_paper", paper_args()),
+        ("attempt", "review_novelty", {"idea": IDEA}),
+    ],
+)
 def test_agent_role_cannot_invoke_other_roles_publication_or_review(harness, role, name, args):
     engine = owned_engine(harness, role)
     with pytest.raises(GateError, match="not available"):
         engine.tool(name, args)
 
 
-@pytest.mark.parametrize("role,reason", [
-    ("researcher", "novelty"),
-    ("attempt", "benchmark"),
-])
+@pytest.mark.parametrize(
+    "role,reason",
+    [
+        ("researcher", "novelty"),
+        ("attempt", "benchmark"),
+    ],
+)
 def test_experiments_require_novelty_or_benchmark_read_first(harness, role, reason):
     engine = owned_engine(harness, role)
     with pytest.raises(GateError, match=reason):
-        tool(engine, 1, "execute", command="printf premature", purpose="experiment",
-             timeout_seconds=1)
+        tool(
+            engine,
+            1,
+            "execute",
+            command="printf premature",
+            purpose="experiment",
+            timeout_seconds=1,
+        )
     assert harness[1].sent == {}
 
 
@@ -433,7 +533,8 @@ def test_changed_final_paper_receives_fresh_novelty_review_and_can_be_rejected(h
         tool(engine, 3, "submit_paper", **paper_args(paper_text=changed))
     assert model.novelty_calls[1]["candidate"] == changed
     assert {item["id"] for item in model.novelty_calls[1]["library_papers"]} == {
-        PAPER_ID, OTHER_PAPER_ID
+        PAPER_ID,
+        OTHER_PAPER_ID,
     }
     assert not model.evidence_calls
     assert not harness[1].published_papers
@@ -458,19 +559,28 @@ def test_unreadable_paper_prevents_incomplete_novelty_approval(harness):
     assert not model.novelty_calls
 
 
-@pytest.mark.parametrize("change", [
-    {"exit_code": 1},
-    {"truncated": True},
-    {"output": "   "},
-    {"purpose": "setup"},
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"exit_code": 1},
+        {"truncated": True},
+        {"output": "   "},
+        {"purpose": "setup"},
+    ],
+)
 def test_failed_truncated_empty_or_setup_records_cannot_authorize_publication(harness, change):
     engine = owned_engine(harness, "attempt")
-    engine.state["experiments"] = [{
-        "id": "execute-4", "purpose": "test", "exit_code": 0,
-        "output": "candidate correctness 55", "truncated": False, "step": 4,
-        **change,
-    }]
+    engine.state["experiments"] = [
+        {
+            "id": "execute-4",
+            "purpose": "test",
+            "exit_code": 0,
+            "output": "candidate correctness 55",
+            "truncated": False,
+            "step": 4,
+            **change,
+        }
+    ]
     with pytest.raises(GateError, match="successful, nontruncated test"):
         engine.evidence(["execute-4"], "test")
 
@@ -479,8 +589,14 @@ def test_evidence_reviewer_can_reject_unsubstantiated_paper_even_with_successful
     model = FakeModel(supported=False)
     engine = owned_engine(harness, model=model)
     tool(engine, 1, "review_novelty", idea=IDEA)
-    tool(engine, 2, "execute", command="printf made-up-output", purpose="experiment",
-         timeout_seconds=1)
+    tool(
+        engine,
+        2,
+        "execute",
+        command="printf made-up-output",
+        purpose="experiment",
+        timeout_seconds=1,
+    )
     with pytest.raises(GateError, match="Evidence reviewer did not approve"):
         tool(engine, 3, "submit_paper", **paper_args())
     assert not harness[1].published_papers
@@ -495,8 +611,12 @@ def test_invalid_benchmark_payload_and_unpinned_checkpoint_do_not_publish(harnes
     with pytest.raises(GateError, match="submission_schema"):
         tool(engine, 5, "submit_attempt", **attempt_args(payload={"answer": "55"}))
     with pytest.raises(GateError, match="full commit SHA"):
-        tool(engine, 6, "submit_attempt", **attempt_args(
-            base_checkpoint_url="https://github.com/example/base/tree/main"))
+        tool(
+            engine,
+            6,
+            "submit_attempt",
+            **attempt_args(base_checkpoint_url="https://github.com/example/base/tree/main"),
+        )
     assert not harness[1].published_attempts
 
 
@@ -548,7 +668,8 @@ def test_interrupted_run_reconciles_sandbox_without_restarting_agent(harness, pu
     saved = store.get(engine.id)
     assert saved["status"] == "needs_attention"
     assert saved["error"] == (
-        "publication_outcome_unknown_do_not_resubmit" if publishing
+        "publication_outcome_unknown_do_not_resubmit"
+        if publishing
         else "interrupted_run_not_replayed"
     )
     assert services.cancelled_jobs == [engine.job_id]
@@ -623,12 +744,15 @@ def test_attempt_must_read_a_relevant_paper_when_search_has_matches(harness):
     assert not harness[1].published_attempts
 
 
-@pytest.mark.parametrize("payload,schema", [
-    (55, {"type": "integer"}),
-    ("55", {"type": "string"}),
-    ([5, 5], {"type": "array", "items": {"type": "integer"}}),
-    (None, {"type": "null"}),
-])
+@pytest.mark.parametrize(
+    "payload,schema",
+    [
+        (55, {"type": "integer"}),
+        ("55", {"type": "string"}),
+        ([5, 5], {"type": "array", "items": {"type": "integer"}}),
+        (None, {"type": "null"}),
+    ],
+)
 def test_benchmark_schema_can_define_payloads_other_than_objects(harness, payload, schema):
     harness[1].benchmark_value["submission_schema"] = schema
     engine = owned_engine(harness, "attempt")
@@ -690,7 +814,7 @@ def test_uncertain_compute_allocation_recovers_same_job_only_to_cancel(harness):
     assert len(calls) == 2 and calls[0] == calls[1]
     assert len(services.jobs) == 1
     assert services.cancelled_jobs == [saved["compute_job_id"]]
-    assert not model.model_calls
+    assert model.model_calls  # Online idea generation precedes the lazy allocation.
 
 
 def test_library_change_during_final_evidence_review_prevents_publication(harness):

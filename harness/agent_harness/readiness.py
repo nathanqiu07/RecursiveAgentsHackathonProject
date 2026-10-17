@@ -102,14 +102,16 @@ def build_readiness(db_path):
             else "Save a Crusoe API key and model, then run its connection test.",
         )
         you = providers["you"]
-        search_checked = bool(you.get("check") and you["check"].get("ok"))
         add(
             "search",
             "You.com search",
-            you.get("configured") and search_checked,
-            "Search connection passed its test."
-            if search_checked
-            else "Optional: save a You.com key and run its connection test for web search.",
+            True,
+            "You.com MCP uses the saved server key; live tools are checked when research starts."
+            if you.get("configured")
+            else (
+                "You.com MCP free profile is available without a key (100 searches/day); "
+                "paper reads use public HTTPS. Live access is checked when research starts."
+            ),
             False,
         )
     except (ValueError, ServiceError, SettingsError):

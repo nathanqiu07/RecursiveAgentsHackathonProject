@@ -63,6 +63,7 @@ function query(url: URL, allowed: Record<string, { initial: number; max: number 
 }
 
 function route(path: string[]): Route | null {
+  if (path.length === 2 && path[1] === 'research-runs') return { method: 'POST', destination: '/research-runs', kind: 'research-runs' };
   if (path[1] === 'settings') {
     if (path.length === 3 && ['providers', 'readiness', 'harnesses'].includes(path[2])) return {
       method: 'GET', destination: `/settings/${path[2]}`, kind: path[2],
@@ -211,7 +212,8 @@ export async function agentHarnessApi(request: Request, path: string[], env: Rec
   }
   const selected = route(path);
   if (!selected) return json({ error: 'Agent route not found.' }, 404);
-  const launch = selected.kind === 'runs' && request.method === 'POST';
+  const researchLaunch = selected.kind === 'research-runs';
+  const launch = researchLaunch || (selected.kind === 'runs' && request.method === 'POST');
   const providerRoute = path[1] === 'settings';
   const expectedMethod = launch ? 'POST' : selected.method;
   if (request.method !== expectedMethod) {
@@ -251,7 +253,7 @@ export async function agentHarnessApi(request: Request, path: string[], env: Rec
     try {
       const content = await boundedBody(request, MAX_REQUEST_BYTES);
       const input: unknown = JSON.parse(new TextDecoder().decode(content));
-      const validated = runRequest.safeParse(input);
+      const validated = (researchLaunch ? z.object({ benchmark_id: z.string().regex(UUID) }).strict() : runRequest).safeParse(input);
       if (!validated.success) {
         return json({ error: 'Check the agent launch settings.', details: validated.error.issues.map((issue) => ({
           path: issue.path.map(String), message: issue.message,

@@ -21,6 +21,7 @@ from controller import (
     INSTALLER,
     PACKAGES,
     bundle_for,
+    close_tunnel,
     http,
     open_tunnel,
     register_resource,
@@ -255,7 +256,16 @@ def connect_receipt(
             pass
     if not connected:
         receipt["control_socket"] = open_tunnel(target, directory)
-        receipt["verification"] = verify_connection(receipt)["verification"]
+        try:
+            receipt["verification"] = verify_connection(receipt)["verification"]
+        except Exception:
+            # An unverified forward must not occupy the controller port and
+            # prevent the operator from retrying with corrected connection data.
+            try:
+                close_tunnel(target, receipt["control_socket"])
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+            raise
     private_json(path, receipt)
     if resources_dir:
         register_resource(

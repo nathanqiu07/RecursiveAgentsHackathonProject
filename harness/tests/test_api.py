@@ -72,6 +72,12 @@ class FakeServices:
     def submission(self, identifier):
         return self._read("submission", identifier)
 
+    def benchmark(self, identifier):
+        self.calls.append(("benchmark", identifier))
+        if self.error:
+            raise self.error
+        return {"id": identifier, "title": "Optimize Nemotron"}
+
     def resources(self):
         self.calls.append(("resources", None))
         if self.error:
@@ -395,6 +401,146 @@ def test_shared_resource_status_preserves_busy_pools(client, monkeypatch):
     assert fake.closed is True
 
 
+def test_one_click_research_launch_needs_only_benchmark_and_no_gpu(client, monkeypatch):
+    fake = FakeServices()
+    monkeypatch.setattr(main, "services_from_env", lambda: fake)
+    monkeypatch.setattr(
+        main,
+        "harness_catalog",
+        lambda _path: {
+            "harnesses": [{"id": "codex", "available": True, "models": []}],
+            "profiles": [],
+        },
+    )
+    response = client.post(
+        "/research-runs",
+        json={"benchmark_id": BENCHMARK},
+        headers={"Idempotency-Key": "research-one-click"},
+    )
+    assert response.status_code == 202
+    run = response.json()
+    assert run["status"] == "queued"
+    assert run["request"]["role"] == "researcher"
+    assert run["request"]["allocation"] is None
+    assert run["request"]["harness"] == "codex"
+    assert run["request"]["benchmark_id"] == BENCHMARK
+    assert "Optimize Nemotron" in run["request"]["objective"]
+    assert fake.calls == [("benchmark", BENCHMARK)]
+    assert fake.closed
+    # An uncertain launch is recovered before any mutable model or service check.
+    monkeypatch.setattr(main, "services_from_env", lambda: pytest.fail("Do not re-resolve context"))
+    repeated = client.post(
+        "/research-runs",
+        json={"benchmark_id": BENCHMARK},
+        headers={"Idempotency-Key": "research-one-click"},
+    )
+    assert repeated.json()["id"] == run["id"]
+    assert client.get("/runs").json()["total"] == 1
+    conflict = client.post(
+        "/research-runs",
+        json={"benchmark_id": PAPER},
+        headers={"Idempotency-Key": "research-one-click"},
+    )
+    assert conflict.status_code == 409
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"objective": "set this"},
+        {"allocation": None},
+        {"max_steps": 9},
+        {"harness": "codex"},
+        {"count": 3},
+    ],
+)
+def test_one_click_research_rejects_caller_controls(client, extra):
+    response = client.post("/research-runs", json={"benchmark_id": BENCHMARK, **extra})
+    assert response.status_code == 422
+
+
+def test_one_click_research_chooses_saved_codex_profile_and_keeps_credentials_private(
+    client, monkeypatch
+):
+    monkeypatch.setattr(main, "services_from_env", FakeServices)
+    monkeypatch.setattr(
+        main,
+        "harness_catalog",
+        lambda _path: {
+            "harnesses": [
+                {"id": "builtin", "available": True, "models": [{"id": "other"}]},
+                {"id": "codex", "available": True, "models": []},
+            ],
+            "profiles": [
+                {
+                    "id": PAPER,
+                    "enabled": True,
+                    "harness": "codex",
+                    "auth_mode": "codex-oauth",
+                    "api_key_set": False,
+                    "model": "configured-model",
+                }
+            ],
+        },
+    )
+    response = client.post("/research-runs", json={"benchmark_id": BENCHMARK})
+    assert response.status_code == 202
+    selected = response.json()["request"]
+    assert selected["harness"] == "codex"
+    assert selected["model_profile_id"] == PAPER
+    assert selected["model"] == "configured-model"
+    assert "api_key" not in selected
+
+
+def test_one_click_research_without_model_reports_setup_instead_of_claiming_a_run(
+    client, monkeypatch
+):
+    monkeypatch.setattr(main, "services_from_env", FakeServices)
+    monkeypatch.setattr(main, "harness_catalog", lambda _path: {"harnesses": [], "profiles": []})
+    response = client.post("/research-runs", json={"benchmark_id": BENCHMARK})
+    assert response.status_code == 409
+    assert client.get("/runs").json()["total"] == 0
+
+
+def test_run_list_has_compact_actual_research_progress_without_paper_text(client, database):
+    run_id = client.post("/runs", json=request()).json()["id"]
+    urls = [f"https://arxiv.org/abs/2601.0000{index}" for index in range(5)]
+    unsafe = [
+        "http://papers.example/test",
+        "https://user:secret@papers.example/test",
+        "https://papers.example/" + "x" * 1100,
+    ]
+    sources = {
+        url: {"text": "private-full-paper-text", "text_sha256": "a" * 64}
+        for url in [*unsafe, *urls]
+    }
+    store = RunStore(database)
+    _run, token, _interrupted = store.claim()
+    store.update(
+        run_id,
+        token,
+        state={
+            "research_sources": sources,
+            "research_proposal": {"hypothesis": "h" * 2000, "source_urls": [*unsafe, *urls]},
+            "research_access": {"you_mcp": {"tools": ["you-search"], "api_key": "private-key"}},
+        },
+    )
+    store.finish(run_id, token, "completed")
+    store.close()
+    response = client.get("/runs")
+    assert response.status_code == 200
+    summary = response.json()["runs"][0]["state"]["research_summary"]
+    assert summary["source_urls"] == urls[:3]
+    assert len(summary["hypothesis"]) == 1200
+    assert summary["papers_read"] == len(sources)
+    assert summary["access_connected"] is True
+    assert "private-full-paper-text" not in response.text
+    assert "private-key" not in response.text
+    assert "research_sources" not in response.text
+    detail = client.get(f"/runs/{run_id}").json()
+    assert detail["state"]["research_sources"][urls[0]]["text"] == "private-full-paper-text"
+
+
 def test_all_agent_routes_require_configured_bearer_key_but_health_stays_public(
     database, monkeypatch
 ):
@@ -410,6 +556,7 @@ def test_all_agent_routes_require_configured_bearer_key_but_health_stays_public(
             ("GET", "/agents"),
             ("GET", "/resources"),
             ("GET", "/resource-status"),
+            ("POST", "/research-runs"),
             ("GET", "/runs"),
             ("POST", "/runs"),
             ("GET", f"/runs/{run_id}"),

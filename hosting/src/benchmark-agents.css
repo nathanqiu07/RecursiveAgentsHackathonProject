@@ -45,3 +45,5 @@
 .bma-history-note { margin-top: 16px; color: #71717a; font-size: 10px; line-height: 1.8; }
 @media (max-width: 800px) { .bma-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bma-run-list { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .bma-form-grid { grid-template-columns: 1fr; } .bma-launch { padding: 16px; } .bma-launch-footer { align-items: flex-start; flex-direction: column; } .bma-header { flex-wrap: wrap; } }
+.bma-capabilities { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
+.bma-capabilities span { padding:9px 12px; border:1px solid var(--border, #e2e6eb); border-radius:8px; font-size:13px; color:var(--text-secondary, #647084); }

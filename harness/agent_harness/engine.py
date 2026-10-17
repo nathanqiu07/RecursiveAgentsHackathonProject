@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import queue
 import re
 import threading
@@ -9,7 +10,7 @@ import time
 
 from jsonschema import Draft202012Validator, FormatChecker, validators
 
-from .clients import ServiceError
+from .clients import ServiceError, paper_source_url
 from .prompts import EVIDENCE_REVIEW, NOVELTY_REVIEW, instruction, tools_for
 from .store import TERMINAL, LostLease, RunCancelled
 
@@ -41,7 +42,13 @@ class Engine:
         self.role = run["request"]["role"]
         self.state = run["state"]
         self.job_id = run["compute_job_id"]
-        self.deadline = run["started_at"] + run["request"]["allocation"]["timeout_seconds"]
+        allocation = run["request"].get("allocation")
+        research_budget = max(
+            30, min(86400, int(os.environ.get("HARNESS_RESEARCH_TIMEOUT_SECONDS", "21600")))
+        )
+        self.deadline = run["started_at"] + (
+            allocation["timeout_seconds"] if allocation else research_budget
+        )
         self.tools = {item["function"]["name"]: item for item in tools_for(self.role)}
 
     def save(self):
@@ -79,13 +86,59 @@ class Engine:
             except queue.Empty:
                 self.check()
 
+    def allocation(self):
+        allocation = self.run["request"].get("allocation") or self.state.get("selected_allocation")
+        if allocation:
+            return allocation
+        remaining = int(self.deadline - self.store.now())
+        try:
+            pools = self.call(self.services.resources)
+        except ServiceError:
+            pools = []
+        for pool in pools:
+            if (
+                not isinstance(pool, dict)
+                or pool.get("enabled") is False
+                or not pool.get("node_id")
+                or not isinstance(pool.get("id"), str)
+            ):
+                continue
+            try:
+                cpus = min(8.0, float(pool["cpus"]))
+                memory, scratch = int(pool["memory_mb"]), int(pool["scratch_mb"])
+                timeout = min(remaining, int(pool["max_timeout_seconds"]), 86400)
+                if cpus <= 0 or memory < 64 or scratch < 16 or timeout < 30:
+                    continue
+            except (KeyError, TypeError, ValueError, OverflowError):
+                continue
+            allocation = {
+                "resource_id": pool["id"],
+                "node_id": pool["node_id"],
+                "cpus": cpus,
+                "memory_mb": memory,
+                "scratch_mb": scratch,
+                "timeout_seconds": timeout,
+            }
+            self.state["selected_allocation"] = allocation
+            self.save()  # Allocation intent survives a lost ResourceManager acknowledgement.
+            return allocation
+        raise EndRun(
+            "needs_attention",
+            result=self.research_result(
+                "Online research and proposed experiments are saved. "
+                "No experiment resource is currently available."
+            ),
+            error="research_gpu_capacity_unavailable",
+        )
+
     def allocate(self):
         self.check()
+        allocation = self.allocation()
         self.store.update(self.id, self.token, allocation_started=True, cleanup_required=True)
         try:
             job = self.call(
                 lambda: self.services.allocate(
-                    self.run["request"]["allocation"],
+                    allocation,
                     "harness-" + self.id,
                 )
             )
@@ -127,9 +180,7 @@ class Engine:
         try:
             if not self.job_id:
                 # Recover an uncertain allocation with the original idempotency key.
-                job = self.services.allocate(
-                    self.run["request"]["allocation"], "harness-" + self.id
-                )
+                job = self.services.allocate(self.allocation(), "harness-" + self.id)
                 self.job_id = job["id"]
                 self.store.update(
                     self.id,
@@ -191,8 +242,27 @@ class Engine:
             self.event("runtime_cleanup", {"confirmed": True})
 
     def execute(self, args):
+        if (
+            self.role == "researcher"
+            and self.run["request"].get("benchmark_id")
+            and not self.state.get("benchmark")
+        ):
+            raise GateError(
+                "Read the assigned benchmark contract before proposing or testing research ideas."
+            )
         if self.role == "researcher" and not self.state.get("novelty", {}).get("approved"):
             raise GateError("Review the idea's novelty against the Library before experiments.")
+        if not self.job_id:
+            try:
+                self.allocate()
+            except ServiceError as exc:
+                raise EndRun(
+                    "failed",
+                    result=self.research_result(
+                        "Experiment allocation failed; the sourced idea remains saved."
+                    ),
+                    error=exc.code,
+                ) from None
         command_id = f"execute-{self.state['steps']}"
         message = {
             "type": "execute",
@@ -267,11 +337,27 @@ class Engine:
         return snapshot
 
     def novelty(self, idea, final=False):
+        proposal = self.state.get("research_proposal")
+        if not proposal or not self.state.get("research_sources"):
+            raise GateError(
+                "Search and read online papers, then use propose_research_idea "
+                "before novelty review."
+            )
+        if not final and idea != proposal["hypothesis"]:
+            raise GateError(
+                "Use propose_research_idea to record a revised hypothesis and experiment plan."
+            )
         snapshot = self.library_snapshot()
         result = self.call(
             lambda: self.model.complete_json(
                 NOVELTY_REVIEW,
-                {"candidate": idea, "library_papers": snapshot, "final_paper": final},
+                {
+                    "candidate": idea,
+                    "library_papers": snapshot,
+                    "final_paper": final,
+                    "online_sources": list(self.state.get("research_sources", {}).values()),
+                    "research_proposal": proposal,
+                },
             )
         )
         ids = {paper["id"] for paper in snapshot}
@@ -385,6 +471,40 @@ class Engine:
             result={"kind": kind, "id": result["id"], "verification_status": result.get("status")},
         )
 
+    def research_result(self, summary):
+        sources = [
+            {
+                key: source[key]
+                for key in ("url", "read_url", "text_sha256", "content_kind", "retrieved_at")
+            }
+            for source in self.state.get("research_sources", {}).values()
+        ]
+        return {
+            "summary": summary,
+            "published": False,
+            "research_ideas": self.state.get("research_ideas", []),
+            "sources": sources,
+        }
+
+    def validate_citations(self, text):
+        proposal = self.state["research_proposal"]
+        cited = set()
+        known = set(self.state.get("research_sources", {})) | set(self.state.get("web_reads", {}))
+        for url in re.findall(r"https?://[^\s<>\[\]\(\)\"']+", text):
+            url = url.rstrip(".,;:")
+            try:
+                canonical = paper_source_url(url)
+            except ServiceError:
+                canonical = url
+            if canonical not in known:
+                raise GateError(
+                    "Paper citations must use source URLs actually read by this run: "
+                    + canonical[:300]
+                )
+            cited.add(canonical)
+        if not set(proposal["source_urls"]).issubset(cited):
+            raise GateError("Cite the recorded online paper URLs supporting the hypothesis.")
+
     def tool(self, name, args):
         definition = self.tools.get(name)
         if not definition:
@@ -436,10 +556,85 @@ class Engine:
             self.state["benchmark"] = benchmark
             self.save()
             return benchmark
+        if name == "search_research_papers":
+            result = self.call(lambda: self.web.search_papers(args["query"]))
+            if result.get("provider") != "you_mcp" or not isinstance(result.get("papers"), list):
+                raise GateError("Online research requires actual You.com MCP results.")
+            found = self.state.setdefault("research_found", {})
+            for paper in result["papers"]:
+                canonical = paper_source_url(paper["url"])
+                found[canonical] = {"url": canonical, "title": str(paper.get("title", ""))[:2000]}
+            self.state.setdefault("research_searches", []).append(
+                {"query": args["query"], "provider": "you_mcp", "urls": list(found)}
+            )
+            self.save()
+            self.event(
+                "research_search", {"provider": "you_mcp", "paper_count": len(result["papers"])}
+            )
+            return result
+        if name == "read_research_paper":
+            canonical = paper_source_url(args["url"])
+            if canonical not in self.state.get("research_found", {}):
+                raise GateError("Read a primary paper returned by this run's online MCP search.")
+            result = self.call(lambda: self.web.read_paper(canonical))
+            if (
+                paper_source_url(result.get("url", "")) != canonical
+                or len(str(result.get("text", "")).strip()) < 200
+            ):
+                raise GateError("A paper must have actual readable source text.")
+            source = {
+                "url": canonical,
+                "read_url": result["read_url"],
+                "text": result["text"][:24000],
+                "text_sha256": hashlib.sha256(result["text"].encode()).hexdigest(),
+                "excerpt_truncated": len(result["text"]) > 24000 or result.get("truncated", False),
+                "content_kind": result["content_kind"],
+                "retrieved_at": result["retrieved_at"],
+            }
+            self.state.setdefault("research_sources", {})[canonical] = source
+            self.save()
+            self.event(
+                "research_paper_read",
+                {key: value for key, value in source.items() if key != "text"},
+            )
+            return source
+        if name == "propose_research_idea":
+            if self.run["request"].get("benchmark_id") and not self.state.get("benchmark"):
+                raise GateError(
+                    "Read the assigned benchmark contract before proposing research ideas."
+                )
+            urls = [paper_source_url(url) for url in args["source_urls"]]
+            if not self.state.get("research_searches") or any(
+                url not in self.state.get("research_sources", {}) for url in urls
+            ):
+                raise GateError(
+                    "A hypothesis must cite actual online paper text read after an MCP search."
+                )
+            proposal = {
+                **args,
+                "source_urls": urls,
+                "created_at": self.store.now(),
+                "status": "proposed_unmeasured",
+            }
+            self.state["research_proposal"] = proposal
+            self.state.setdefault("research_ideas", []).append(proposal)
+            self.state.pop("novelty", None)
+            self.save()
+            self.event("research_idea", proposal)
+            assessment = self.novelty(proposal["hypothesis"])
+            return {"proposal": proposal, "novelty": assessment, "measured": False}
+        if name == "list_resources":
+            return {"resources": self.call(self.services.resources), "allocated": bool(self.job_id)}
         if name == "web_search":
             return self.call(lambda: self.web.search(args["query"]))
         if name == "web_read":
-            return self.call(lambda: self.web.read(args["url"]))
+            result = self.call(lambda: self.web.read(args["url"]))
+            self.state.setdefault("web_reads", {})[result["url"]] = {
+                "url": result["url"],
+                "text_sha256": digest(result["text"]),
+            }
+            self.save()
+            return result
         if name == "execute":
             if self.role == "attempt" and not self.state.get("benchmark"):
                 raise GateError("Read the benchmark contract before implementing an attempt.")
@@ -449,6 +644,7 @@ class Engine:
         if name == "submit_paper":
             if not self.state.get("novelty", {}).get("approved"):
                 raise GateError("An approved Library novelty review is required.")
+            self.validate_citations(args["paper_text"])
             evidence = self.evidence(args["evidence_ids"], "experiment")
             review = self.novelty(args["paper_text"], final=True)
             if not review["approved"]:
@@ -456,7 +652,10 @@ class Engine:
             self.evidence_review(args["paper_text"], evidence)
             if digest(self.library_snapshot()) != review["snapshot_sha256"]:
                 raise GateError("The Library changed during review; recheck before submitting.")
-            appendix = "\n\n## Harness experiment records\n\n" + json.dumps(evidence, indent=2)
+            appendix = "\n\n## Retrieved online paper sources\n\n" + json.dumps(
+                self.research_result("")["sources"], indent=2
+            )
+            appendix += "\n\n## Harness experiment records\n\n" + json.dumps(evidence, indent=2)
             return self.publish(
                 "paper",
                 {
@@ -502,11 +701,38 @@ class Engine:
                 },
             )
         if name == "finish":
-            raise EndRun("completed", result={"summary": args["summary"], "published": False})
+            result = (
+                self.research_result(args["summary"])
+                if self.role == "researcher"
+                else {"summary": args["summary"], "published": False}
+            )
+            raise EndRun("completed", result=result)
         raise GateError("Unknown tool")
 
     def run_agent(self):
-        self.allocate()
+        if self.role == "researcher":
+            try:
+                access = self.call(self.web.research_capabilities)
+                if "you-search" not in access.get("tools", []):
+                    raise ServiceError("you_mcp_search_unavailable")
+            except ServiceError:
+                raise EndRun(
+                    "needs_attention",
+                    result=self.research_result(
+                        "You.com MCP could not be reached. "
+                        "Retry later or connect a You.com API key in Connections."
+                    ),
+                    error="you_mcp_unavailable",
+                ) from None
+            self.state["research_access"] = {
+                "you_mcp": access,
+                "library": "mediated_api",
+                "resources": "mediated_api",
+            }
+            self.save()
+            self.event("research_access", self.state["research_access"])
+        else:
+            self.allocate()
         messages = [
             {"role": "system", "content": instruction(self.role)},
             {"role": "user", "content": json.dumps(self.run["request"])},
@@ -522,7 +748,9 @@ class Engine:
             if not calls:
                 raise EndRun(
                     "completed",
-                    result={"summary": str(message.get("content") or ""), "published": False},
+                    result=self.research_result(str(message.get("content") or ""))
+                    if self.role == "researcher"
+                    else {"summary": str(message.get("content") or ""), "published": False},
                 )
             if not isinstance(calls, list) or len(calls) > 8:
                 raise GateError("invalid_model_tool_calls")
