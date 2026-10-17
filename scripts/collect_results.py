@@ -57,6 +57,13 @@ CASE_STUDIES: list[dict[str, Any]] = [
                   "score = speedup over torch eager if correct (cap 10), else 0",
          baseline_name="torch eager (speedup 1.0x)",
          missing_status=("blocked", "needs a Crusoe GPU VM (no runs/kernelbench-* yet)")),
+    dict(id="inference-opt-1", name="Inference serving cost (exact-answer data-center ops Q&A)",
+         dirs=["runs/inference-opt-1"], log="runs/inference-opt-1.log", digits=3, baseline_kind="fixed",
+         baseline_score=None,
+         verifier="exact numeric answers checked in code within a stated tolerance; score = accuracy, pass = "
+                  "accuracy >= 0.9; cost = Crusoe billed tokens x team.crusoe.PRICES (the run's goal is the same "
+                  "accuracy at lower cost; see reports/inference_opt_1/heldout_cost_latency.md)",
+         baseline_name="v0: Super, reasoning on, one call per question"),
 ]
 SMOKES = ["runs/qaplib-one", "runs/alebench-one", "runs/datahall-one", "runs/kernelbench-one"]
 # The connection probe printed to the console only; these figures were copied from that live output.
