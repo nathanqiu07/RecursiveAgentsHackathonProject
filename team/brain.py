@@ -46,6 +46,7 @@ class Entry:
     hurts: int = 0
     status: str = "active"
     supersedes: list[str] = field(default_factory=list)
+    disputed_with: list[str] = field(default_factory=list)  # ids it contradicted at equal support
     touched: int = 0  # brain version at last create/validate: recency without parsing run ids
 
     @property
@@ -167,6 +168,8 @@ class Curator:
     def _resolve(old: Entry, new: Entry) -> dict:
         if _strength(old) == _strength(new):
             old.status = new.status = "disputed"
+            old.disputed_with.append(new.id)
+            new.disputed_with.append(old.id)
             return {"decision": "disputed", "reason": f"contradicts {old.id}, equal support"}
         win, lose = (old, new) if _strength(old) > _strength(new) else (new, old)
         lose.status = "retired"
@@ -339,6 +342,33 @@ class SharedBrain:
                     entries[i].status = "retired"
                     out.append({"op": "retire", "run_id": run_id, "id": i, "decision": "retired", "reason": reason})
             return out
+        return self._mutate(fn)
+
+    def disputes(self) -> list[tuple[str, str]]:
+        """Open contradictions as sorted (a, b) id pairs; only a measured test run may settle them."""
+        _, entries = self._snapshot()
+        return sorted({tuple(sorted((e.id, o))) for e in entries.values() if e.status == "disputed"
+                       for o in e.disputed_with if o in entries and entries[o].status == "disputed"})
+
+    def resolve_dispute(self, winner_id: str, loser_id: str, measurement: str, run_id: str) -> list[dict]:
+        """The winner goes active with the measurement as evidence; the loser retires, superseded by it."""
+        evidence = [{"run_id": run_id, "measurement": measurement}]
+
+        def fn(entries: dict[str, Entry], version: int) -> list[dict]:
+            rec = {"op": "resolve_dispute", "run_id": run_id}
+            win, lose = entries.get(winner_id), entries.get(loser_id)
+            if not (win and lose and win.status == lose.status == "disputed" and loser_id in win.disputed_with):
+                return [{**rec, "id": winner_id, "decision": "rejected",
+                         "reason": f"no open dispute between {winner_id} and {loser_id}"}]
+            if not has_evidence(evidence):
+                return [{**rec, "id": winner_id, "decision": "rejected", "reason": "no evidence citing a run_id and a measurement"}]
+            lose.status = "retired"
+            win.supersedes.append(loser_id)
+            Curator._absorb(win, evidence, run_id, version)
+            still_open = any(entries[o].status == "disputed" for o in win.disputed_with if o in entries)
+            win.status = "disputed" if still_open else "active"
+            return [{**rec, "id": winner_id, "decision": win.status, "reason": f"won dispute against {loser_id}: {measurement}"},
+                    {**rec, "id": loser_id, "decision": "retired", "reason": f"lost dispute to {winner_id}: {measurement}"}]
         return self._mutate(fn)
 
     def get(self, ids: list[str]) -> list[Entry]:

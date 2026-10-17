@@ -9,7 +9,9 @@ implementation must:
    returned id into `brain_ids_read`; credit assignment depends on it. Use
    `brain.stable_prefix(role)` instead if provider prefix caching matters more than relevance.
 2. Take everything else from the version: models per role from `version.config["models"]`,
-   temperatures, `max_iters`, and any other knob the Reviewer may tune via `config_set`.
+   temperatures, `max_iters`, and any other knob the Reviewer may tune via `config_set`. Tools
+   too: `version.config["tools"]` maps a `tool_catalog` name to {"enabled": bool, **params}
+   (written by `tool_set`); honour it, and use the runner's default for any tool not listed.
 3. Score with the independent geometry verifier, never an LLM: `score` in 0..1, `passed` iff
    every hard check holds. LLM self-assessment may only fill `claimed_done`.
 4. Return a RunResult with `failures` = one line per failing check, formatted "Role: message"

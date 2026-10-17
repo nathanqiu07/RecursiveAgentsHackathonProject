@@ -76,6 +76,25 @@ class BrainTest(unittest.TestCase):
         self.assertEqual(context.count("[DISPUTED]"), 2)
         self.assertEqual(brain.stats()["disputed"], 2)
 
+    def test_resolve_dispute_activates_winner_and_retires_loser_citing_the_measurement(self) -> None:
+        brain = SharedBrain(self.dir, Curator(judge=lambda a, b: "contradict"))
+        a = brain.propose([add("hot aisle is 1.2 m wide")], "r1")[0]["id"]
+        b = brain.propose([add("hot aisle may be 0.9 m wide", evidence=ev("r2"))], "r2")[0]["id"]
+        self.assertEqual(brain.disputes(), [tuple(sorted((a, b)))])
+        self.assertEqual(brain.resolve_dispute(a, "ghost", "dev mean 0.6 vs 0.4 on 3 tasks", "g0")[0]["decision"], "rejected")
+        measurement = "dev mean 0.62 vs 0.48 on 6 tasks"
+        brain.resolve_dispute(a, b, measurement, "g0-dispute")
+        win, lose = brain.get([a, b])
+        self.assertEqual((win.status, lose.status), ("active", "retired"))
+        self.assertIn(b, win.supersedes)
+        self.assertIn({"run_id": "g0-dispute", "measurement": measurement}, win.evidence)
+        self.assertEqual((brain.disputes(), brain.stats()["disputed"]), ([], 0))
+        ledger = [json.loads(l) for l in (self.dir / "ledger.jsonl").read_text().splitlines()]
+        (retired,) = [r for r in ledger if r["op"] == "resolve_dispute" and r["decision"] == "retired"]
+        self.assertEqual(retired["id"], b)
+        self.assertIn(measurement, retired["reason"])
+        self.assertEqual(brain.resolve_dispute(a, b, measurement, "g1")[0]["decision"], "rejected")
+
     def test_llm_judge_parses_one_word_verdict(self) -> None:
         judge = llm_judge(ScriptedLLM({"judge": ['{"verdict": "contradict"}', "nonsense"]}), "m")
         self.assertEqual(judge("a", "b"), "contradict")

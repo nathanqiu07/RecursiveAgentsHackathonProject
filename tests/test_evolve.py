@@ -10,8 +10,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from team.bench import REVIEWER_SCRIPT, make_tasks, toy_run_team, toy_v0  # noqa: E402
-from team.brain import SharedBrain  # noqa: E402
-from team.evolve import Evolver, Gate, Reviewer, TeamVersion  # noqa: E402
+from team.brain import Curator, SharedBrain  # noqa: E402
+from team.evolve import Evolver, Gate, Reviewer, TeamVersion, apply_mutation, validate_mutation  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
 from team.types import RunResult, Task  # noqa: E402
 
@@ -22,6 +22,20 @@ def results(scores: list[float]) -> list[RunResult]:
 
 def tasks(split: str, n: int) -> list[Task]:
     return [Task(id=f"{split}-{i}", split=split, payload={}, text="ground the racks") for i in range(n)]
+
+
+def same_tag(a: str, b: str) -> str:
+    """Rules contradict only within one "[Dk]" pair, so each pair disputes itself and nothing else."""
+    return "contradict" if a.split()[0] == b.split()[0] else "compatible"
+
+
+def disputed_pair(brain: SharedBrain, k: int, topic: str) -> tuple[str, str]:
+    """Two equally supported contradictory Layout rules; A says 1.2 m, B says 0.9 m."""
+    ids = []
+    for run_id, width in (("ra", "1.2"), ("rb", "0.9")):
+        ids.append(brain.propose([{"op": "add", "kind": "lesson", "roles": ["Layout"], "text": f"[D{k}] {topic} is {width} m",
+                                   "evidence": [{"run_id": run_id, "task_id": "t0", "measurement": "score=0.5"}]}], run_id)[0]["id"])
+    return ids[0], ids[1]
 
 
 class EvolveTest(unittest.TestCase):
@@ -61,6 +75,75 @@ class EvolveTest(unittest.TestCase):
         for expected in ("unknown role", "other than roles_enabled", "last role", "over the limit"):
             self.assertTrue(any(expected in r for r in reasons), expected)
         self.assertTrue(llm.calls_for("reviewer")[0]["json_mode"])
+
+    def test_tool_set_applies_from_the_catalog_and_unknown_tools_are_dropped(self) -> None:
+        reply = json.dumps({"mutations": [
+            {"type": "tool_set", "tool": "solver", "enabled": True, "params": {"time_limit": 30}, "rationale": "r"},
+            {"type": "tool_set", "tool": "web_search", "enabled": True},
+            {"type": "config_set", "key": "tool_catalog", "value": ["web_search"]},
+        ]})
+        llm = ScriptedLLM({"reviewer": [reply]})
+        v0 = TeamVersion(version=0, parent=None, prompts={"Layout": "p"}, config={"tool_catalog": ["solver"]})
+        brain = SharedBrain(self.dir / "brain")
+        reviewer = Reviewer(llm, "m")
+        valid = reviewer.propose(v0, results([0.5]), brain)
+        self.assertEqual([m.get("tool") for m in valid], ["solver"])
+        reasons = [d["reason"] for d in reviewer.dropped]
+        self.assertTrue(any("unknown tool 'web_search'" in r for r in reasons), reasons)
+        self.assertTrue(any("tool_catalog" in r for r in reasons), reasons)
+        v1 = apply_mutation(v0, valid[0], brain, 1)
+        self.assertEqual(v1.config["tools"], {"solver": {"enabled": True, "time_limit": 30}})
+        self.assertIn("time_limit", v1.changelog[-1])
+        system, user = (m["content"] for m in llm.calls_for("reviewer")[0]["messages"])
+        self.assertIn("tool_set", system)
+        self.assertEqual(json.loads(user)["tool_catalog"], ["solver"])
+        self.assertIsNone(validate_mutation({"type": "tool_set", "tool": "web_search", "enabled": False}, v0, brain,
+                                            tools=["web_search"]))
+
+    def dispute_evolver(self, pairs: int, generations: int, score_of) -> tuple[SharedBrain, list, list[dict], list[str]]:
+        """Evolver over `pairs` open disputes; score_of(context) is the dev score given what Layout read."""
+        brain = SharedBrain(self.dir / "brain", Curator(judge=same_tag))
+        ids = [disputed_pair(brain, k, topic) for k, topic in enumerate(("hot aisle", "cold aisle", "rack gap")[:pairs])]
+        touched: list[str] = []
+
+        def run_team(version: TeamVersion, b: SharedBrain, task: Task, llm: ScriptedLLM) -> RunResult:
+            context, read = b.read("Layout", task.text)
+            touched.append(task.id)
+            return RunResult(task_id=task.id, version=version.version, score=score_of(context), passed=False,
+                             brain_ids_read=read)
+
+        llm = ScriptedLLM({"reviewer": [json.dumps({"mutations": []})]})
+        evolver = Evolver(run_team, llm, "m", brain, self.dir / "versions",
+                          initial=TeamVersion(version=0, parent=None, prompts={"Layout": "p"}))
+        evolver.run(generations, tasks("train", 2), tasks("dev", 3), tasks("heldout", 2))
+        log = [json.loads(l) for l in (self.dir / "versions" / "ledger.jsonl").read_text().splitlines()]
+        return brain, ids, [r for r in log if "dispute" in r], touched
+
+    def test_dispute_settled_by_dev_run_in_favour_of_the_side_whose_absence_hurts(self) -> None:
+        brain, [(a, b)], tests, touched = self.dispute_evolver(1, 1, lambda ctx: 0.8 if "is 1.2 m" in ctx else 0.4)
+        self.assertEqual(len(tests), 1)
+        self.assertEqual((sorted(tests[0]["dispute"]), tests[0]["means"], tests[0]["winner"]),
+                         (sorted([a, b]), {a: 0.8, b: 0.4}, a))
+        win, lose = brain.get([a, b])
+        self.assertEqual((win.status, lose.status), ("active", "retired"))
+        self.assertIn(b, win.supersedes)
+        ledger = [json.loads(l) for l in (brain.dir / "ledger.jsonl").read_text().splitlines()]
+        self.assertTrue(any(r.get("id") == b and r["decision"] == "retired" and "dev mean 0.80 vs 0.40 on 3 tasks" in r["reason"]
+                            for r in ledger))
+        self.assertFalse(any("dev-" in f"{r.get('run_id')}{r.get('task_id')}" for r in ledger), "dev runs wrote to the brain")
+        self.assertFalse(any(t.startswith("heldout") for t in touched))
+
+    def test_tied_dispute_stays_open(self) -> None:
+        brain, [(a, b)], tests, _ = self.dispute_evolver(1, 1, lambda ctx: 0.5)
+        self.assertEqual([t["winner"] for t in tests], [None])
+        self.assertEqual([e.status for e in brain.get([a, b])], ["disputed", "disputed"])
+        self.assertEqual(brain.disputes(), [tuple(sorted((a, b)))])
+
+    def test_at_most_two_disputes_tested_per_generation_and_ties_do_not_starve_the_rest(self) -> None:
+        brain, ids, tests, _ = self.dispute_evolver(3, 2, lambda ctx: 0.5)
+        self.assertEqual([sum(t["generation"] == g for t in tests) for g in (0, 1)], [2, 2])
+        self.assertEqual({tuple(t["dispute"]) for t in tests}, {tuple(sorted(p)) for p in ids})
+        self.assertEqual(len(brain.disputes()), 3)
 
     def run_promote(self, outcome: str) -> tuple[SharedBrain, str, Evolver, list]:
         """outcome: "helps", "neutral" or "hurts", the effect of moving the entry into the playbook."""
