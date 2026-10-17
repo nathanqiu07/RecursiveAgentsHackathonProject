@@ -10,6 +10,9 @@ import re
 from . import greedy, hill_climb, score
 from .llm import PLANNER_MODEL
 
+# Nemotron 3 Super spends its whole output budget on hidden reasoning unless thinking is off (ac0c651).
+NO_THINK = {"chat_template_kwargs": {"enable_thinking": False}}
+
 RULES = [
     ("payload", "Only rack decisions are accepted; kW, sizes and capacities come from the catalog"),
     ("no_collision", "No two physical footprints overlap"),
@@ -124,7 +127,8 @@ def _execute(run, llm, hall, iters, model, library_dir, patience, max_tokens, te
                                                   "You output only valid JSON payloads."},
                     {"role": "user", "content": prompt}]
         try:
-            cand = hill_climb._parse(llm.chat(model, messages, max_tokens=max_tokens, temperature=temperature))
+            cand = hill_climb._parse(llm.chat(model, messages, max_tokens=max_tokens, temperature=temperature,
+                                              retries=2, extra_body=NO_THINK))
         except Exception as e:
             run.emit("iteration_start", iter=it)
             run.emit("sandbox", iter=it, ok=False, error=f"no usable payload: {e}"[:400], stdout="", scene=None,
