@@ -1,6 +1,7 @@
 """Publish every case study's solutions to SA's dashboard as verified leaderboard entries.
 
   .venv/bin/python -I scripts/publish_results_to_dashboard.py [--dry-run] [--retry-failed] [--no-wait]
+      [--only NAME] [--resubmit-outdated]
 
 Idempotent and re-runnable as live runs finish:
 - Benchmarks are found by exact title before any is created (definitions are immutable on the dashboard).
@@ -114,8 +115,8 @@ def existing_submissions(bid: str) -> dict[str, dict[str, Any]]:
     while True:
         page = api("GET", f"/api/benchmarks/{bid}/submissions?limit=500&offset={offset}")
         rows = page.get("submissions", page if isinstance(page, list) else [])
-        for r in rows:
-            out[r["title"]] = r
+        for r in rows:  # newest first: keep the latest row when a title was resubmitted
+            out.setdefault(r["title"], r)
         if len(rows) < 500:
             return out
         offset += 500
@@ -152,10 +153,12 @@ def prescore(definition: dict[str, Any], payload: Any, cache: dict[str, Any]) ->
 
 
 def entry_title(e: dict[str, Any], entries: list[dict[str, Any]], definition: dict[str, Any],
-                baseline_label: tuple[str, str], cache: dict[str, Any]) -> str:
+                baseline_label: tuple[str, str] | None, cache: dict[str, Any]) -> str:
     """'Baseline: <title>' for the baseline, else '<title>: +1.4 vs greedy' from the verifier's own score."""
     if e.get("baseline"):
         return BASELINE_PREFIX + e["title"]
+    if not baseline_label:  # a case study without a BASELINE_LABELS entry: plain title
+        return e["title"]
     label, fmt = baseline_label
     try:
         res = prescore(definition, e["payload"], cache)
@@ -172,6 +175,15 @@ def entry_title(e: dict[str, Any], entries: list[dict[str, Any]], definition: di
         return e["title"]
 
 
+def outdated(old: dict[str, Any], e: dict[str, Any], definition: dict[str, Any], cache: dict[str, Any]) -> bool:
+    """True when the verifier now explains this payload differently from the feedback stored on the board."""
+    try:
+        return prescore(definition, e["payload"], cache).get("feedback") != old.get("feedback")
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        print(f"  could not re-check {old['title']!r} ({exc}); left as is")
+        return False
+
+
 def submit_all(bid: str | None, entries: list[dict[str, Any]], base: str, args: argparse.Namespace,
                definition: dict[str, Any] | None = None, baseline_label: tuple[str, str] | None = None) -> list[str]:
     """entries: {"title", "submitted_by", "payload", "baseline"?, "group"?}; returns the ids of new submissions."""
@@ -183,9 +195,11 @@ def submit_all(bid: str | None, entries: list[dict[str, Any]], base: str, args: 
         old = next((r for t, r in have.items() if t.endswith(f"[{dg}]")
                     and (t.startswith(e["title"]) or t.startswith(BASELINE_PREFIX + e["title"]))), None)
         if old and not (args.retry_failed and str(old.get("status", "")).lower() in FAILED_STATES):
-            print(f"  skip (already submitted, {old.get('status')}): {old['title']}")
-            continue
-        name = entry_title(e, entries, definition, baseline_label, cache) if definition and baseline_label else e["title"]
+            if not (getattr(args, "resubmit_outdated", False) and definition and outdated(old, e, definition, cache)):
+                print(f"  skip (already submitted, {old.get('status')}): {old['title']}")
+                continue
+            print(f"  resubmit (verifier feedback changed since): {old['title']}")
+        name = entry_title(e, entries, definition, baseline_label, cache) if definition else e["title"]
         title = f"{name[:189]} [{dg}]"
         if args.dry_run or bid is None:
             print(f"  [dry-run] would submit: {title}")
@@ -519,6 +533,15 @@ def kernelbench_entries() -> list[dict[str, Any]]:
     names = kb.heldout()
     entries = [{"title": "PyTorch eager (no LLM)", "submitted_by": "kernelbench reference", "baseline": True,
                 "payload": {"solutions": [{"task": t, "model_new": kb.eager_candidate(t)} for t in names]}}]
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:9005/health", timeout=5) as resp:
+            gpu = json.load(resp).get("gpu")
+    except (urllib.error.URLError, OSError, ValueError):
+        gpu = None
+    if gpu is None:
+        n = len(run_solutions("kernelbench"))
+        print(f"  no GPU attached: only the PyTorch eager baseline is published ({n} saved run solutions held back)")
+        return entries
     by_config: dict[tuple[str, str], dict[str, str]] = {}
     for f, d in run_solutions("kernelbench"):
         src = (d.get("solution") or {}).get("model_new")
@@ -643,6 +666,9 @@ def main() -> None:
     ap.add_argument("--checkpoint-ref", default="origin/main", help="git ref for base_checkpoint_url (must be pushed)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--retry-failed", action="store_true", help="resubmit titles whose earlier verification failed")
+    ap.add_argument("--resubmit-outdated", action="store_true",
+                    help="resubmit entries whose verifier feedback has changed (adds a new row; the dashboard keeps "
+                         "the old one). Use with --only: verifiers that time programs never repeat their feedback")
     ap.add_argument("--no-wait", action="store_true", help="do not wait for verification before printing boards")
     args = ap.parse_args()
     base = checkpoint_url(args.checkpoint_ref)
@@ -656,7 +682,7 @@ def main() -> None:
             print(f"  verifier not reachable at {health}; skipped (start it, then rerun)")
             continue
         bid = find_or_create(definition, args.dry_run)
-        new_ids = submit_all(bid, entries_fn(), base, args, definition, BASELINE_LABELS[name])
+        new_ids = submit_all(bid, entries_fn(), base, args, definition, BASELINE_LABELS.get(name))
         if new_ids and not args.no_wait:
             wait_for(new_ids)
         if bid:

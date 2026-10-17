@@ -13,7 +13,8 @@ POST /evaluations
   With no GPU attached -> 200 {"status": "failed", "feedback": "Needs a GPU VM, not yet attached ..."}: an error,
   never a score.
   The one exception is the baseline itself: a ModelNew that is exactly PyTorch eager (eager_candidate(task)) is
-  speedup 1.0 by definition, so it scores 1.0 without a GPU and its feedback says it was not timed.
+  speedup 1.0 by definition, so it scores 1.0 without a GPU and its feedback says it was not timed (with no GPU
+  attached, the feedback opens with NOT_RUN, which the dashboard shows as the board's summary).
   Unknown task, duplicate task or malformed body -> 422 {"status": "rejected", "error"}
 GET /health -> {"ok": true, "gpu": "remote" | "local" | null, "heldout": [...]}
 """
@@ -36,6 +37,8 @@ from benchmarks.kernelbench_mini.splits import PROBLEMS, PROBLEMS_DIR  # noqa: E
 
 MAX_BODY = 4 * 1024 * 1024
 NO_GPU = "Needs a GPU VM, not yet attached"
+# Shown as the baseline's feedback (and so as the board's summary) while no GPU is attached.
+NOT_RUN = "Not run: our Crusoe project has no GPU quota, so no kernels were timed. Baseline only."
 
 
 class Rejected(ValueError):
@@ -91,8 +94,9 @@ def evaluate(req: Any) -> dict[str, Any]:
         results = [{"task": t, "score": 1.0, "speedup": 1.0, "correct": True, "is_baseline": True} for t in names]
         return {"status": "completed", "score": 1.0, "results": results,
                 "baseline": {"name": "PyTorch eager", "score": 1.0, "is_baseline": True},
-                "feedback": explain(results) + "\n\nDetails:\nNot timed: ModelNew is the reference Model for every "
-                                               "held-out kernel, so its speedup over itself is 1.0."}
+                "feedback": (NOT_RUN if remote.gpu_mode() is None else explain(results))
+                            + "\n\nDetails:\nThis is the baseline, PyTorch eager, at speedup 1.0 by definition. Not "
+                              "timed: ModelNew is the reference Model for every held-out kernel."}
     if remote.gpu_mode() is None:
         return {"status": "failed", "score": None,
                 "feedback": f"{NO_GPU}. Set KB_REMOTE=user@host (see setup_gpu_vm.sh) and restart this verifier."}

@@ -56,7 +56,10 @@ function summarize(entries: LeaderboardEntry[]) {
   const best = entries.find((entry) => !isBaseline(entry.title) && !isReference(entry.title)) ?? null;
   const base = baseline && baseline.score !== null ? `${baselineName(baseline.title)} ${brief(baseline.score)}` : '';
   let text = 'No verified results yet.';
-  if (entries.length && !best) text = baseline ? `Baseline only so far: ${base}. Team results pending.` : 'Reference programs only so far. Team results pending.';
+  // A verifier that could not run a board says so by opening the baseline's feedback with "Not run:".
+  const status = baseline?.feedback ? feedbackSummary(baseline.feedback) : '';
+  if (entries.length && !best) text = /^not run:/i.test(status) ? status
+    : baseline ? `Baseline only so far: ${base}. Team results pending.` : 'Reference programs only so far. Team results pending.';
   if (best && best.score !== null) {
     text = baseline && baseline.score !== null
       ? `Best team result scores ${brief(best.score)} vs ${base} (${delta(best.score, baseline.score)}).`

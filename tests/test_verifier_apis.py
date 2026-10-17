@@ -286,8 +286,12 @@ class KernelBenchVerifierApi(unittest.TestCase):
         code, res = post(self.url, {"submission": {"solutions": sols}})
         self.assertEqual(code, 200)
         self.assertEqual((res["status"], res["score"]), ("completed", 1.0))
-        self.assertTrue(summary(res["feedback"]).startswith("This is the baseline:"))
-        self.assertIn("not timed", res["feedback"])
+        expected = self.kb.NOT_RUN if self.kb.remote.gpu_mode() is None else None
+        if expected:
+            self.assertEqual(summary(res["feedback"]), expected)
+        else:
+            self.assertTrue(summary(res["feedback"]).startswith("This is the baseline:"))
+        self.assertIn("Not timed", res["feedback"])
 
     def test_without_a_gpu_a_candidate_gets_an_error_not_a_score(self):
         if self.kb.remote.gpu_mode() is not None:
