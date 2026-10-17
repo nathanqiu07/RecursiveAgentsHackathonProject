@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from team.evolve import Gate, paper  # noqa: E402
-from team.sa_library import DEFAULT_URL, LibraryPublisher, row_key  # noqa: E402
+from team.sa_library import DEFAULT_URL, OFFLINE_NOTE, LibraryPublisher, QueueVerdicts, row_key  # noqa: E402
 
 LEDGERS = ("versions/ledger.jsonl", "ledger.jsonl", "version_ledger.jsonl")
 
@@ -51,13 +51,33 @@ def publish(rows: list[dict], publisher: LibraryPublisher, gate: Gate) -> list[d
     return out
 
 
+def retract(paper_ids: list[str], verdicts: QueueVerdicts) -> int:
+    """Offline papers become `inconclusive` with OFFLINE_NOTE; completed ones SA's code cannot reopen are listed."""
+    done, stuck = [], []
+    for paper_id in paper_ids:
+        try:
+            verdicts.retract(paper_id)
+            done.append(paper_id)
+        except Exception as exc:
+            stuck.append(paper_id)
+            print(f"  cannot change {paper_id}: {type(exc).__name__}: {exc}", file=sys.stderr)
+    print(f"retracted {len(done)} as inconclusive; {len(stuck)} need deletion by SA: {' '.join(stuck) or '-'}")
+    return 0 if not stuck else 3
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("run_dir", type=Path)
+    ap.add_argument("run_dir", type=Path, nargs="?")
     ap.add_argument("--url", default=DEFAULT_URL, help="SA's Library API")
     ap.add_argument("--benchmark", help="case-study name used in paper titles (default: run directory name)")
     ap.add_argument("--db", help="Library SQLite file (default: $SA_LIBRARY_DB or library/data/library.sqlite3)")
+    ap.add_argument("--retract-offline", nargs="+", metavar="PAPER_ID",
+                    help=f"mark these papers inconclusive: \"{OFFLINE_NOTE}\" (SA's retry + report path)")
     args = ap.parse_args(argv)
+    if args.retract_offline:
+        return retract(args.retract_offline, QueueVerdicts(args.db) if args.db else QueueVerdicts())
+    if args.run_dir is None:
+        ap.error("run_dir is required unless --retract-offline is given")
 
     ledger = find_ledger(args.run_dir)
     rows = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]

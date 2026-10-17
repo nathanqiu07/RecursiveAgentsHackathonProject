@@ -173,6 +173,36 @@ class SALibraryTest(unittest.TestCase):
             pub = from_env(self.dir / "v")
             self.assertEqual((type(pub), pub.benchmark), (LibraryPublisher, "qaplib"))
 
+    def test_offline_or_scripted_runs_never_publish_even_with_the_env_var_set(self) -> None:
+        import argparse
+        from team.sa_library import add_library_args, configure_from_args
+        with mock.patch.dict(os.environ, {"SA_LIBRARY_URL": self.url, "SA_LIBRARY_DB": str(self.db)}):
+            with self.assertLogs("sa_library", "WARNING") as logs:
+                evolver = Evolver(run_team, ScriptedLLM({"reviewer": [json.dumps({"mutations": MUTATIONS})]}), "m",
+                                  SharedBrain(self.dir / "brain"), self.dir / "versions",
+                                  initial=TeamVersion(version=0, parent=None, prompts={"Layout": "p"}))
+            self.assertNotIsInstance(evolver.library, LibraryPublisher)
+            self.assertIn("refusing to publish a scripted (offline) run", logs.output[0])
+            evolver.run(1, tasks("train", 2), tasks("dev", 3), tasks("heldout", 2))
+            ap = argparse.ArgumentParser()
+            ap.add_argument("--offline", action="store_true")
+            add_library_args(ap)
+            with self.assertLogs("sa_library", "WARNING"):
+                self.assertIsNone(configure_from_args(ap.parse_args(["--offline", "--library", self.url]), "kb"))
+            self.assertNotIn("SA_LIBRARY_URL", os.environ)
+        self.assertEqual(self.queue.list(100, 0)["total"], 0)
+
+    def test_offline_papers_are_retracted_through_sas_code_and_completed_ones_listed(self) -> None:
+        pub = self.publisher()
+        blocked, done = pub.publish_claims(0, 0, MUTATIONS[:2])
+        pub.post_verdict(blocked, MUTATIONS[0], {"n": 3, "gain": 0.3, "accepted": True, "reason": "accepted"})
+        pub.post_verdict(done, MUTATIONS[1], {"n": 3, "gain": 0.0, "accepted": False, "reason": "gain 0 < 0.05"})
+        self.assertEqual(backfill(["--retract-offline", blocked, done, "--db", str(self.db)]), 3)
+        paper = self.queue.get(blocked)
+        self.assertEqual((paper["status"], paper["report"]["verdict"]), ("completed", "inconclusive"))
+        self.assertEqual(paper["report"]["summary"], "Offline test run with scripted model and fake evaluator; not a result.")
+        self.assertEqual(self.queue.get(done)["report"]["verdict"], "not_verified")  # completed: SA must delete it
+
     def test_backfill_publishes_a_ledger_once_and_rerunning_skips_it(self) -> None:
         run = self.dir / "run"
         (run / "versions").mkdir(parents=True)

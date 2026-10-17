@@ -217,6 +217,14 @@ NOVELTY_REQUIRED = ("Independent Library novelty review is required before accep
                     "claim; its measurement is attached as the experimental report.")
 
 
+OFFLINE_NOTE = "Offline test run with scripted model and fake evaluator; not a result."
+
+
+def is_scripted(llm: Any) -> bool:
+    """A ScriptedLLM (or subclass) answers from a fixed script: its runs are tests, never results."""
+    return any(cls.__name__ == "ScriptedLLM" for cls in type(llm).__mro__) if llm is not None else False
+
+
 class QueueVerdicts:
     """Writes a report the way SA's Library worker does: lease the paper, then finish or block it through PaperQueue.
 
@@ -269,6 +277,23 @@ class QueueVerdicts:
         """SA's Library with the novelty gate (block_verification takes experimental_report); older code does not."""
         import inspect
         return "experimental_report" in inspect.signature(queue.block_verification).parameters
+
+    def retract(self, paper_id: str, note: str = OFFLINE_NOTE) -> dict:
+        """Mark a paper as not a result: blocked/failed -> SA's retry -> lease -> `inconclusive` report with `note`.
+
+        SA's queue cannot reopen a `completed` paper; that raises, and the caller lists the id for SA to delete.
+        """
+        queue = self.queue()
+        paper = queue.get(paper_id)
+        if paper is None:
+            raise LookupError(f"paper {paper_id} not found")
+        if paper["status"] in ("blocked", "failed"):
+            queue.retry(paper_id)
+        elif paper["status"] == "completed":
+            raise PermissionError(f"paper {paper_id} is completed; SA's Library has no path to change it")
+        return self.finish(paper_id, {"verdict": "inconclusive", "summary": note,
+                                      "evidence": ["Retracted by team/sa_library.py: scripted model, no inference cost, "
+                                                   "fake evaluator; the Gate numbers are not measurements"]})
 
 
 # ---------------------------------------------------------------- publisher used by the Evolver
@@ -384,10 +409,19 @@ class LibraryPublisher(NullLibrary):
         return self._verdict(key, pid, dispute_report(record))
 
 
-def from_env(versions_dir: str | Path) -> NullLibrary:
-    """LibraryPublisher when SA_LIBRARY_URL is set (benchmark name from SA_LIBRARY_BENCHMARK), else a no-op."""
+def from_env(versions_dir: str | Path, llm: Any = None) -> NullLibrary:
+    """LibraryPublisher when SA_LIBRARY_URL is set (benchmark name from SA_LIBRARY_BENCHMARK), else a no-op.
+
+    Refuses for a scripted LLM even when SA_LIBRARY_URL is set. Without `llm`, it checks the calling Evolver's
+    `self.llm` (Evolver.__init__ sets it before calling here), so no caller can forget the check.
+    """
     url = os.environ.get("SA_LIBRARY_URL", "").strip()
     if not url:
+        return NullLibrary()
+    if llm is None:
+        llm = getattr(sys._getframe(1).f_locals.get("self"), "llm", None)
+    if is_scripted(llm):
+        log.warning("SA Library: refusing to publish a scripted (offline) run; only real runs reach the Library")
         return NullLibrary()
     versions_dir = Path(versions_dir)
     benchmark = os.environ.get("SA_LIBRARY_BENCHMARK") or versions_dir.resolve().parent.name
@@ -406,9 +440,14 @@ def add_library_args(ap: argparse.ArgumentParser) -> None:
 
 
 def configure_from_args(args: argparse.Namespace, benchmark: str) -> str | None:
-    """Sets SA_LIBRARY_URL / SA_LIBRARY_BENCHMARK for the Evolver. Live runs publish by default; offline runs opt in."""
+    """Sets SA_LIBRARY_URL / SA_LIBRARY_BENCHMARK for the Evolver. Live runs publish by default; offline runs never do."""
     if getattr(args, "no_library", False):
         os.environ.pop("SA_LIBRARY_URL", None)
+        return None
+    if getattr(args, "offline", False):
+        from_env_url = os.environ.pop("SA_LIBRARY_URL", None)
+        if args.library or from_env_url:
+            log.warning("SA Library: refusing to publish an --offline run; only real runs reach the Library")
         return None
     url = args.library or (os.environ.get("SA_LIBRARY_URL") or DEFAULT_URL if getattr(args, "live", False) else None)
     if url:
