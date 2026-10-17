@@ -55,12 +55,14 @@ Each adapter is one function with the same signature: `run_team(version, brain, 
 
 Each layer is framed as an optimization problem that code can check.
 
-| Layer | Case study | Verifier (no LLM) | Baseline | Status |
+| Layer | Case study | Verifier (no LLM) | Baseline: v0 cold (no-LLM reference) | Status |
 |---|---|---|---|---|
-| 1. Hall layout (**hero**) | GPU data-hall layout, DoneTwin | Rikin's scorer, 0 to 100 | Greedy, 71.0 on 15 held-out halls | Run 1: tied greedy, gate rejected 9 of 9 changes. Settings test: only Nano with reasoning on beat greedy (+2.66 points on 4 train halls). Run 2 live: [RUN2_SCORE] |
-| 2. Equipment placement | QAPLIB facility layout (quadratic assignment) | Exact assignment cost, as a gap to the best-known answer | 2-swap, 0.989 on held-out | Run 2 live (split 4/3/6): [QAP_RESULT] |
-| 3. GPU kernels | KernelBench mini, 12 Level-1 CUDA problems | Correctness and speed vs PyTorch, with reward-hack guards | PyTorch eager, 1.0x | Not run: our Crusoe project has zero GPU quota |
-| 4. Inference | Data-center operations questions from DoneTwin halls (row power budget, rack counts, CDU headroom, hose reach), with code-checked exact answers | Exact answer, plus measured Crusoe cost | v0: Super, reasoning on, one call per question | Live run 1 (4/3/4 halls, 12 questions each): same accuracy at [INF_COST_PCT]% of the cost |
+| 1. Hall layout (**hero**) | GPU data-hall layout, DoneTwin | Rikin's scorer, 0 to 100 | v0 cold 71.0 on 15 held-out halls (greedy 71.0) | Run 1: final = v0 cold, gate rejected 9 of 9 changes. Settings test: only Nano with reasoning on beat the cold start (+2.66 points on 4 train halls). Run 2 live: [RUN2_SCORE] |
+| 2. Equipment placement | QAPLIB facility layout (quadratic assignment) | Exact assignment cost, as a gap to the best-known answer | v0 cold [QAP_V0] (2-swap 0.989) | Run 2 live (split 4/3/6): [QAP_RESULT] |
+| 3. GPU kernels | KernelBench mini, 12 Level-1 CUDA problems | Correctness and speed vs PyTorch, with reward-hack guards | v0 cold (PyTorch eager 1.0x) | Not run: our Crusoe project has zero GPU quota |
+| 4. Inference | Data-center operations questions from DoneTwin halls (row power budget, rack counts, CDU headroom, hose reach), with code-checked exact answers | Exact answer, plus measured Crusoe cost | v0 cold: Super, reasoning on, one call per question | Live run 1 (4/3/4 halls, 12 questions each): same accuracy at [INF_COST_PCT]% of the cost |
+
+Every headline gain is v0 cold to final on held-out tasks. Greedy and 2-swap are shown only as no-LLM references.
 
 Fits the same interface, not run: AlgoTune, ALE-Bench.
 

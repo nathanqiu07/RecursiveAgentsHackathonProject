@@ -40,7 +40,7 @@ A change is one of: a prompt edit, a playbook rule, a config change (model per r
 
 - **Verifier:** Rikin's DoneTwin scorer (`donetwin/donetwin/score.py`), no LLM. Score 0 to 100 = 70 for density + 20 for resilience to a single CDU failure + 10 for hose length.
 - **Hard rules, which score 0 if broken:** 2N power on A/B busways, 1.2 m hot/cold aisles, keep-outs, hose reach, CDU capacity, room air budget.
-- **Baseline:** greedy, about 68 to 70, usually 0 of the 20 resilience points. Every run starts from greedy's layout, so a run never scores below greedy. Any gain is the team's.
+- **Baseline:** v0 cold (the original team, empty memory), 71.0 on held-out. **No-LLM reference:** greedy, also 71.0, usually 0 of the 20 resilience points. v0 starts from greedy's layout, which is why the two match.
 - **Splits:** train 12 and dev 8 halls from disjoint seeds in 0..9999. Held-out is 15 halls from seeds 10000..10049.
 - **Live run 1** (`reports/datahall_live_1/`): every role on Nemotron Nano with reasoning off.
   - Held-out on 15 halls: greedy 0.710, v0 with empty memory 0.710, v0 with learned memory 0.710.
@@ -52,19 +52,19 @@ A change is one of: a prompt edit, a playbook rule, a config change (model per r
   - Reasoning off never produced a feasible layout: 0 of 12 attempts, for both Nano and Super.
   - Super with reasoning on stalled: every call was cut off at 16k tokens.
   - Run-to-run noise: about ±1.3 points.
-  - In one line: the only setting that beat greedy was the small model allowed to think.
+  - In one line: the only setting that beat the cold start was the small model allowed to think. The cold start, Nano with reasoning off, scored exactly greedy.
 - **Run 2** (live): v0 is run 1's config. The Reviewer can turn Layout reasoning on. Result: [RUN2_SCORE]
 
 Both outcomes are reportable:
-- **If a setting beats greedy:** the table below shows the gain on unseen halls.
+- **If the final version beats v0 cold:** the table below shows the gain on unseen halls.
 - **If none does:** the ledger shows every change the gate refused, with claimed vs measured. "The gate refused every change that did not help" is Version N+1 working as designed. A team that edits itself without a gate would have shipped those changes.
 
 | Config (15 held-out halls) | Score /100 | Pass rate | Calls/task | Tokens/task | $/task | $ per verified point |
 |---|---|---|---|---|---|---|
-| Greedy (no LLM) | 71.0 | [ ] | 0 | 0 | 0 | n/a |
-| v0, empty memory | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| v0 cold, empty memory (**baseline**) | 71.0 | [ ] | [ ] | [ ] | [ ] | [ ] |
 | v0, learned memory (Shared Brain effect) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | vN, learned memory (Version N+1 effect) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| *Reference: greedy (no LLM)* | *71.0* | *100%* | 0 | 0 | 0 | n/a |
 
 ## Layer 2, equipment placement: QAPLIB facility layout (live)
 
@@ -77,7 +77,7 @@ Both outcomes are reportable:
   - Random: 0.707.
 - **Live smoke:** Super wrote a runnable program with a 13.9% gap on els19, where 2-swap is at 0.0%. Cost $0.016.
 - **Evolve run 1** (`runs/qaplib-evolve-1/`): crashed on a Crusoe 429 (`max_requests_limit`) before finishing.
-- **Evolve run 2** (`runs/qaplib-evolve-2/`, live): 2 generations on a 4 / 3 / 6 split, after the 429 client fix. Result: [QAP_RESULT]. Same table as layer 1, with the 2-swap baseline in place of greedy.
+- **Evolve run 2** (`runs/qaplib-evolve-2/`, live): 2 generations on a 4 / 3 / 6 split, after the 429 client fix. Result: [QAP_RESULT]. Same table as layer 1: v0 cold is the baseline, with 2-swap as the gray no-LLM reference row.
 
 ## Layer 3, GPU kernels: KernelBench mini
 
@@ -144,7 +144,7 @@ Cost, tokens and calls per verified point are also reported on layers 1 to 3.
 - **Generality is limited:** it is claimed only for problems with a programmatic verifier. It is shown on [N_LIVE] of 4 layers with live results.
 - **Run 1 tied greedy:** on 15 held-out halls the team scored 71.0, equal to greedy, and the gate rejected 9 of 9 changes. We report that as the result so far.
 - **Small sample:** 15 held-out halls and one seed. The settings experiment used 4 halls with about ±1.3 points of noise, so +2.66 is a small effect. We report the mean with the per-task spread and make no significance claim.
-- **Greedy is the floor by construction:** the data-hall team starts from greedy's layout and keeps its best layout, so it cannot score below greedy. The claim is the gain over greedy, not the absolute score.
+- **Greedy is the floor by construction:** the data-hall team starts from greedy's layout and keeps its best layout, so it cannot score below greedy. The claim is the gain of the final version over v0 cold. For QAPLIB there is no such floor: the team writes programs from scratch, so v0 cold can score below 2-swap, and we show 2-swap so that is visible.
 - **Limited model:** the data-hall model is 2D, built from published specs. No airflow, no structural design, and it is not an engineering tool. A high score here does not show real-world capability.
 - **Not ours:** the data-hall scorer and hall generator are a teammate's code (Rikin's DoneTwin).
 - **No cache savings claimed:** Crusoe reported 0 cached tokens.
