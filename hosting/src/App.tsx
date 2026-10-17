@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import Resources from './Resources';
 import Benchmarks from './Benchmarks';
 import Guide from './Guide';
+import Agents from './Agents';
 
 const tabs = ['Benchmarks', 'Library', 'Agents', 'Resources', 'Guide'] as const;
 
@@ -70,6 +71,7 @@ export default function App() {
           >
             {tab === 'Benchmarks' && <Benchmarks active={activeTab === 'Benchmarks'} />}
             {tab === 'Resources' && <Resources active={activeTab === 'Resources'} />}
+            {tab === 'Agents' && <Agents active={activeTab === 'Agents'} />}
             {tab === 'Guide' && <Guide />}
           </section>
         ))}

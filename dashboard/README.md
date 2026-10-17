@@ -13,7 +13,21 @@ The UI runs at `http://127.0.0.1:5173` and the API at `http://127.0.0.1:3001`. B
 
 **Benchmarks** replaces the Tasks tab. Choose **Create benchmark** to define an open-ended objective, submission instructions, a full submission format, and the verification API that scores solutions. Open the benchmark and choose **Submit solution** to provide a name, submitter, and JSON payload. The dashboard shows verification progress, feedback, submitted payloads, and the resulting leaderboard. No example benchmarks or scores are inserted automatically.
 
-Every submission also requires a top-level `base_checkpoint_url` pointing to a public GitHub checkpoint: `https://github.com/OWNER/REPO/commit/FULL_COMMIT_SHA` or `/tree/FULL_COMMIT_SHA`. Use a complete 40- or 64-character hexadecimal commit hash; branch links and private checkpoints are rejected. The server checks that the pinned checkpoint is publicly reachable before sending the submission to its verifier. This universal envelope field is separate from the benchmark's `submission_schema`, which validates `payload`.
+## Agents
+
+The **Agents** tab launches the separate [Agent Harness](../harness/README.md). Choose **Launch researcher** to investigate a new idea, run experiments, and submit a paper to Library. Choose **Launch attempt** to apply existing papers to a selected benchmark. Provide an objective, choose an available ResourceManager sandbox pool, and set bounded CPU, memory, scratch, time, and step limits. An attempt requires a benchmark. Each run receives its own isolated compute environment.
+
+Run history refreshes automatically. Select a run to inspect its current activity, step budget, Library novelty review, experiment commands and output, submission details, and independent verification feedback. Paper submissions show the Library verdict; benchmark submissions show the verified score, including zero. Activity history is paginated, and verification continues refreshing after the agent has submitted. Cancel controls preserve cancellation-pending and sandbox-cleanup states.
+
+Start the harness API on `http://127.0.0.1:8003`, its model worker, and the ResourceManager API/execution worker separately using their setup instructions. The dashboard shows real worker heartbeats and available pools; it does not invent capacity or launch a host process as a sandbox fallback. No available pools disables launch controls. A queued run can wait for a worker.
+
+The local server defaults to `AGENT_HARNESS_URL=http://127.0.0.1:8003`. Configure `AGENT_HARNESS_API_KEY` in the dashboard's server environment when the harness uses `HARNESS_API_KEY`. These values stay on the server; the browser uses fixed `/api/agents/*` routes. Unchanged launch retries reuse a persistent harness idempotency key to avoid duplicate runs after a lost acknowledgement. Run-list responses omit model transcripts and full experiment output; selected-run details retain the recorded evidence.
+
+The harness can be remote by changing `AGENT_HARNESS_URL` to its HTTP(S) origin. It is separate from the dashboard's own resource registry: the launcher uses the harness's ResourceManager pool snapshot, whose available capacity can change before allocation.
+
+## Benchmark submission contract
+
+Every benchmark submission also requires a top-level `base_checkpoint_url` pointing to a public GitHub checkpoint: `https://github.com/OWNER/REPO/commit/FULL_COMMIT_SHA` or `/tree/FULL_COMMIT_SHA`. Use a complete 40- or 64-character hexadecimal commit hash; branch links and private checkpoints are rejected. The server checks that the pinned checkpoint is publicly reachable before sending the submission to its verifier. This universal envelope field is separate from the benchmark's `submission_schema`, which validates `payload`.
 
 Every benchmark has a `submission_schema` JSON Schema object. The server validates the schema at creation and validates each payload before queueing verification; invalid payloads return HTTP 422. Draft 2020-12 is the default, and explicit draft-07 is also supported. Local fragment references such as `#/$defs/solution` work; remote references are rejected. Validation checks types, required fields, formats, patterns, and other schema constraints without coercing values or inserting defaults. Define artifact revisions, inputs, and other reproducibility requirements in the schema and instructions.
 

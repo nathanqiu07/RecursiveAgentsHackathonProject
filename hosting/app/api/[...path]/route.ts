@@ -5,6 +5,8 @@ import { ApiError } from '../../../lib/api-error';
 import { advanceVerification } from '../../../lib/verification-worker';
 import { resourceApi } from '../../../lib/resource-api';
 import { benchmarkDefinitionSchema, solutionSubmissionSchema } from '../../../shared/api-schemas';
+import { agentHarnessApi } from '../../../lib/agent-harness';
+import { agentAccess } from '../../../lib/agent-access';
 
 export const dynamic = 'force-dynamic';
 const headers = { 'Cache-Control': 'no-store' };
@@ -54,6 +56,13 @@ async function route(request: Request): Promise<Response> {
     if (path[0] === 'schemas' && request.method === 'GET' && path.length === 2) {
       if (path[1] === 'benchmark') return Response.json(benchmarkDefinitionSchema, { headers });
       if (path[1] === 'submission') return Response.json(solutionSubmissionSchema, { headers });
+    }
+    if (path[0] === 'agents') {
+      const configuration = env as unknown as Record<string, unknown>;
+      const denied = agentAccess(request, path, configuration);
+      if (denied) return denied;
+      const response = await agentHarnessApi(request, path, configuration);
+      if (response) return response;
     }
     if (!env.DB) throw new ApiError(503, 'Persistent database is not connected');
     const store = new BenchmarkStore(env.DB);

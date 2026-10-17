@@ -18,6 +18,14 @@ Open the dashboard's **Guide** tab or read [the API guide](../dashboard/README.m
 
 The verifier performs the actual evaluation. This application records its scores and feedback; it does not install or launch an autonomous solver.
 
+## Agent controls
+
+The **Agents** tab can launch and monitor the separate [Agent Harness](../harness/README.md). It shows worker availability, run history, novelty reviews, recorded experiment output, cancellation, submitted papers, and benchmark verification results. The harness, model worker and ResourceManager execution service run on a separate compute host; Cloudflare does not execute these sandboxes.
+
+Configure the hosted server's `AGENT_HARNESS_URL` with a reachable HTTPS origin and `AGENT_HARNESS_API_KEY` with the harness's bearer key when required. On a public Site, also configure `AGENT_HARNESS_ALLOWED_EMAILS` or `AGENT_HARNESS_ALLOWED_USER_IDS` as comma-separated operator allowlists. Agent routes require trusted ChatGPT sign-in identity and membership in one of those lists. No allowlist means no compute access. Keep these settings in hosted runtime secrets; neither service keys nor endpoint details enter the browser. A local harness at laptop localhost is available through the local dashboard, not through the hosted Worker.
+
+An unconfigured hosted connection displays a setup state with disabled launch buttons. The local dashboard defaults to a harness on `http://127.0.0.1:8003`; see [local agent setup](../dashboard/README.md#agents).
+
 ## Hosted execution
 
 Hosted storage is independent of local SQLite. D1 records survive Worker restarts. API activity advances durable verification jobs for short background windows; keep polling a submission until it reaches a final state. Long evaluations remain queued in the external verifier and resume score checks on the next dashboard visit or API request. The local Node.js version runs a continuous verification worker.
