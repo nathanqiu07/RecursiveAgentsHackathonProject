@@ -1,0 +1,22 @@
+{
+ "seed": 20261017,
+ "train": [
+  "kb_mse",
+  "kb_rmsnorm",
+  "kb_scale_copy",
+  "kb_softmax"
+ ],
+ "dev": [
+  "kb_gelu",
+  "kb_matmul_tb",
+  "kb_sum_dim"
+ ],
+ "heldout": [
+  "kb_argmax",
+  "kb_conv2d",
+  "kb_cumsum",
+  "kb_matmul_square",
+  "kb_relu"
+ ],
+ "heldout_sha256": "039454353c39128f3081302bd25378399ba74d10b92e5bfe278ee60debfb8a73"
+}
