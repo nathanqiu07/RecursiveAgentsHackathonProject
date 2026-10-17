@@ -384,7 +384,7 @@ def short_model(name: str | None) -> str | None:
 
 
 def log_models(text: str) -> tuple[str | None, str | None]:
-    m = re.search(r"(?:solver|worker) calls \(([^)]+)\).*?reviewer calls \(([^)]+)\)", text)
+    m = re.search(r"(?:solver|worker|kernel) calls \(([^)]+)\).*?reviewer calls \(([^)]+)\)", text)
     if m:
         return short_model(m.group(1)), short_model(m.group(2))
     solver = re.search(r"^v0: (\w+) for every type", text, re.M) or re.search(r"--solver-model[= ](\S+)", text)
