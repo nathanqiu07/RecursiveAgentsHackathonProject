@@ -25,9 +25,9 @@ from team.types import Reply
 
 T = TypeVar("T")
 
-NANO = "nvidia/Nemotron-3-Nano-30B-A3B"
-SUPER = "nvidia/Nemotron-3-Super-120B-A12B"
-LIGHTNING = "nvidia/nemotron-3.5-lightning-30b-a3b"
+NANO = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+SUPER = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B"
+LIGHTNING = "nvidia/Nemotron-3.5-Lightning-30B-A3B"
 
 DEFAULT_BASE_URL = "https://api.inference.crusoecloud.com/v1"
 DOTENV_PATH = Path(__file__).resolve().parent.parent / ".env"

@@ -26,7 +26,7 @@ from benchmarks.qaplib.fetch import family  # noqa: E402
 from benchmarks.qaplib.verify import parse_dat, verify  # noqa: E402
 from team.types import RunResult, Task  # noqa: E402
 
-SUPER = "nvidia/Nemotron-3-Super-120B-A12B"
+SUPER = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B"
 VENV_PYTHON = ROOT / ".venv" / "bin" / "python"
 PASS_GAP_PCT = 1.0
 MAX_TEXT = 280
