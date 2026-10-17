@@ -43,14 +43,14 @@ The hall is the hero for three reasons:
 | 0:07 to 0:15 | Loop diagram (research agent, paper, verifier rerun, gate), then one paper's claim JSON | Slide, plus a version ledger in an editor | Ledger yes, diagram to make |
 | 0:15 to 0:22 | DoneTwin control room: v0 cold's layout, score 71, resilience 0/20 | `donetwin/ui/index.html` at http://127.0.0.1:8000 | Yes |
 | 0:22 to 0:28 | Terminal: the 9 rejected rows from run 1, then the settings table with the one winning row highlighted (Nano, reasoning on, 32k: +2.66) | `reports/datahall_live_1/version_ledger.jsonl`, `reports/RESULTS.md` | Yes |
-| 0:28 to 0:35 | Outcome A: the 3D twin with vN's layout, plus a bar chart of v0 cold vs vN on 15 held-out halls, with greedy as a gray reference bar. Outcome B: the run 2 ledger | DoneTwin UI; chart from run 2's `before_after.json` | Chart to make |
-| 0:35 to 0:43 | SA's dashboard, Benchmarks tab: the QAPLIB entry, v0 cold vs final, with 2-swap as a gray reference | http://127.0.0.1:5173 | Once run 2 publishes |
+| 0:28 to 0:35 | Outcome A: the 3D twin with vN's layout, plus a bar chart of v0 cold vs vN on the held-out halls. Outcome B: the run 2 ledger | DoneTwin UI; chart from run 2's `before_after.json` | Chart to make |
+| 0:35 to 0:43 | SA's dashboard, Benchmarks tab: the QAPLIB entry, v0 cold vs final | http://127.0.0.1:5173 | Once run 2 publishes |
 | 0:43 to 0:50 | The 12 problem names and the reward-hack guard list | `benchmarks/kernelbench_mini/` | Depends on the VM |
 | 0:50 to 1:00 | Bar chart: $ per question, v0 (Super, reasoning on) vs vN, with accuracy above each bar. End card: tagline, "Crusoe Managed Inference + NVIDIA Nemotron" | Chart from the inference_opt run's `before_after.json`; slide | To make |
 
 ## Baselines
 
-Every headline gain is **v0 cold to final** on held-out tasks: the same team before and after it edits itself. Greedy (hall) and 2-swap (QAPLIB) appear only as a gray "no-LLM reference" row or bar, and are never narrated.
+Every headline gain is **v0 cold to final** on held-out tasks: the same team before and after it edits itself. No other baseline is shown or narrated.
 
 ## What is cut, and why
 

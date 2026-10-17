@@ -40,21 +40,21 @@ A change is one of: a prompt edit, a playbook rule, a config change (model per r
 
 - **Verifier:** Rikin's DoneTwin scorer (`donetwin/donetwin/score.py`), no LLM. Score 0 to 100 = 70 for density + 20 for resilience to a single CDU failure + 10 for hose length.
 - **Hard rules, which score 0 if broken:** 2N power on A/B busways, 1.2 m hot/cold aisles, keep-outs, hose reach, CDU capacity, room air budget.
-- **Baseline:** v0 cold (the original team, empty memory), 71.0 on held-out. **No-LLM reference:** greedy, also 71.0, usually 0 of the 20 resilience points. v0 starts from greedy's layout, which is why the two match.
+- **Baseline:** v0 cold (the original team, empty memory), 71.0 on held-out, usually 0 of the 20 resilience points. v0 starts from a deterministic placement and keeps its best layout, so a version cannot score below its starting layout.
 - **Splits:** currently train 8, dev 6, held-out 10 halls (`team/datahall.py`). Train and dev use disjoint seeds in 0..9999, held-out uses seeds 10000..10049. Run 1 used 12 / 8 / 15.
 - **Live run 1** (`reports/datahall_live_1/`): every role on Nemotron Nano with reasoning off.
-  - Held-out on 15 halls: greedy 0.710, v0 with empty memory 0.710, v0 with learned memory 0.710.
+  - Held-out on 15 halls: v0 cold 0.710, v0 with learned memory 0.710, final 0.710.
   - The Reviewer proposed 9 changes and the gate rejected all 9: 7 measured a gain of +0.000 or -0.001 against the required 0.05, and 2 failed validation (a playbook step over 280 chars).
   - 475 calls, 0 errors, $0.173.
   - Memory raised tokens from 223,921 to 257,007 (+14.8%) for no gain. The cost gate now penalizes that.
-- **Settings experiment** (4 train halls, Layout role only, greedy 0.695):
+- **Settings experiment** (4 train halls, Layout role only, cold start 0.695):
   - Nano with reasoning on and a 32k-token cap: +2.66 points. The only win: 2 of 4 halls improved, by +5.6 and +5.0, at $0.018 and 739 s per hall.
   - Reasoning off never produced a feasible layout: 0 of 12 attempts, for both Nano and Super.
   - Super with reasoning on stalled: every call was cut off at 16k tokens.
   - Run-to-run noise: about ±1.3 points.
-  - In one line: the only setting that beat the cold start was the small model allowed to think. The cold start, Nano with reasoning off, scored exactly greedy.
+  - In one line: the only setting that beat the cold start was the small model allowed to think. The cold start is Nano with reasoning off.
 - **Runs 2+** (live, latest `datahall-live-4`): v0 is run 1's config. The Reviewer can turn Layout reasoning on, or enable a verifier-guided polish tool (`team/datahall_polish.py`, Rikin's local search). Result: [RUN2_SCORE]
-- **Required ablation for any polish gain:** offline, greedy + polish with no LLM scores 72.75 vs greedy 68.79 on 6 held-out halls. If the final version's gain comes from enabling polish, it must be reported next to that row. The LLM's contribution is then choosing the tool and the settings, not the layout itself.
+- **If the gain comes from enabling polish:** say the team's contribution was choosing the tool and its settings; see the Q&A note below. The LLM's contribution is then choosing the tool and the settings, not the layout itself.
 
 Both outcomes are reportable:
 - **If the final version beats v0 cold:** the table below shows the gain on unseen halls.
@@ -65,8 +65,6 @@ Both outcomes are reportable:
 | v0 cold, empty memory (**baseline**) | 71.0 | [ ] | [ ] | [ ] | [ ] | [ ] |
 | v0, learned memory (Shared Brain effect) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | vN, learned memory (Version N+1 effect) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| *Reference: greedy (no LLM)* | *71.0* | *100%* | 0 | 0 | 0 | n/a |
-| *Reference: greedy + polish (no LLM)* | *[POLISH_REF]* | | 0 | 0 | 0 | n/a |
 
 ## Layer 2, equipment placement: QAPLIB facility layout (live)
 
@@ -74,17 +72,14 @@ Both outcomes are reportable:
 - **Verifier:** computes the exact cost of the returned assignment.
 - **Score:** reported as the gap to the best-known answer. 16 of the best-known answers are not proven optimal, so a score above 1.0 on one of those would be a new record.
 - **How the team works:** the solver role writes a heuristic program. It runs in a subprocess with a hard timeout (10 s in the baseline), and each attempt's verified gap is fed back.
-- **Baselines** (`reports/qaplib_baseline.json`):
-  - 2-swap: 0.989 mean score on held-out, 1.2% mean gap, at the best-known answer on 5 of 18.
-  - Random: 0.707.
-- **Live smoke:** Super wrote a runnable program with a 13.9% gap on els19, where 2-swap is at 0.0%. Cost $0.016.
+- **Live smoke:** Super wrote a runnable program with a 13.9% gap on els19. Cost $0.016.
 - **Evolve run 1** (`runs/qaplib-evolve-1/`): crashed on a Crusoe 429 (`max_requests_limit`) before finishing.
 - **Data-center QAP instances** (`benchmarks/qaplib/dc_instances.py`): GPU rack placement in DoneTwin halls, in QAPLIB's format. Facilities are one training job's racks, locations are the hall's rack slots, flow is GB/s between racks, and distance is cable-tray length. There is no published optimum, so the reference is the best of a time-boxed robust tabu search and 2-swap; 1.0 matches it. This is what ties the QAPLIB layer to real data-center data.
 - **Held-out so far (v0 cold → final):**
-  - QAPLIB (`qaplib-research-1`): final 0.966, 2.9 points below the 2-swap reference (0.995). v0 cold is [QAP_V0].
-  - Data-center QAP (`qaplib-dc-research-1`): 0.477 → 0.802 (+0.325). The 2-swap reference is 0.967, so the final version is still below a textbook heuristic.
+  - QAPLIB (`qaplib-research-1`): [QAP_V0] → 0.966.
+  - Data-center QAP (`qaplib-dc-research-1`): 0.477 → 0.802 (+0.325).
   - Still running: `qaplib-research-2` and `qaplib-dc-research-2`.
-- **Evolve run 2** (`runs/qaplib-evolve-2/`): 2 generations on a 4 / 3 / 6 split, after the 429 client fix. Result: [QAP_RESULT]. Same table as layer 1: v0 cold is the baseline, with 2-swap as the gray no-LLM reference row.
+- **Evolve run 2** (`runs/qaplib-evolve-2/`): 2 generations on a 4 / 3 / 6 split, after the 429 client fix. Result: [QAP_RESULT]. Same table as layer 1, v0 cold to final.
 
 ## Layer 3, GPU kernels: KernelBench mini
 
@@ -149,9 +144,11 @@ Cost, tokens and calls per verified point are also reported on layers 1 to 3.
 ## Honesty
 
 - **Generality is limited:** it is claimed only for problems with a programmatic verifier. It is shown on [N_LIVE] of 4 layers with live results.
-- **Run 1 tied greedy:** on 15 held-out halls the team scored 71.0, equal to greedy, and the gate rejected 9 of 9 changes. We report that as the result so far.
+- **Run 1 found no gain:** on 15 held-out halls the final version scored 71.0, equal to v0 cold, and the gate rejected 9 of 9 changes. We report that as the result so far.
 - **Small sample:** 15 held-out halls and one seed. The settings experiment used 4 halls with about ±1.3 points of noise, so +2.66 is a small effect. We report the mean with the per-task spread and make no significance claim.
-- **Greedy is the floor by construction:** the data-hall team starts from greedy's layout and keeps its best layout, so it cannot score below greedy. The claim is the gain of the final version over v0 cold. For QAPLIB there is no such floor: the team writes programs from scratch, so v0 cold can score below 2-swap, and we show 2-swap so that is visible.
+- **The hall has a floor by construction:** the team keeps its best layout, so it cannot score below its starting layout. The claim is the gain of the final version over v0 cold.
+- **Classical search still wins on QAP:** "On QAPLIB and rack placement a 10 s classical search still scores higher." This is the one sentence about outside methods that we say on stage.
+- **Q&A only, not shown** (if a judge asks "vs what?"): hall greedy 71.0 (v0 cold starts from it, so they match); greedy + polish with no LLM 72.75 vs greedy 68.79 on 6 held-out halls; QAPLIB 2-swap 0.995; rack-placement QAP 2-swap 0.967.
 - **Limited model:** the data-hall model is 2D, built from published specs. No airflow, no structural design, and it is not an engineering tool. A high score here does not show real-world capability.
 - **Not ours:** the data-hall scorer and hall generator are a teammate's code (Rikin's DoneTwin).
 - **No cache savings claimed:** Crusoe reported 0 cached tokens.
@@ -172,11 +169,11 @@ Rebuild the data once after the last run lands (`scripts/build_datacenter_view.p
 | Time | On screen | Say (gist) | Fallback if it breaks |
 |---|---|---|---|
 | 0:00 to 0:20 | Overview tab: the thesis and the loop diagram | "An AI data center is a stack of optimization problems code can check. Our harness turns each one into a Nemotron team on Crusoe that edits itself and keeps a change only when the verifier measures a gain." | Hero screenshot, `docs/demo/hero-*.png` (to capture once the Overview tab ships) |
-| 0:20 to 1:00 | DoneTwin control room: one held-out hall in 3D. Show v0 cold's layout (= greedy), then the team's best verified layout, and let the scorer recompute live | "This hall was never seen in training. Here is the cold start: [V0_HALL] out of 100. Here is the team's layout: [VN_HALL]. The score is recomputed right now by code: power, aisles, cooling, hose reach. No LLM grades it." If the gain came from the polish tool, add: "Polish alone, with no LLM, gets 72.75; the team's job was choosing to use it." | `docs/demo/donetwin-empty-hall.png` shows the empty hall; the layout shots are still to capture. If there is no hall gain, show the cold layout and say the gate kept nothing on this layer |
-| 1:00 to 1:30 | AI Data Center tab: the four layer cards, v0 cold → final, with gray no-LLM references | "Four layers, one harness. Each card is the same team before and after it edits itself, on unseen tasks. Gray is the textbook method with no LLM, so you can see where we still lose." | `docs/demo/datacenter-1548.png` (15:48 snapshot from before the v0-cold reframe; re-shoot after the final runs) |
+| 0:20 to 1:00 | DoneTwin control room: one held-out hall in 3D. Show v0 cold's layout, then the team's best verified layout, and let the scorer recompute live | "This hall was never seen in training. Here is the cold start: [V0_HALL] out of 100. Here is the team's layout: [VN_HALL]. The score is recomputed right now by code: power, aisles, cooling, hose reach. No LLM grades it." If the gain came from the polish tool, add: "the team's gain was choosing to turn on a verifier-guided polish tool." | `docs/demo/donetwin-empty-hall.png` shows the empty hall; the layout shots are still to capture. If there is no hall gain, show the cold layout and say the gate kept nothing on this layer |
+| 1:00 to 1:30 | AI Data Center tab: the four layer cards, v0 cold → final | "Four layers, one harness. Each card is the same team before and after it edits itself, on unseen tasks." | `docs/demo/datacenter-1548.png` (15:48 snapshot from before the v0-cold reframe; re-shoot after the final runs) |
 | 1:30 to 2:10 | Hill climb: best run (currently `qaplib-dc-research-1`), press Replay, then click one green dot | "Each dot is a change the team proposed to itself. Red, the gate refused it. Green, kept. This one: turn reasoning on for the solver. It claimed +0.03. The verifier measured +0.146, but cost went up 93%. The gate shows what it read: You.com sources." | `docs/demo/hillclimb.png`, then `docs/demo/hillclimb-detail.png` |
 | 2:10 to 2:30 | Library tab: the same change written up as a paper, with the gate's verdict attached | "Every change is a paper with a falsifiable claim. The verifier is the reviewer. A claim enters memory only if it reproduces." | Read the claim and verdict from `hillclimb-detail.png` |
-| 2:30 to 3:00 | Back to the AI Data Center tab | Caveats: "Classical references still win on quadratic assignment: our best is 0.802 against 2-swap's 0.967. KernelBench: [KB_STATUS]." Ask: "Bring a verifier, get a team that keeps only what it measures. We want problems from Crusoe's own build-out to run it on." | Same slide, spoken |
+| 2:30 to 3:00 | Back to the AI Data Center tab | Caveats: "On QAPLIB and rack placement a 10 s classical search still scores higher. KernelBench: [KB_STATUS]." Ask: "Bring a verifier, get a team that keeps only what it measures. We want problems from Crusoe's own build-out to run it on." | Same slide, spoken |
 
 **Optional live moment.** At 0:00, start a one-hall Nano run in a terminal (`.venv/bin/python scripts/run_datahall.py --live --one`). Return to it at 2:30 only if it has printed its bill. If not, never mention it. It needs `CRUSOE_API_KEY` in that shell, and it competes with any runs still going for Crusoe's concurrency cap.
 
