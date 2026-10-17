@@ -1,6 +1,12 @@
-# Demo: one harness, several case studies
+# Demo: optimizing every layer of an AI data center
 
-**Theme:** every layer of an AI data center is an optimization problem that code can score. Racks (data hall), equipment (QAPLIB), kernels (KernelBench), and the inference bill (cost axis). The video plan is in `VIDEO.md`.
+**Theme:** optimizing every layer of an AI data center, with each layer framed as an optimization problem that code can check. Four layers:
+1. Hall layout (DoneTwin)
+2. Equipment placement (QAPLIB)
+3. GPU kernels (KernelBench)
+4. Inference (data-center operations questions)
+
+The video plan is in `VIDEO.md`.
 
 **Claim:** one harness turns any problem with a programmatic verifier into an agent team that improves itself. It is not a general solver: each domain still needs its own task generator, its own non-LLM verifier, and its own role prompts. Each benchmark below is a case study of the same harness.
 
@@ -30,7 +36,7 @@ A change is one of: a prompt edit, a playbook rule, a config change (model per r
 
 **Why a verifier and not an LLM judge decides:** a judge lets the team learn what sounds right. That is the documented false-success failure mode.
 
-## Case study 1, where the racks go: GPU data-hall layout (hero, live)
+## Layer 1, hall layout: GPU data-hall layout (hero, live)
 
 - **Verifier:** Rikin's DoneTwin scorer (`donetwin/donetwin/score.py`), no LLM. Score 0 to 100 = 70 for density + 20 for resilience to a single CDU failure + 10 for hose length.
 - **Hard rules, which score 0 if broken:** 2N power on A/B busways, 1.2 m hot/cold aisles, keep-outs, hose reach, CDU capacity, room air budget.
@@ -41,7 +47,13 @@ A change is one of: a prompt edit, a playbook rule, a config change (model per r
   - The Reviewer proposed 9 changes and the gate rejected all 9: 7 measured a gain of +0.000 or -0.001 against the required 0.05, and 2 failed validation (a playbook step over 280 chars).
   - 475 calls, 0 errors, $0.173.
   - Memory raised tokens from 223,921 to 257,007 (+14.8%) for no gain. The cost gate now penalizes that.
-- **Run 2:** an experiment (Nano vs Super, reasoning on/off) is choosing the config. [RUN2 pending]
+- **Settings experiment** (4 train halls, Layout role only, greedy 0.695):
+  - Nano with reasoning on and a 32k-token cap: +2.66 points. The only win: 2 of 4 halls improved, by +5.6 and +5.0, at $0.018 and 739 s per hall.
+  - Reasoning off never produced a feasible layout: 0 of 12 attempts, for both Nano and Super.
+  - Super with reasoning on stalled: every call was cut off at 16k tokens.
+  - Run-to-run noise: about ±1.3 points.
+  - In one line: the only setting that beat greedy was the small model allowed to think.
+- **Run 2** (live): v0 is run 1's config. The Reviewer can turn Layout reasoning on. Result: [RUN2_SCORE]
 
 Both outcomes are reportable:
 - **If a setting beats greedy:** the table below shows the gain on unseen halls.
@@ -54,7 +66,7 @@ Both outcomes are reportable:
 | v0, learned memory (Shared Brain effect) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | vN, learned memory (Version N+1 effect) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 
-## Case study 2, where the equipment goes: QAPLIB facility layout (live smoke)
+## Layer 2, equipment placement: QAPLIB facility layout (live)
 
 - **Task:** 45 instances, split 18 / 9 / 18.
 - **Verifier:** computes the exact cost of the returned assignment.
@@ -64,37 +76,36 @@ Both outcomes are reportable:
   - 2-swap: 0.989 mean score on held-out, 1.2% mean gap, at the best-known answer on 5 of 18.
   - Random: 0.707.
 - **Live smoke:** Super wrote a runnable program with a 13.9% gap on els19, where 2-swap is at 0.0%. Cost $0.016.
-- **Live evolve run** (`runs/qaplib-evolve-1/`): crashed on a Crusoe 429 (`max_requests_limit`). It relaunches after a client fix. Same table as case study 1, with the 2-swap baseline in place of greedy.
+- **Evolve run 1** (`runs/qaplib-evolve-1/`): crashed on a Crusoe 429 (`max_requests_limit`) before finishing.
+- **Evolve run 2** (`runs/qaplib-evolve-2/`, live): 2 generations on a 4 / 3 / 6 split, after the 429 client fix. Result: [QAP_RESULT]. Same table as layer 1, with the 2-swap baseline in place of greedy.
 
-## Case study 3, what runs on the GPUs: KernelBench mini (built, not run)
+## Layer 3, GPU kernels: KernelBench mini
 
 - **Task:** 12 Level-1 CUDA problems (`benchmarks/kernelbench_mini/`).
 - **Verifier:** correctness and speed against the PyTorch reference, with static reward-hack guards.
-- **Status:** built and tested offline. It needs a Crusoe GPU VM (L40S, $1.50/hr, `scripts/crusoe_gpu_vm.sh`) that has not been created, so there is no live result.
+- **Status:** built and tested offline. The live run needs a Crusoe L40S VM ($1.50/hr, `scripts/crusoe_gpu_vm.sh`). The CLI is being installed, and the VM is waiting on Nathan's Cloud API credentials. It may not finish before 5 PM.
+- **Result:** [KB_RESULT]. If none: "built and tested offline with reward-hack guards; the live run is next, on a Crusoe GPU."
 
-## Case study 4, what it costs: inference cost (an axis on every case study)
+## Layer 4, inference: data-center operations questions (being built)
 
-This is not a separate benchmark. On every case study the harness measures Crusoe cost, tokens and calls per verified point, and the gate keeps a change that cuts cost by 15% or more at equal score.
+- **Task:** a fixed workload of data-center operations questions drawn from DoneTwin halls: power budget per row, rack counts, CDU headroom, hose reach (`benchmarks/inference_opt/`, in progress).
+- **Verifier:** each answer is checked by code against an exact computed value. The harness also measures the Crusoe cost of every call.
+- **Starting point:** v0 is deliberately expensive: Super, reasoning on, one call per question.
+- **Gate:** a version is kept only if measured cost falls by 15% or more with no loss in accuracy.
+- **Headline:** same accuracy at [INF_COST_PCT]% of the cost.
 
-**Measured live on 2026-10-17:**
+**Measured live on 2026-10-17, which motivates this layer:**
 - Nano is about 11x cheaper per call than Super, at 0.55 s per small call.
 - Turning Nano's reasoning off took one call from 180 tokens and 2.0 s to 7 tokens and 0.2 s.
-- An early data-hall task with reasoning on scored 0: reasoning hit the 8192-token cap and the JSON was cut off.
+- In the hall layout, reasoning off never produced a feasible layout, so cheaper is not free. That is why the gate checks accuracy as well as cost.
 - Crusoe reported 0 cached tokens, so we claim no cache savings.
 
-## Off-theme generality test: ALE-Bench AHC039
+Cost, tokens and calls per verified point are also reported on layers 1 to 3.
 
-- **Task:** "Purse Seine Fishing": enclose mackerel and avoid sardines with a polygon. Uses the official scorer (`benchmarks/alebench/`).
-- **Baseline:** greedy is reported at rank 235 of 583 (performance 1556), and the top human scores 1.96x greedy. These figures come from the brief and are not checked against the leaderboard here.
-- **Live smoke:** Super with reasoning off scored 0.35x greedy.
-- **Live evolve run** (`runs/alebench-live-1/`): crashed on the same 429 and is relaunching.
-- **Not in the video:** it is not a data-center layer.
+## Fits the same interface, not run
 
-## Next case studies (fit the interface, not run)
-
-| Benchmark | Why it fits | Blocker |
-|---|---|---|
-| AlgoTune | 77 numpy/scipy tasks with timing verifiers, validated on this Mac | Adapter not written |
+- AlgoTune: 77 numpy/scipy tasks with timing verifiers.
+- ALE-Bench: heuristic contests with official scorers.
 
 ## What we show
 
@@ -106,7 +117,7 @@ This is not a separate benchmark. On every case study the harness measures Cruso
 |---|---|---|---|---|
 | [id] | [typed change] | [+x score, -y% cost] | [+x', -y'%] | reproduced / smaller than claimed / not reproduced |
 
-4. **Generality evidence:** the same 3 core files run both case studies. Only the adapter differs.
+4. **Generality evidence:** the same 3 core files run every layer. Only the adapter differs.
 
 ## What is distinctive
 
@@ -127,9 +138,9 @@ This is not a separate benchmark. On every case study the harness measures Cruso
 
 ## Honesty
 
-- **Generality is limited:** it is claimed only for problems with a programmatic verifier, and is shown on 2 domains.
+- **Generality is limited:** it is claimed only for problems with a programmatic verifier. It is shown on [N_LIVE] of 4 layers with live results.
 - **Run 1 tied greedy:** on 15 held-out halls the team scored 71.0, equal to greedy, and the gate rejected 9 of 9 changes. We report that as the result so far.
-- **Small sample:** 15 held-out halls and one seed. We report the mean with the per-task spread and make no significance claim.
+- **Small sample:** 15 held-out halls and one seed. The settings experiment used 4 halls with about ±1.3 points of noise, so +2.66 is a small effect. We report the mean with the per-task spread and make no significance claim.
 - **Greedy is the floor by construction:** the data-hall team starts from greedy's layout and keeps its best layout, so it cannot score below greedy. The claim is the gain over greedy, not the absolute score.
 - **Limited model:** the data-hall model is 2D, built from published specs. No airflow, no structural design, and it is not an engineering tool. A high score here does not show real-world capability.
 - **Not ours:** the data-hall scorer and hall generator are a teammate's code (Rikin's DoneTwin).
@@ -138,10 +149,4 @@ This is not a separate benchmark. On every case study the harness measures Cruso
 
 ## 60-second demo script
 
-| Time | On screen | What we say |
-|---|---|---|
-| 0:00 to 0:10 | Three boxes: tasks, verifier, prompts, feeding one harness | "Bring a problem with a verifier: tasks, a scorer, role prompts. The harness turns it into a team that improves itself." |
-| 0:10 to 0:22 | Data hall: greedy's layout, about 70, resilience 0/20 | "Case study one: GPU data halls. Greedy packs racks but loses 20 points when one CDU fails. The team starts here, scored by code with no LLM in it." |
-| 0:22 to 0:38 | Papers ledger: claimed vs measured, some rows not reproduced | "A research agent writes papers: a change plus a predicted gain. The verifier reruns dev with and without it. [N of M] did not reproduce. An LLM judge would have admitted them." |
-| 0:38 to 0:50 | Held-out table, then QAPLIB on the same 3 core files | "On 15 unseen halls: [greedy] to [vN]. Same harness, second case study: QAPLIB, against 16 best-known answers that are not proven optimal." |
-| 0:50 to 1:00 | Cost row: thinking off, 180 to 7 tokens | "The same gate cuts our Crusoe bill. A change ships only if it scores higher or costs less." |
+See `VIDEO.md`: four layers, with the hall as the hero.

@@ -2,52 +2,59 @@
 
 ## Theme
 
-**Every layer of an AI data center is an optimization problem that code can score.**
+**Optimizing every layer of an AI data center, with each layer framed as an optimization problem that code can check.**
 
-| Layer | Case study | In the video |
-|---|---|---|
-| Where the GPU racks go | GPU data-hall layout (DoneTwin) | **Hero**, 40 s |
-| Where the equipment goes | QAPLIB facility layout (quadratic assignment, Koopmans and Beckmann 1957) | One line, "same harness" proof |
-| What runs on the GPUs | KernelBench mini (12 Level-1 CUDA problems) | One line, built but not yet run |
-| What it costs on Crusoe | Inference cost per verified point | Woven through the hero beat, not its own beat |
+| Layer | Case study | Verifier (no LLM) | In the video |
+|---|---|---|---|
+| 1. Hall layout | GPU data-hall layout (DoneTwin) | Rikin's scorer, 0 to 100 | **Hero**, 20 s |
+| 2. Equipment placement | QAPLIB facility layout (quadratic assignment) | Exact assignment cost vs the best-known answer | 8 s |
+| 3. GPU kernels | KernelBench mini, 12 Level-1 CUDA problems on a Crusoe L40S | Correctness and speed vs PyTorch, with reward-hack guards | 7 s |
+| 4. Inference | Data-center operations questions with code-checked exact answers (`benchmarks/inference_opt/`) | Exact-answer check plus measured Crusoe cost | 10 s |
 
-## Why the data hall is the hero
-
+The hall is the hero for three reasons:
 - It is Crusoe's own business.
 - It has a 3D twin to show on screen.
-- It is the only benchmark with a finished live run.
+- It has the only finished live run.
 
 ## Script (about 150 spoken words)
 
-| Time | Spoken |
-|---|---|
-| 0:00 to 0:08 | "Every layer of an AI data center is an optimization problem that code can score: where the racks go, where the equipment goes, what runs on the GPUs." |
-| 0:08 to 0:20 | "Our harness turns each one into a Nemotron team on Crusoe that edits itself. A research agent proposes a change with a predicted gain. A verifier reruns it. No LLM decides what sticks." |
-| 0:20 to 0:34 | "Our hero: GPU data halls. Greedy scores 71 out of 100. In run one, the team proposed 9 changes and the gate rejected all 9. None measured a gain, and memory cost 15% more tokens for nothing." |
-| 0:34 to 0:47 | **Outcome A:** "Run two switched to [RUN2_CONFIG]. On 15 unseen halls: 71 to [RUN2_SCORE], at [RUN2_COST_PER_POINT] per point." **Outcome B:** "Run two tried [RUN2_CONFIG]. Still 71 on 15 unseen halls, and the gate shipped nothing it couldn't measure." |
-| 0:47 to 1:00 | "Same harness, no new core code: QAPLIB facility layout, with 16 records still open. CUDA kernels are next, on a Crusoe GPU. Bring a verifier. Get a team that keeps only what it measures." |
+| Time | Layer | Spoken |
+|---|---|---|
+| 0:00 to 0:07 | Intro | "An AI data center is a stack of optimization problems: where the racks go, where the equipment goes, the kernels on the GPUs, and the inference bill. Code can check every one." |
+| 0:07 to 0:15 | Harness | "Our harness turns each into a Nemotron team on Crusoe that proposes changes to itself and keeps only what a verifier measures." |
+| 0:15 to 0:35 | 1. Hall layout | "Hall layout. Greedy scores 71 out of 100. In run one, the team proposed 9 changes, and the gate rejected all 9. Then we tested settings. The only one that beat greedy was the small model allowed to think." **Outcome A:** "In run two the team turned reasoning on by itself, and 15 unseen halls went from 71 to [RUN2_SCORE]." **Outcome B:** "In run two, the gate still found nothing worth keeping on unseen halls." |
+| 0:35 to 0:43 | 2. Equipment | "Equipment placement, same harness: QAPLIB, [QAP_RESULT]." |
+| 0:43 to 0:50 | 3. Kernels | "GPU kernels on a Crusoe L40S: [KB_RESULT]." **Fallback:** "built with reward-hack guards, next on a Crusoe GPU." |
+| 0:50 to 1:00 | 4. Inference | "And the inference bill: same accuracy at [INF_COST_PCT]% of the cost. Bring a verifier. Get a team that keeps only what it measures." |
 
-Word count: about 150 with either outcome. Fill in the brackets from `reports/datahall_live_2/` (or wherever run 2 writes) before recording.
+**Placeholders to fill from `reports/RESULTS.md` before recording:**
+
+| Placeholder | Example wording | Fallback if nothing is measured |
+|---|---|---|
+| [RUN2_SCORE] | "73.5" | Use Outcome B |
+| [QAP_RESULT] | "within [QAP_GAP]% of the best-known answers on 6 unseen instances" | "16 best-known answers still unproven" |
+| [KB_RESULT] | "[KB_SPEEDUP]x faster than PyTorch on [KB_N] of 12 kernels" | The fallback line in the script |
+| [INF_COST_PCT] | "40" | "the gate cut [INF_CALLS] calls per question" if accuracy held. If no version passed: "the gate kept the expensive version, because nothing cheaper held accuracy" |
 
 ## Shot list
 
 | Time | On screen | Source | Exists? |
 |---|---|---|---|
-| 0:00 to 0:08 | Title card listing the layers: racks, equipment, kernels, cost | Slide | To make |
-| 0:08 to 0:20 | Loop diagram (research agent, paper, verifier rerun, gate), then one paper's JSON: change, `claim.dev_gain`, `claim.cost_change_pct` | Slide, plus `reports/datahall_live_1/version_ledger.jsonl` in an editor | Ledger yes, diagram to make |
-| 0:20 to 0:27 | DoneTwin control room: greedy's layout for one hall, score 71, resilience 0/20 | `donetwin/ui/index.html` ("DoneTwin · Control room") | Yes |
-| 0:27 to 0:34 | Terminal: the 9 ledger rows, each `accepted: false` with its reason (7 "gain +0.000 < 0.05" or "-0.001", 2 "step longer than 280 chars"). Cut to `before_after.md` showing tokens 223,921 vs 257,007 | `reports/datahall_live_1/version_ledger.jsonl`, `before_after.md` | Yes |
-| 0:34 to 0:47 | Bar chart: greedy vs v0 vs vN on 15 held-out halls, with $ per point. Outcome A: the 3D twin with vN's layout. Outcome B: the run 2 ledger, all rejected | Chart from `before_after.json`; DoneTwin UI | Chart to make |
-| 0:47 to 0:53 | SA's dashboard, Benchmarks tab: the QAPLIB leaderboard | http://127.0.0.1:5173 | Needs a QAPLIB entry with a verified score |
-| 0:53 to 1:00 | End card: tagline, plus "Crusoe Managed Inference + NVIDIA Nemotron" | Slide | To make |
+| 0:00 to 0:07 | Four stacked layer cards: hall, equipment, kernels, inference | Slide | To make |
+| 0:07 to 0:15 | Loop diagram (research agent, paper, verifier rerun, gate), then one paper's claim JSON | Slide, plus a version ledger in an editor | Ledger yes, diagram to make |
+| 0:15 to 0:22 | DoneTwin control room: greedy's layout, score 71, resilience 0/20 | `donetwin/ui/index.html` at http://127.0.0.1:8000 | Yes |
+| 0:22 to 0:28 | Terminal: the 9 rejected rows from run 1, then the settings table with the one winning row highlighted (Nano, reasoning on, 32k: +2.66) | `reports/datahall_live_1/version_ledger.jsonl`, `reports/RESULTS.md` | Yes |
+| 0:28 to 0:35 | Outcome A: the 3D twin with vN's layout, plus a bar chart of greedy vs vN on 15 held-out halls. Outcome B: the run 2 ledger | DoneTwin UI; chart from run 2's `before_after.json` | Chart to make |
+| 0:35 to 0:43 | SA's dashboard, Benchmarks tab: the QAPLIB entry and its explanation against the baseline | http://127.0.0.1:5173 | Once run 2 publishes |
+| 0:43 to 0:50 | Terminal on the L40S VM: the KernelBench speedup table. Fallback: the 12 problem names and the guard list | `benchmarks/kernelbench_mini/` | Depends on the VM |
+| 0:50 to 1:00 | Bar chart: $ per question, v0 (Super, reasoning on) vs vN, with accuracy above each bar. End card: tagline, "Crusoe Managed Inference + NVIDIA Nemotron" | Chart from the inference_opt run's `before_after.json`; slide | To make |
 
 ## What is cut, and why
 
 | Cut | Why |
 |---|---|
-| ALE-Bench AHC039 ("Purse Seine Fishing") | Off-theme: a fishing-net polygon is not a data-center layer. The live smoke scored 0.35x greedy, which needs more explanation than 3 seconds allows. Kept in `DEMO.md` as an off-theme generality test |
-| QAPLIB live numbers | The evolve run crashed on a Crusoe 429 and is relaunching. The smoke gap (13.9% vs 2-swap's 0.0% on els19) is worse than baseline, so it is not shown. If a relaunched run beats 2-swap, swap the 0:47 line for its number |
-| KernelBench results | None exist: no Crusoe GPU VM has been created. It appears only as "next" |
+| ALE-Bench | Not a data-center layer. Its run was stopped |
 | SA's research harness (You.com researcher, attempt agent) | A second system in 60 seconds splits attention. It belongs in the README and the Q&A |
-| Shared Brain internals (dedup, disputes, pruning) | Too fine-grained for video. The one memory fact shown is the honest one: it cost 15% more tokens for no gain |
+| Shared Brain internals (dedup, disputes, pruning) | Too fine-grained for video. The one memory fact that matters, 15% more tokens for no gain in run 1, is in `DEMO.md` |
+| Per-layer numbers beyond one line each | Only the hall gets a before/after. The other three get one measured line each |
 | The 2D model's limits | Stated in `DEMO.md` and the README, not in narration |

@@ -51,16 +51,18 @@ Each adapter is one function with the same signature: `run_team(version, brain, 
 | Keep a change only if it helps | Candidate and parent run on the same dev tasks. A change is kept for a mean gain of 0.05 or more with no lost passes, or a cost cut of 15% or more at equal score | `team/evolve.py` (`Gate`) |
 | Before/after on unseen tasks | Train, dev and held-out splits must be disjoint. Touching a held-out task before the final report raises an error | `team/evolve.py` (`Evolver`) |
 
-## 6. Case studies: every layer of an AI data center is an optimization problem that code can score
+## 6. Case studies: optimizing every layer of an AI data center
 
-| Layer | Case study | Verifier | Baseline | Status |
+Each layer is framed as an optimization problem that code can check.
+
+| Layer | Case study | Verifier (no LLM) | Baseline | Status |
 |---|---|---|---|---|
-| Where the GPU racks go | GPU data-hall layout (**hero**) | Rikin's DoneTwin scorer, 0 to 100, no LLM | Greedy, 71.0 on 15 held-out halls | Run 1 done: tied greedy, gate rejected 9 of 9 changes. Run 2 pending |
-| Where the equipment goes | QAPLIB facility layout (quadratic assignment) | Exact cost of the assignment, as a gap to the best-known answer | 2-swap, 0.989 on held-out | Smoke run; evolve run relaunching after a Crusoe 429 |
-| What runs on the GPUs | KernelBench mini, 12 Level-1 CUDA problems | Correctness and speed, with reward-hack guards | PyTorch reference | Built and tested offline; needs a Crusoe GPU VM |
-| What it costs | Inference cost, an axis on every case study | Measured Crusoe cost, tokens and calls per verified point | v0's bill | Live |
+| 1. Hall layout (**hero**) | GPU data-hall layout, DoneTwin | Rikin's scorer, 0 to 100 | Greedy, 71.0 on 15 held-out halls | Run 1: tied greedy, gate rejected 9 of 9 changes. Settings test: only Nano with reasoning on beat greedy (+2.66 points on 4 train halls). Run 2 live: [RUN2_SCORE] |
+| 2. Equipment placement | QAPLIB facility layout (quadratic assignment) | Exact assignment cost, as a gap to the best-known answer | 2-swap, 0.989 on held-out | Run 2 live (split 4/3/6): [QAP_RESULT] |
+| 3. GPU kernels | KernelBench mini, 12 Level-1 CUDA problems | Correctness and speed vs PyTorch, with reward-hack guards | PyTorch eager, 1.0x | Needs a Crusoe L40S VM: [KB_RESULT] |
+| 4. Inference | Data-center operations questions from DoneTwin halls (row power budget, rack counts, CDU headroom, hose reach), with code-checked exact answers | Exact answer, plus measured Crusoe cost | v0: Super, reasoning on, one call per question | Being built: same accuracy at [INF_COST_PCT]% of the cost |
 
-**Off-theme generality test:** ALE-Bench AHC039, with an official scorer. Not in the video. Named as fitting the same interface, not run: AlgoTune.
+Fits the same interface, not run: AlgoTune, ALE-Bench.
 
 Details are in `DEMO.md`, and the video plan is in `VIDEO.md`.
 
