@@ -59,8 +59,8 @@ Each layer is framed as an optimization problem that code can check.
 |---|---|---|---|---|
 | 1. Hall layout (**hero**) | GPU data-hall layout, DoneTwin | Rikin's scorer, 0 to 100 | Greedy, 71.0 on 15 held-out halls | Run 1: tied greedy, gate rejected 9 of 9 changes. Settings test: only Nano with reasoning on beat greedy (+2.66 points on 4 train halls). Run 2 live: [RUN2_SCORE] |
 | 2. Equipment placement | QAPLIB facility layout (quadratic assignment) | Exact assignment cost, as a gap to the best-known answer | 2-swap, 0.989 on held-out | Run 2 live (split 4/3/6): [QAP_RESULT] |
-| 3. GPU kernels | KernelBench mini, 12 Level-1 CUDA problems | Correctness and speed vs PyTorch, with reward-hack guards | PyTorch eager, 1.0x | Needs a Crusoe L40S VM: [KB_RESULT] |
-| 4. Inference | Data-center operations questions from DoneTwin halls (row power budget, rack counts, CDU headroom, hose reach), with code-checked exact answers | Exact answer, plus measured Crusoe cost | v0: Super, reasoning on, one call per question | Being built: same accuracy at [INF_COST_PCT]% of the cost |
+| 3. GPU kernels | KernelBench mini, 12 Level-1 CUDA problems | Correctness and speed vs PyTorch, with reward-hack guards | PyTorch eager, 1.0x | Not run: our Crusoe project has zero GPU quota |
+| 4. Inference | Data-center operations questions from DoneTwin halls (row power budget, rack counts, CDU headroom, hose reach), with code-checked exact answers | Exact answer, plus measured Crusoe cost | v0: Super, reasoning on, one call per question | Live run 1 (4/3/4 halls, 12 questions each): same accuracy at [INF_COST_PCT]% of the cost |
 
 Fits the same interface, not run: AlgoTune, ALE-Bench.
 

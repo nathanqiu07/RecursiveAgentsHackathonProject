@@ -83,15 +83,18 @@ Both outcomes are reportable:
 
 - **Task:** 12 Level-1 CUDA problems (`benchmarks/kernelbench_mini/`).
 - **Verifier:** correctness and speed against the PyTorch reference, with static reward-hack guards.
-- **Status:** built and tested offline. The live run needs a Crusoe L40S VM ($1.50/hr, `scripts/crusoe_gpu_vm.sh`). The CLI is being installed, and the VM is waiting on Nathan's Cloud API credentials. It may not finish before 5 PM.
+- **Status:** built and tested offline. **Not run:** our Crusoe project has zero GPU quota, so the L40S VM (`scripts/crusoe_gpu_vm.sh`) cannot be created.
 - **Result:** [KB_RESULT]. If none: "built and tested offline with reward-hack guards; the live run is next, on a Crusoe GPU."
 
-## Layer 4, inference: data-center operations questions (being built)
+## Layer 4, inference: data-center operations questions (live)
 
-- **Task:** a fixed workload of data-center operations questions drawn from DoneTwin halls: power budget per row, rack counts, CDU headroom, hose reach (`benchmarks/inference_opt/`, in progress).
+- **Task:** a fixed workload of data-center operations questions drawn from DoneTwin halls: power budget per row, rack counts, CDU headroom, hose reach. One task is one hall with 12 questions (4 types × 3). Splits: 4 train, 3 dev, 4 held-out halls. Full write-up: `docs/INFERENCE_BENCHMARK.md`.
 - **Verifier:** each answer is checked by code against an exact computed value. The harness also measures the Crusoe cost of every call.
-- **Starting point:** v0 is deliberately expensive: Super, reasoning on, one call per question.
-- **Gate:** a version is kept only if measured cost falls by 15% or more with no loss in accuracy.
+- **Starting point:** v0 is deliberately expensive: Super for every type, reasoning on, max_tokens 4000, one question per call.
+- **Knobs:** model per type (Super, Nano, Lightning), reasoning per type, token caps, batch size 1 to 12, temperature, prompts and playbooks.
+- **Gate:** a version is kept if mean cost per hall falls by 15% or more with no loss in accuracy and no lost passes, or if accuracy rises by 0.05 or more.
+- **Live run:** `runs/inference-opt-1/`, started about 15:35, about 44 team runs and at most 528 calls. Pending.
+- **Limits:** this is our own workload, so there are no outside records. It tunes how we call the model, not Crusoe's serving stack (GPU scheduling, KV cache, quantization).
 - **Headline:** same accuracy at [INF_COST_PCT]% of the cost.
 
 **Measured live on 2026-10-17, which motivates this layer:**
