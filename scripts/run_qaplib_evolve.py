@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT))
 from benchmarks.qaplib import dc_instances  # noqa: E402
 from benchmarks.qaplib.fetch import family  # noqa: E402
 from benchmarks.qaplib.load import load_tasks  # noqa: E402
-from benchmarks.qaplib.team_runner import DEFAULT_SOLVER_PROMPT, run_team  # noqa: E402
+from benchmarks.qaplib.team_runner import DEFAULT_SOLVER_PROMPT, TIME_LIMIT_RANGE_S, run_team  # noqa: E402
 from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.evolve import Evolver, Gate, TeamVersion  # noqa: E402
@@ -101,7 +101,11 @@ def qaplib_v0(max_tokens: int = 6000, attempts: int = 3, time_limit_s: float = 1
         config={"roles_enabled": ["solver"], "models": {"solver": model}, "default_model": SUPER,
                 "thinking": {"solver": False}, "temperature": 0.4, "max_tokens": max_tokens,
                 "attempts": attempts, "time_limit_s": time_limit_s},
-        changelog=["v0: one solver role writes a QAP heuristic program; the best verified attempt scores"])
+        changelog=["v0: one solver role writes a QAP heuristic program; the best verified attempt scores",
+                   f"knob note: config time_limit_s is the wall-clock budget each program gets (argv[2], env "
+                   f"QAP_TIME_LIMIT_S; {time_limit_s:g} s now), bounded to [{TIME_LIMIT_RANGE_S[0]:g}, "
+                   f"{TIME_LIMIT_RANGE_S[1]:g}] s, the top being the 2-swap baseline's budget; failure tags read "
+                   "'gap X% (2-swap Y%) in used/budget s'"])
 
 
 def select_tasks(sizes: tuple[int, int, int] = SPLIT_SIZES, seed: int = 0,
@@ -259,11 +263,16 @@ class ReviewerReasoningOff:
     With reasoning on, Nemotron Nano spent the reviewer's whole default 2048-token budget thinking, so the JSON was
     cut off and parsed to zero mutations with no dropped record (probe 2026-10-17: 2048/2048 tokens, 0 mutations;
     reasoning off: 306 tokens, 3 mutations). With reasoning off, Super then left out every claim (run 4, gen 0: 2 of 2
-    mutations dropped as claimless), so the reviewer's user message also restates the claim rule last.
+    mutations dropped as claimless), so the reviewer's user message also restates the claim rule last. Nano also
+    dropped every researched tabu-search playbook_add for a missing "role" (qaplib-dc-research-1, gens 0 and 1) and
+    wrote dotted config keys ("thinking.solver") that the runner never reads, so those two field rules follow it.
     """
 
     CLAIM_RULE = ('\n\nEvery mutation object must include "claim": {"dev_gain": <number>, "cost_change_pct": <number>, '
-                  '"why": <string>}. A mutation without a numeric claim is dropped untested.')
+                  '"why": <string>}. A mutation without a numeric claim is dropped untested. '
+                  'prompt_edit, playbook_add and playbook_remove must also name "role": "solver" (the only role). '
+                  'config_set keys are top-level names only, e.g. {"key": "thinking", "value": {"solver": true}}, '
+                  'never "thinking.solver" or "models.solver".')
 
     def __init__(self, llm: Any, max_tokens: int = 4096):
         self.llm, self.max_tokens = llm, max_tokens
@@ -304,7 +313,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--max-n", type=int, default=MAX_N, help="largest instance size to sample")
     ap.add_argument("--min-gain", type=float, default=0.003, help="Gate: dev mean score gain needed to accept")
     ap.add_argument("--attempts", type=int, default=3, help="v0 programs per instance, each with verifier feedback")
-    ap.add_argument("--time-limit", type=float, default=10.0, help="v0 seconds per program run")
+    ap.add_argument("--time-limit", type=float, default=10.0,
+                    help="v0 wall-clock budget per program run, clamped to the 2-swap baseline's 10 s")
     ap.add_argument("--max-tokens", type=int, default=6000, help="per call; reasoning counts against it")
     ap.add_argument("--solver-model", default=SUPER)
     ap.add_argument("--reviewer-model", default=SUPER)

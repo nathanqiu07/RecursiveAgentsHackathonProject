@@ -37,6 +37,14 @@ BRUTE = ("TECHNIQUE: brute force\n```python\nimport sys, json, itertools\nd = js
          "print('PERMUTATION:', ' '.join(str(x + 1) for x in best))\n```")
 CRASH = "TECHNIQUE: broken\n```python\nprint(undefined_name)\n```"
 SLEEP = "TECHNIQUE: sleeper\n```python\nimport time\ntime.sleep(60)\n```"
+# Uses its whole budget, reading it from the env var, and prints a weak line before the optimum: the last line counts.
+FULL_BUDGET = ("TECHNIQUE: full budget\n```python\nimport os, sys, json, time, itertools\nt0 = time.monotonic()\n"
+               "budget = float(os.environ['QAP_TIME_LIMIT_S'])\nassert budget == float(sys.argv[2])\n"
+               "d = json.load(open(sys.argv[1]))\nn, A, B = d['n'], d['A'], d['B']\n"
+               "print('PERMUTATION:', ' '.join(str(i + 1) for i in range(n)), flush=True)\n"
+               "best = min(itertools.permutations(range(n)), key=lambda p: sum(A[i][j] * B[p[i]][p[j]] for i in range(n) for j in range(n)))\n"
+               "while time.monotonic() - t0 < 0.9 * budget:\n    time.sleep(0.01)\n"
+               "print('PERMUTATION:', ' '.join(str(x + 1) for x in best))\n```")
 ENV_CHECK = ("TECHNIQUE: env check\n```python\nimport os, sys\nif 'CRUSOE_API_KEY' in os.environ:\n    raise SystemExit(3)\n"
              "print('PERMUTATION: 1 2 3 4')\n```")
 
@@ -145,10 +153,49 @@ class RunTeamTest(TinyInstance):
         llm = ScriptedLLM({"solver": [CRASH, WEAK]})
         r = run_team(self.version(), None, self.task, llm)
         self.assertEqual(r.iterations, 3)
-        self.assertEqual(r.failures[0], "solver: tiny4 runtime_error NameError")
+        self.assertTrue(r.failures[0].startswith("solver: tiny4 runtime_error NameError in "), r.failures[0])
+        self.assertIn("/2s budget", r.failures[0])
         self.assertAlmostEqual(r.score, self.bks / self.identity_cost)
         self.assertFalse(r.passed)
         self.assertIn("NameError", llm.calls_for("solver")[1]["messages"][-1]["content"])
+
+    def test_program_using_its_full_budget_is_scored_and_timed(self) -> None:
+        r = run_team(self.version(attempts=1, time_limit_s=1.5), None, self.task, ScriptedLLM({"solver": [FULL_BUDGET]}))
+        self.assertEqual(r.score, 1.0)
+        self.assertEqual(r.solution["verified_cost"], self.bks)
+        attempt = r.solution["attempts"][0]
+        self.assertEqual(attempt["status"], "ok")
+        self.assertGreaterEqual(attempt["runtime_s"], 1.35)
+        self.assertLess(attempt["runtime_s"], 1.5 + 5)
+        self.assertEqual(attempt["time_limit_s"], 1.5)
+        self.assertIn("itertools.permutations", attempt["program"])
+
+    def test_feedback_reports_runtime_budget_and_reference(self) -> None:
+        llm = ScriptedLLM({"solver": [WEAK, CRASH, BRUTE]})
+        r = run_team(self.version(), None, self.task, llm)
+        first = llm.calls_for("solver")[0]["messages"][-1]["content"]
+        self.assertIn("the budget is 2 s", first)
+        self.assertIn("QAP_TIME_LIMIT_S", first)
+        self.assertIn("only the LAST such line counts", first)
+        feedback = llm.calls_for("solver")[1]["messages"][-1]["content"]
+        self.assertRegex(feedback, r"Runtime: \d+\.\d\d s used of the 2 s budget")
+        self.assertIn("no stored 2-swap baseline", feedback)
+        crash = llm.calls_for("solver")[2]["messages"][-1]["content"]
+        self.assertIn("runtime_error (score 0): NameError", crash)
+        self.assertRegex(r.failures[0], r"^solver: tiny4 gap [\d.]+% in \d+\.\d/2s budget with identity$")
+
+    def test_two_swap_reference_is_read_for_library_and_dc_instances(self) -> None:
+        from benchmarks.qaplib import dc_instances
+        from benchmarks.qaplib.team_runner import two_swap_reference
+        if BASELINE_JSON.exists():
+            name, entry = next(iter(json.loads(BASELINE_JSON.read_text())["instances"].items()))
+            ref = two_swap_reference(name, 1)
+            self.assertAlmostEqual(ref["gap_pct"], entry["two_swap"]["gap_pct"])
+            self.assertEqual(ref["budget_s"], 10.0)
+        name, e = next(iter(dc_instances.load_index().items()))
+        ref = two_swap_reference(name, e["bks"])
+        self.assertAlmostEqual(ref["gap_pct"], (e["two_swap"]["cost"] - e["bks"]) / e["bks"] * 100)
+        self.assertEqual(ref["budget_s"], dc_instances.TWO_SWAP_TIME_S)
 
     def test_timeout_kills_the_program(self) -> None:
         llm = ScriptedLLM({"solver": [SLEEP]})
@@ -191,6 +238,9 @@ class RunTeamTest(TinyInstance):
         self.assertEqual(many.calls, 6)
         garbage = run_team(self.version(attempts="lots"), None, self.task, ScriptedLLM({"solver": [WEAK]}))
         self.assertEqual(garbage.calls, 3)
+        llm = ScriptedLLM({"solver": [BRUTE]})
+        run_team(self.version(time_limit_s=100), None, self.task, llm)
+        self.assertIn("the budget is 10 s", llm.calls_for("solver")[0]["messages"][-1]["content"])
 
 
 def quiet(fn, *args, **kwargs):
