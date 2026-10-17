@@ -2,6 +2,7 @@
 
 Any LLM backend is an object with a `chat` method matching `LLM` below.
 `team.crusoe.CrusoeLLM` is the real one; `team.fake_llm.ScriptedLLM` is for tests.
+`thinking` None leaves the model default; True/False switches reasoning on or off where the server supports it.
 """
 from __future__ import annotations
 
@@ -30,6 +31,7 @@ class LLM(Protocol):
         max_tokens: int = 2048,
         json_mode: bool = False,
         role: str = "",
+        thinking: bool | None = None,
     ) -> Reply: ...
 
 

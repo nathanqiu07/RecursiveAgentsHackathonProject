@@ -349,9 +349,15 @@ class CrusoeLLM:
         max_tokens: int = 2048,
         json_mode: bool = False,
         role: str = "",
+        thinking: bool | None = None,
     ) -> Reply:
-        """One completion. `latency_s` is the successful attempt only, excluding limiter waits and backoff."""
+        """One completion. `latency_s` is the successful attempt only, excluding limiter waits and backoff.
+        `thinking` None sends nothing; True/False sets chat_template_kwargs.enable_thinking (Nemotron)."""
         kwargs = self._base_kwargs(model, messages, temperature, max_tokens)
+        if thinking is not None:
+            extra = dict(kwargs.get("extra_body") or {})
+            extra["chat_template_kwargs"] = {**(extra.get("chat_template_kwargs") or {}), "enable_thinking": bool(thinking)}
+            kwargs["extra_body"] = extra
         want_format = json_mode and self.accepts_json_format(model)
         if want_format:
             kwargs["response_format"] = {"type": "json_object"}

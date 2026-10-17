@@ -222,6 +222,15 @@ class ChatWithFakeClientTest(unittest.TestCase):
         self.assertEqual(summary["by_role"]["worker"]["cached_tokens"], 600)
         self.assertEqual(summary["by_model"][NANO]["prompt_tokens"], 1000)
 
+    def test_thinking_kwarg_reaches_extra_body_and_none_sends_nothing(self) -> None:
+        llm, completions = make_llm([completion("{}"), completion("{}"), completion("{}")])
+        llm.chat(NANO, [{"role": "user", "content": "hi"}], thinking=False)
+        llm.chat(NANO, [{"role": "user", "content": "hi"}], thinking=True)
+        llm.chat(NANO, [{"role": "user", "content": "hi"}])
+        self.assertEqual(completions.calls[0]["extra_body"], {"chat_template_kwargs": {"enable_thinking": False}})
+        self.assertEqual(completions.calls[1]["extra_body"], {"chat_template_kwargs": {"enable_thinking": True}})
+        self.assertNotIn("extra_body", completions.calls[2])
+
     def test_falls_back_to_reasoning_content(self) -> None:
         llm, _ = make_llm([completion("", reasoning="the answer is 4")])
         self.assertEqual(llm.chat(NANO, [{"role": "user", "content": "2+2"}]).text, "the answer is 4")

@@ -3,7 +3,8 @@
 Usage (repo venv):
   .venv/bin/python scripts/run_datahall.py --offline            # scripted LLM, proves plumbing in seconds
   .venv/bin/python scripts/run_datahall.py --live --one         # one train hall with v0, to budget a run
-  .venv/bin/python scripts/run_datahall.py --live [--generations 3] [--out DIR]
+  .venv/bin/python scripts/run_datahall.py --live [--generations 2] [--out DIR]
+Every run hill-climbs from the greedy layout, so scores never fall below greedy; the gain above it is the team's.
 Exit codes: 0 done, 2 no Crusoe API key configured.
 """
 from __future__ import annotations
@@ -22,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import NANO, SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
-from team.datahall import datahall_run_team, datahall_v0, load_tasks  # noqa: E402
+from team.datahall import SPLIT_SIZES, datahall_run_team, datahall_v0, load_tasks  # noqa: E402
 from team.evolve import Evolver, TeamVersion, markdown_table  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
 from team.types import LLM, Task  # noqa: E402
@@ -32,7 +33,8 @@ _HALL_NAME = re.compile(r"HALL (\S+):")
 
 
 def offline_llm(tasks: list[Task]) -> ScriptedLLM:
-    """A deterministic stand-in whose Layout improves with a brain lesson and again with the greedy_seed tool.
+    """A deterministic stand-in: Layout first sends an infeasible layout, and with a brain lesson or on its retry
+    it returns the incumbent (no gain, no loss).
 
     It finds the hall by name in the prompt and answers from the greedy layout, so every score printed
     offline comes from the real DoneTwin scorer; only the replies are canned.
@@ -40,8 +42,8 @@ def offline_llm(tasks: list[Task]) -> ScriptedLLM:
     by_name = {t.id: t for t in tasks}
     reviews = iter([
         {"mutations": [
-            {"type": "tool_set", "tool": "greedy_seed", "enabled": True,
-             "rationale": "layouts start from scratch and lose racks; start from the greedy solver"},
+            {"type": "config_set", "key": "thinking", "value": {"Layout": True},
+             "rationale": "Layout proposals are infeasible; let it reason"},
             {"type": "config_set", "key": "max_iters", "value": 1, "rationale": "cheaper runs"},
             {"type": "tool_set", "tool": "hammer", "enabled": True, "rationale": "invalid on purpose"}]},
         {"mutations": [
@@ -64,25 +66,22 @@ def offline_llm(tasks: list[Task]) -> ScriptedLLM:
             return json.dumps({"row_racks": {}, "cdu_racks": {}, "total_racks": len(racks), "notes": "offline"})
         if role != "Layout":
             return json.dumps({"advice": "fill every row to its 2N budget"})
-        if "Starting layout from a deterministic greedy solver" in messages[1]["content"]:
+        if "0.6 m apart" in messages[0]["content"] or len(messages) > 2:
             return json.dumps({"racks": racks})
-        if "0.6 m apart" in messages[0]["content"]:
-            return json.dumps({"racks": racks[:-2]})
-        if len(messages) > 2:
-            return json.dumps({"racks": racks[:-3]})
         return json.dumps({"racks": racks + [{**racks[0], "id": "R_DUP"}]})
 
     return ScriptedLLM(respond)
 
 
 def estimate_calls(version: TeamVersion, n_train: int, n_dev: int, n_heldout: int, generations: int) -> dict[str, int]:
-    """Worker calls per run range from advisors + 1 (feasible first try) to advisors + max_iters + checks."""
+    """Worker calls per run range from advisors + max_iters (every attempt accepted) to that plus a Checker
+    call after each rejected attempt but the last."""
     roles = version.roles()
     advisors = sum(r not in ("Layout", "Checker") for r in roles)
-    iters = int(version.config.get("max_iters", 3))
+    iters = int(version.config.get("max_iters", 2))
     per_run_max = advisors + iters + (iters - 1 if "Checker" in roles else 0)
     runs = generations * (n_train + n_dev + CANDIDATES_PER_GEN * n_dev) + 3 * n_heldout
-    return {"runs": runs, "worker_min": runs * (advisors + 1), "worker_max": runs * per_run_max,
+    return {"runs": runs, "worker_min": runs * (advisors + iters), "worker_max": runs * per_run_max,
             "reviewer": generations}
 
 
@@ -100,7 +99,8 @@ def run_one(llm: LLM, task: Task, v0: TeamVersion) -> None:
         r = datahall_run_team(v0, SharedBrain(tmp), task, llm)
     notes = json.loads(r.notes)
     print(f"task {r.task_id} ({task.text})")
-    print(f"score {r.score * 100:.2f}/100 (greedy {task.payload['greedy_score']:.2f}) feasible={r.passed} "
+    print(f"score {r.score * 100:.2f}/100 (greedy {task.payload['greedy_score']:.2f}, gain "
+          f"{notes['gain_over_greedy']:+.2f}) feasible={r.passed} "
           f"iterations={r.iterations} calls={r.calls} tokens={r.prompt_tokens}+{r.completion_tokens} "
           f"cost=${r.cost_usd:.5f} wall={r.wall_s:.1f}s")
     print(f"failures: {r.failures}")
@@ -138,13 +138,15 @@ def main() -> int:
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument("--offline", action="store_true", help="scripted LLM, no network")
     mode.add_argument("--live", action="store_true", help="Crusoe Managed Inference")
-    ap.add_argument("--generations", type=int, default=3)
+    ap.add_argument("--generations", type=int, default=2)
     ap.add_argument("--one", action="store_true", help="run one train hall with v0 and print its bill")
     ap.add_argument("--out", type=Path, default=None, help="default runs/datahall-<timestamp>/")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--workers", type=int, default=4, help="Evolver threads; the client still caps CRUSOE_RPM")
-    ap.add_argument("--max-iters", type=int, default=3, help="v0 layout attempts per hall")
-    ap.add_argument("--max-tokens", type=int, default=8192, help="per call; Nemotron reasoning counts against it")
+    ap.add_argument("--workers", type=int, default=6, help="Evolver threads; the client still caps CRUSOE_RPM")
+    ap.add_argument("--max-iters", type=int, default=2, help="v0 hill-climb attempts per hall")
+    ap.add_argument("--max-tokens", type=int, default=6000, help="per call; Nemotron reasoning counts against it")
+    ap.add_argument("--split", type=int, nargs=3, default=list(SPLIT_SIZES), metavar=("TRAIN", "DEV", "HELDOUT"),
+                    help="halls per split (at most 2 large each)")
     ap.add_argument("--worker-model", default=NANO)
     ap.add_argument("--reviewer-model", default=SUPER)
     args = ap.parse_args()
@@ -159,7 +161,7 @@ def main() -> int:
         except MissingKeyError as exc:
             print(f"No Crusoe API key configured: {exc}", file=sys.stderr)
             return 2
-    splits = load_tasks(args.seed)
+    splits = load_tasks(args.seed, tuple(args.split))
     train, dev, heldout = splits
     if llm is None:
         llm = offline_llm(train + dev + heldout)

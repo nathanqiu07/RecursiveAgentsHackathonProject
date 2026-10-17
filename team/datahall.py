@@ -1,14 +1,14 @@
 """GPU data-hall domain: Nemotron roles lay out 2N AI halls, scored only by Rikin's DoneTwin scorer.
 
 Tasks are halls from `donetwin.halls.generate(seed, tier)`: train and dev draw disjoint seeds from
-0..9999, held-out draws from `halls.heldout_seeds()` (10000..10049), tiers mixed small/medium/large.
+0..9999, held-out draws from `halls.heldout_seeds()` (10000..10049), tiers mixed with at most 2 large.
 
 Scoring is `donetwin.score.score(hall, payload)` and nothing else, never an LLM: any hard-rule
 violation scores 0; a feasible layout scores 0..100 = 70 density + 20 resilience to a single CDU
-failure + 10 hose economy. RunResult.score = that / 100 and passed = feasible. There is no repair
-step and no slot grid here: the scorer's own rules are the contract. Graded progress comes from
-density, resilience and hose, and the team recovers from a 0 by iterating with the scorer's
-violation details and fix hints (the verifier_feedback tool) between Layout attempts.
+failure + 10 hose economy. Like Rikin's hill_climb.solve(), every run starts from the greedy layout
+as the verified incumbent: Layout sees it with its score breakdown and proposes a complete improved
+payload; a proposal replaces the incumbent only when it scores strictly higher. RunResult.score =
+best score / 100 (never below greedy), passed = best is feasible; the gain over greedy is the team's.
 
 failures are the violated check names (e.g. "hose", "power_2n", "aisle_width", soft "resilience")
 so recurring patterns are countable; each violation's detail and fix hint go to RunResult.notes.
@@ -19,6 +19,7 @@ import json
 import math
 import random
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,7 +32,7 @@ if str(DONETWIN) not in sys.path:
 
 from donetwin import greedy, halls  # noqa: E402
 from donetwin import score as scoring  # noqa: E402
-from donetwin.hill_climb import FORMAT, RULES, hall_summary  # noqa: E402
+from donetwin.hill_climb import FORMAT, RULES, features, hall_summary, nearest_examples  # noqa: E402
 from donetwin.scene import RACK_CATALOG  # noqa: E402
 from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import NANO, extract_json  # noqa: E402
@@ -39,8 +40,12 @@ from team.evolve import TeamVersion  # noqa: E402
 from team.types import LLM, Reply, RunResult, Task  # noqa: E402
 
 TIERS = ("small", "medium", "large")
-SPLIT_SIZES = (12, 8, 15)
-TOOL_CATALOG = ["verifier_feedback", "capacity_calc", "greedy_seed"]
+SPLIT_SIZES = (8, 6, 10)
+MAX_LARGE = 2
+TOOL_CATALOG = ["verifier_feedback", "capacity_calc", "nearest_examples"]
+RACK_KEYS = ("id", "model", "x", "y", "rot", "cdu", "feed_a", "feed_b")
+ARRAY_FORMAT = (" To save tokens you may instead give each rack as an array in exactly that key order, e.g. "
+                '["R1","GB200-NVL72",3.3,4.0,0,"CDU_1","BW_A1","BW_A2"].')
 SEVERITY = scoring.RULES + ["resilience"]
 LIQUID_KW = {m: s["kw"] for m, s in RACK_CATALOG.items() if scoring.COOLING[m] == "liquid"}
 AIR_KW = {m: s["kw"] for m, s in RACK_CATALOG.items() if scoring.COOLING[m] == "air"}
@@ -49,7 +54,7 @@ RACK_W = RACK_CATALOG["GB200-NVL72"]["w"]
 CONTRACTS: dict[str, str] = {
     "Planner": ('Reply with JSON only: {"row_racks": {"<row>": <int>}, "cdu_racks": {"<cdu id>": <int>}, '
                 '"total_racks": <int>, "notes": "<short>"}'),
-    "Layout": FORMAT,
+    "Layout": FORMAT + ARRAY_FORMAT,
     "Checker": 'Reply with JSON only: {"fix": "<concrete instructions for the next layout attempt>"}',
 }
 ADVISOR_CONTRACT = 'Reply with JSON only: {"advice": "<concrete guidance for the Layout role>"}'
@@ -57,9 +62,10 @@ ADVISOR_CONTRACT = 'Reply with JSON only: {"advice": "<concrete guidance for the
 V0_PROMPTS: dict[str, str] = {
     "Planner": ("You are the power and cooling Planner for a 2N AI data hall. Before any rack is placed, budget how "
                 "many racks each busway row and each CDU can carry within every capacity rule, and the hall total."),
-    "Layout": ("You are the Layout engineer for a 2N AI data hall. Place racks to maximize the score with zero "
-               "hard-rule violations. Follow the Planner's budget, keep each row under its busway pair, and give "
-               "each liquid rack a CDU its hose can reach."),
+    "Layout": ("You are the Layout engineer for a 2N AI data hall. You get a verified incumbent layout and its "
+               "score breakdown; return a complete layout that scores strictly higher with zero hard-rule "
+               "violations. Follow the Planner's budget, keep each row under its busway pair, and give each "
+               "liquid rack a CDU its hose can reach."),
     "Checker": ("You are the Checker. Read the verifier feedback on the last layout and tell the Layout engineer "
                 "exactly which racks to move, drop, rotate or reassign so the next attempt is feasible, keeping as "
                 "much kW as possible."),
@@ -94,19 +100,28 @@ LESSONS: dict[str, tuple[tuple[str, ...], str]] = {
 }
 
 
-def load_tasks(seed: int = 0) -> tuple[list[Task], list[Task], list[Task]]:
-    """Fixed, seeded splits: train 12 and dev 8 disjoint seeds from 0..9999, held-out 15 from heldout_seeds()."""
+def split_tiers(n: int) -> list[str]:
+    """Small and medium alternate; large at index 2 and, from 6 tasks up, last: at most MAX_LARGE per split."""
+    large = {2, n - 1} if n >= 6 else {2}
+    out: list[str] = []
+    for i in range(n):
+        out.append("large" if i in large else TIERS[(i - sum(j < i for j in large)) % 2])
+    assert out.count("large") <= MAX_LARGE
+    return out
+
+
+def load_tasks(seed: int = 0, sizes: tuple[int, int, int] = SPLIT_SIZES) -> tuple[list[Task], list[Task], list[Task]]:
+    """Fixed, seeded splits: train and dev disjoint seeds from 0..9999, held-out from heldout_seeds()."""
     rng = random.Random(seed)
-    pool = rng.sample(range(10000), SPLIT_SIZES[0] + SPLIT_SIZES[1])
-    held = rng.sample(halls.heldout_seeds(), SPLIT_SIZES[2])
-    train, dev = pool[:SPLIT_SIZES[0]], pool[SPLIT_SIZES[0]:]
-    return ([make_task(s, TIERS[i % 3], "train") for i, s in enumerate(train)],
-            [make_task(s, TIERS[i % 3], "dev") for i, s in enumerate(dev)],
-            [make_task(s, TIERS[i % 3], "heldout") for i, s in enumerate(held)])
+    pool = rng.sample(range(10000), sizes[0] + sizes[1])
+    held = rng.sample(halls.heldout_seeds(), sizes[2])
+    train, dev = pool[:sizes[0]], pool[sizes[0]:]
+    return tuple([make_task(s, t, name) for s, t in zip(seeds, split_tiers(len(seeds)))]  # type: ignore[return-value]
+                 for seeds, name in ((train, "train"), (dev, "dev"), (held, "heldout")))
 
 
 def make_task(seed: int, tier: str, split: str) -> Task:
-    """The greedy layout is the baseline and the greedy_seed tool's input; it reaches a prompt only through that tool."""
+    """The greedy layout is the baseline and every run's starting incumbent."""
     hall = halls.generate(seed, tier)
     baseline = greedy.solve(hall)
     res = scoring.score(hall, baseline)
@@ -190,12 +205,46 @@ def capacity_calc(hall: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def greedy_seed(task: Task) -> str:
-    """Tool: the greedy solver's verified layout as a starting point the team must improve."""
-    p = task.payload
-    return (f"Starting layout from a deterministic greedy solver (feasible={p['greedy_feasible']}, score "
-            f"{p['greedy_score']:.2f}/100). Keep it feasible and raise the score (density, single-CDU-failure "
-            f"resilience, shorter hoses):\n" + json.dumps(p["greedy_layout"], separators=(",", ":")))
+def compact(payload: dict[str, Any]) -> str:
+    """Racks as arrays in RACK_KEYS order: about half the tokens of the object form, in prompts and replies."""
+    racks = payload.get("racks") or []
+    return json.dumps({"racks": [[r.get(k) for k in RACK_KEYS] if isinstance(r, dict) else r for r in racks]},
+                      separators=(",", ":"))
+
+
+def normalize_racks(racks: list[Any]) -> list[Any]:
+    """Accept racks given as arrays in RACK_KEYS order and turn them into objects."""
+    return [dict(zip(RACK_KEYS, r)) if isinstance(r, list) and len(r) == len(RACK_KEYS) else r for r in racks]
+
+
+def incumbent_text(payload: dict[str, Any], res: dict[str, Any], label: str) -> str:
+    """The incumbent with its score breakdown and the scorer's remaining (usually soft) violations."""
+    return (f"INCUMBENT ({label}) racks as [{', '.join(RACK_KEYS)}] arrays:\n{compact(payload)}\n"
+            f"Incumbent score breakdown: {report_text(res)}")
+
+
+# Library of best layouts from train halls, for the nearest_examples tool (Rikin's hill_climb library, in memory).
+_LIBRARY: dict[str, dict[str, Any]] = {}
+_LIBRARY_LOCK = threading.Lock()
+
+
+def library_add(hall: dict[str, Any], payload: dict[str, Any], score: float) -> None:
+    with _LIBRARY_LOCK:
+        old = _LIBRARY.get(hall["name"])
+        if old is None or score > old["score"]:
+            _LIBRARY[hall["name"]] = {"hall": hall, "payload": payload, "score": score, "features": features(hall)}
+
+
+def nearest_examples_text(hall: dict[str, Any], k: int = 1, max_racks: int = 30) -> str:
+    """Tool: the best verified layouts of the most similar other train halls, compact and capped."""
+    with _LIBRARY_LOCK:
+        library = [e for name, e in _LIBRARY.items() if name != hall["name"]]
+    parts = []
+    for i, e in enumerate(nearest_examples(hall, library, k), 1):
+        racks = e["payload"]["racks"]
+        parts.append(f"VERIFIED EXAMPLE {i} (other hall {e['hall']['name']}, score {e['score']:.2f}, {len(racks)} "
+                     f"racks, first {min(len(racks), max_racks)} shown): {compact({'racks': racks[:max_racks]})}")
+    return "\n".join(parts)
 
 
 def lesson_proposals(failures: list[str]) -> list[dict[str, Any]]:
@@ -219,11 +268,12 @@ def datahall_v0() -> TeamVersion:
     return TeamVersion(
         version=0, parent=None, prompts=dict(V0_PROMPTS), playbooks={},
         config={"roles_enabled": ["Planner", "Layout", "Checker"], "models": {}, "default_model": NANO,
-                "temperature": 0.2, "max_tokens": 8192, "max_iters": 3, "stop_when_feasible": True,
+                "temperature": 0.2, "max_tokens": 6000, "max_iters": 2,
+                "thinking": {"Planner": False, "Layout": False, "Checker": False},
                 "brain_budget": 2000, "tool_catalog": list(TOOL_CATALOG),
                 "tools": {"verifier_feedback": {"enabled": True}, "capacity_calc": {"enabled": False},
-                          "greedy_seed": {"enabled": False}}},
-        changelog=["v0: initial data-hall team (Planner, Layout, Checker)"])
+                          "nearest_examples": {"enabled": False}}},
+        changelog=["v0: initial data-hall team (Planner, Layout, Checker), hill climbing from the greedy layout"])
 
 
 @dataclass
@@ -232,6 +282,8 @@ class _Attempt:
     res: dict[str, Any] | None  # None when the reply was not a usable payload
     failures: list[str]
     payload_json: str = ""
+    payload: dict[str, Any] | None = None
+    accepted: bool = False
 
 
 class _Run:
@@ -247,6 +299,9 @@ class _Run:
         self.brain_ids: set[str] = set()
         self.failures: list[str] = []
         self.errors: list[str] = []
+        self.incumbent: dict[str, Any] = task.payload["greedy_layout"]
+        self.inc_res = score_payload(self.hall, self.incumbent)
+        self.inc_label = "greedy solver"
 
     def tool(self, name: str) -> dict[str, Any] | None:
         """The tool's settings when enabled in config["tools"], else None."""
@@ -270,9 +325,11 @@ class _Run:
     def ask(self, role: str, messages: list[dict[str, str]]) -> Reply | None:
         """One JSON-mode call; a failed call ends that step but never the generation."""
         model = (self.cfg.get("models") or {}).get(role) or self.cfg.get("default_model", NANO)
+        thinking = self.cfg.get("thinking")
         try:
             reply = self.llm.chat(model, messages, temperature=float(self.cfg.get("temperature", 0.2)),
-                                  max_tokens=int(self.cfg.get("max_tokens", 8192)), json_mode=True, role=role)
+                                  max_tokens=self.max_tokens(), json_mode=True, role=role,
+                                  thinking=bool(thinking.get(role, False)) if isinstance(thinking, dict) else False)
         except Exception as exc:  # recorded in failures and notes; one dead call must not sink a 4-worker batch
             self.failures.append(f"llm_error:{role}")
             self.errors.append(f"{role}: {type(exc).__name__}: {str(exc)[:200]}")
@@ -282,6 +339,9 @@ class _Run:
         self.completion_tokens += reply.completion_tokens
         self.cost_usd += reply.cost_usd
         return reply
+
+    def max_tokens(self) -> int:
+        return int(self.cfg.get("max_tokens", 6000))
 
     def advise(self, role: str) -> str:
         reply = self.ask(role, [{"role": "system", "content": self.system(role)},
@@ -301,14 +361,22 @@ class _Run:
             parts.append("Team notes:\n" + "\n".join(p for p in plans if p))
         if self.tool("capacity_calc"):
             parts.append(capacity_calc(self.hall))
-        if self.tool("greedy_seed"):
-            parts.append(greedy_seed(self.task))
-        parts.append("Produce the complete layout.")
+        setting = self.tool("nearest_examples")
+        examples = nearest_examples_text(self.hall, int(setting.get("k", 1))) if setting else ""
+        if examples:
+            parts.append(examples)
+        parts.append(incumbent_text(self.incumbent, self.inc_res, self.inc_label))
+        parts.append("TASK: output ONE complete layout that scores strictly higher than the incumbent while keeping "
+                     "every hard rule. Typical wins: add racks in free row length, swap HGX for GB300 where power "
+                     "and CDU budget allow, rebalance CDUs so any single CDU failure is survivable, shorten hoses.")
         return "\n\n".join(parts)
 
-    def judge(self, index: int, text: str) -> _Attempt:
+    def judge(self, index: int, reply: Reply) -> _Attempt:
+        """Score one Layout reply; a truncated, unparseable or non-object reply is bad_json, never a crash."""
+        if reply.completion_tokens >= self.max_tokens():
+            return _Attempt(index, None, ["bad_json", "truncated"])
         try:
-            parsed = extract_json(text)
+            parsed = extract_json(reply.text)
         except ValueError:
             return _Attempt(index, None, ["bad_json"])
         if isinstance(parsed, dict) and "racks" not in parsed and isinstance(parsed.get("payload"), dict):
@@ -316,9 +384,12 @@ class _Run:
         racks = parsed if isinstance(parsed, list) else parsed.get("racks")
         if not isinstance(racks, list):
             return _Attempt(index, None, ["bad_json"])
+        racks = normalize_racks(racks)
+        if not all(isinstance(r, dict) for r in racks):
+            return _Attempt(index, None, ["bad_json"])
         payload = {"racks": racks}
         res = score_payload(self.hall, payload)
-        return _Attempt(index, res, categories(res), json.dumps(payload, separators=(",", ":"))[:6000])
+        return _Attempt(index, res, categories(res), compact(payload)[:6000], payload)
 
     def check(self, attempt: _Attempt, report: str) -> str:
         reply = self.ask("Checker", [{"role": "system", "content": self.system("Checker")},
@@ -337,11 +408,16 @@ class _Run:
     def feedback(self, attempt: _Attempt) -> list[dict[str, str]]:
         """What Layout sees before its next attempt: its last payload, then the verdict and any fix."""
         if attempt.res is None:
-            return [{"role": "user", "content": "Your last reply was not a JSON object with a racks list. " + FORMAT}]
+            reason = ("Your last reply hit the token limit before the JSON closed; keep it short."
+                      if "truncated" in attempt.failures else "Your last reply was not a JSON object with a racks list.")
+            return [{"role": "user", "content": f"{reason} {FORMAT}{ARRAY_FORMAT}"}]
+        if attempt.accepted:
+            return []  # the brief already carries the new incumbent
         res = attempt.res
-        verdict = (f"feasible, score {res['score']:.2f}/100" if res["feasible"]
+        verdict = (f"feasible, score {res['score']:.2f}/100, not above the incumbent's "
+                   f"{self.inc_res['score']:.2f}" if res["feasible"]
                    else "infeasible (score 0), violated: " + ", ".join(attempt.failures))
-        parts = [f"Attempt {attempt.index + 1}: {verdict}."]
+        parts = [f"Attempt {attempt.index + 1} was rejected: {verdict}."]
         report = report_text(res)
         if self.tool("verifier_feedback"):
             parts.append("Verifier feedback:\n" + report)
@@ -349,31 +425,34 @@ class _Run:
             fix = self.check(attempt, report)
             if fix:
                 parts.append(f"Checker: {fix}")
-        parts.append("Raise the score while keeping every hard rule; return the complete layout." if res["feasible"]
-                     else "Return the complete corrected layout.")
+        parts.append("Return a complete layout that beats the incumbent and keeps every hard rule.")
         return [{"role": "assistant", "content": attempt.payload_json}, {"role": "user", "content": "\n".join(parts)}]
 
     def layout_loop(self, plans: list[str]) -> list[_Attempt]:
-        max_iters = max(1, int(self.cfg.get("max_iters", 3)))
-        head = [{"role": "system", "content": self.system("Layout")}, {"role": "user", "content": self.brief(plans)}]
+        """Strict hill climb: each attempt that beats the incumbent's score becomes the new incumbent."""
+        max_iters = max(1, int(self.cfg.get("max_iters", 2)))
         tail: list[dict[str, str]] = []
         attempts: list[_Attempt] = []
         for i in range(max_iters):
+            head = [{"role": "system", "content": self.system("Layout")}, {"role": "user", "content": self.brief(plans)}]
             reply = self.ask("Layout", head + tail)
             if reply is None:
                 break
-            attempt = self.judge(i, reply.text)
+            attempt = self.judge(i, reply)
             attempts.append(attempt)
             self.failures.extend(attempt.failures)
-            if attempt.res and attempt.res["feasible"] and self.cfg.get("stop_when_feasible", True):
-                break
+            if attempt.res and attempt.payload and attempt.res["score"] > self.inc_res["score"]:
+                attempt.accepted = True
+                self.incumbent, self.inc_res = attempt.payload, attempt.res
+                self.inc_label = f"your attempt {i + 1}"
             if i + 1 < max_iters:
                 tail = self.feedback(attempt)
         return attempts
 
 
 def datahall_run_team(version: TeamVersion, brain: SharedBrain, task: Task, llm: LLM) -> RunResult:
-    """Advisors (Planner and any added role) plan once; Layout then tries up to max_iters times with scorer feedback."""
+    """Advisors (Planner and any added role) plan once; Layout then hill-climbs from the greedy incumbent for
+    max_iters attempts. The result is the best layout seen, so a run never scores below greedy."""
     start = time.perf_counter()
     run = _Run(version, brain, task, llm)
     roles = version.roles()
@@ -382,17 +461,23 @@ def datahall_run_team(version: TeamVersion, brain: SharedBrain, task: Task, llm:
     if "Layout" not in roles:
         run.failures.append("no_layout_role")
     scored = [a for a in attempts if a.res]
-    best = max(scored, key=lambda a: (a.res["score"], a.res["feasible"]), default=None)
+    accepted = [a for a in attempts if a.accepted]
+    if attempts and not accepted:
+        run.failures.append("no_improvement")
+    best_res, greedy_score = run.inc_res, float(task.payload["greedy_score"])
+    if accepted and best_res["feasible"] and task.split == "train":
+        library_add(run.hall, run.incumbent, best_res["score"])
     failures = list(dict.fromkeys(run.failures))
     notes = {"proposals": lesson_proposals(failures),
-             "violations": violations(best.res) if best else [],
+             "violations": violations(best_res),
              "attempts": [{"score": a.res["score"] if a.res else 0.0, "feasible": bool(a.res and a.res["feasible"]),
-                           "failures": a.failures} for a in attempts],
-             "best_attempt": best.index if best else None, "greedy_score": task.payload["greedy_score"],
+                           "accepted": a.accepted, "failures": a.failures} for a in attempts],
+             "best_attempt": accepted[-1].index if accepted else None, "greedy_score": greedy_score,
+             "best_score": best_res["score"], "gain_over_greedy": round(best_res["score"] - greedy_score, 4),
              "errors": run.errors}
     return RunResult(task_id=task.id, version=version.version,
-                     score=round(best.res["score"] / 100, 4) if best else 0.0,
-                     passed=bool(best and best.res["feasible"]), claimed_done=bool(scored),
+                     score=round(best_res["score"] / 100, 4),
+                     passed=bool(best_res["feasible"]), claimed_done=bool(scored),
                      iterations=len(attempts), calls=run.calls, prompt_tokens=run.prompt_tokens,
                      completion_tokens=run.completion_tokens, cost_usd=round(run.cost_usd, 8),
                      wall_s=round(time.perf_counter() - start, 3), failures=failures,

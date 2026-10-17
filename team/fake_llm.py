@@ -31,6 +31,7 @@ class ScriptedLLM:
         max_tokens: int = 2048,
         json_mode: bool = False,
         role: str = "",
+        thinking: bool | None = None,
     ) -> Reply:
         with self._lock:
             if callable(self._script):
@@ -41,7 +42,8 @@ class ScriptedLLM:
                 self._next[role] = i + 1
                 text = queue[min(i, len(queue) - 1)] if queue else self._default
             self.calls.append({"model": model, "role": role, "messages": messages,
-                               "temperature": temperature, "json_mode": json_mode, "reply": text})
+                               "temperature": temperature, "json_mode": json_mode, "thinking": thinking,
+                               "max_tokens": max_tokens, "reply": text})
         prompt_tokens = sum(len(m.get("content", "")) for m in messages) // 4
         return Reply(text=text, model=model, prompt_tokens=prompt_tokens,
                      completion_tokens=len(text) // 4)
