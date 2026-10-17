@@ -18,9 +18,9 @@ type Layer = {
 type View = { generated_at?: string; layers?: Layer[] };
 
 // The name slot. The docs carry no product name, so it holds the PITCH.md tagline.
-const PROJECT_NAME = 'Bring a verifier. Get a team that improves.';
-const THESIS = 'Every layer of an AI data center as a verifiable optimization problem';
-const TWIN_URL = 'http://127.0.0.1:8000';
+
+
+
 const REFRESH_MS = 60000;
 // Explains the flat hall result; used when datacenter.json carries no note of its own.
 const HALL_NOTE = 'v0 starts from the greedy layout, so v0 cold equals greedy here.';
@@ -158,264 +158,49 @@ function useDatacenter(active: boolean) {
   return { tiles, loaded: view != null, generatedAt: view?.generated_at ?? '', error };
 }
 
-const statusText: Record<Tile['status'], string> = { done: 'Done', running: 'Running', 'not run': 'Not run' };
+const statusText = { done: 'Measured', running: 'In progress', 'not run': 'Not measured' };
 
-function StatusPill({ status }: { status: Tile['status'] }) {
-  return <span className={`benchmark-status hero-status-${status.replace(' ', '-')}`}>{statusText[status]}</span>;
-}
+const LOOP = [
+  ['01', 'Research', 'Develop an original method, grounded in prior work.'],
+  ['02', 'Experiment', 'Test the idea against a reproducible baseline.'],
+  ['03', 'Verify', 'Measure the result independently. Keep what holds up.'],
+  ['04', 'Evolve', 'Publish the evidence. Give the next team a better starting point.'],
+];
 
-function Actions({ onOpenLayers, align }: { onOpenLayers: () => void; align?: 'center' }) {
-  return <div className={`hero-actions${align === 'center' ? ' hero-actions-center' : ''}`}>
-    <button type="button" className="hero-button hero-button-primary" onClick={onOpenLayers}>See the four layers</button>
-    <a className="hero-button hero-button-secondary" href={TWIN_URL} target="_blank" rel="noreferrer">Open the live twin</a>
+function EvolutionGraphic() {
+  return <div className="evolution-graphic" aria-label="Illustration of research flowing through experiments and verification into the next version">
+    <div className="evolution-grid" />
+    <div className="evolution-orbit orbit-one" /><div className="evolution-orbit orbit-two" />
+    <div className="evolution-core"><span>RECURSIVE AGENTS</span><strong>N<span>+1</span></strong><small>Learn. Test. Improve.</small></div>
+    <div className="orbit-card orbit-research"><span className="orbit-icon">↗</span><div><small>ORIGINAL RESEARCH</small><strong>A new hypothesis</strong></div></div>
+    <div className="orbit-card orbit-experiment"><span className="orbit-icon">⌁</span><div><small>REAL EXPERIMENTS</small><strong>Evidence over intuition</strong></div></div>
+    <div className="orbit-card orbit-verify"><span className="orbit-icon">✓</span><div><small>INDEPENDENT VERIFIER</small><strong>Keep or reject</strong></div></div>
+    <div className="evolution-caption"><span /> The improvement loop · concept</div>
   </div>;
 }
 
-const HOW = 'A Nemotron agent team on Crusoe improves itself through a Shared Brain and Version N+1 rewrites, and keeps a change only when a verifier measures a gain.';
-
-function Eyebrow() {
-  return <p className="hero-eyebrow">Recursive Agents Hackathon <span aria-hidden="true">·</span> Shared Brain + Version N+1</p>;
-}
-
-function HeroCentered({ onOpenLayers }: { onOpenLayers: () => void }) {
-  return <header className="hero hero-a">
-    <Eyebrow />
-    <p className="hero-name">{PROJECT_NAME}</p>
-    <h1 className="hero-title">{THESIS}</h1>
-    <p className="hero-lede">{HOW}</p>
-    <Actions onOpenLayers={onOpenLayers} align="center" />
-  </header>;
-}
-
-function HeroSplit({ onOpenLayers, tiles, loaded }: { onOpenLayers: () => void; tiles: Tile[]; loaded: boolean }) {
-  return <header className="hero hero-b">
-    <div className="hero-b-text">
-      <Eyebrow />
-      <p className="hero-name">{PROJECT_NAME}</p>
-      <h1 className="hero-title">{THESIS}</h1>
-      <p className="hero-lede">{HOW}</p>
-      <Actions onOpenLayers={onOpenLayers} />
-    </div>
-    <aside className="hero-b-panel" aria-label="Live results, v0 cold to final on held-out tasks">
-      <p className="hero-panel-title">Live: v0 cold → final, held-out</p>
-      <ol className="hero-b-list">
-        {tiles.map((tile) => <li key={tile.id} className="hero-b-row">
-          <div className="hero-b-row-head">
-            <span className="hero-b-row-name"><span className="hero-index">{tile.index}</span>{tile.name}</span>
-            <StatusPill status={tile.status} />
-          </div>
-          <div className="hero-b-row-numbers">
-            <span className={`hero-b-delta hero-tone-${tile.tone}`}>{loaded ? tile.delta : '…'}</span>
-            {tile.deltaSuffix && <span className="hero-b-path">{tile.deltaSuffix}</span>}
-            <span className="hero-b-path">{tile.v0} → {tile.final}</span>
-          </div>
-          {tile.sota && <p className="hero-b-sota">{tile.sota}</p>}
-        </li>)}
-      </ol>
-    </aside>
-  </header>;
-}
-
-function HeroNumbers({ onOpenLayers, tiles, loaded }: { onOpenLayers: () => void; tiles: Tile[]; loaded: boolean }) {
-  return <header className="hero hero-c">
-    <div className="hero-c-band" aria-label="Change from v0 cold to final on held-out tasks, per layer">
-      {tiles.map((tile) => <div key={tile.id} className="hero-c-stat">
-        <span className={`hero-c-delta hero-tone-${tile.tone}`}>{loaded ? tile.delta : '…'}</span>
-        {tile.deltaSuffix && <span className="hero-c-suffix">{tile.deltaSuffix}</span>}
-        <span className="hero-c-label">{tile.name}</span>
-        <span className="hero-c-path">
-          {tile.status === 'done' ? `${tile.v0} → ${tile.final}` : statusText[tile.status]}
-          {tile.status === 'done' && tile.n != null ? ` on ${tile.n} held-out ${tile.unit}` : ''}
-        </span>
-        {tile.sota && <span className="hero-c-sota">{tile.sota}</span>}
-      </div>)}
-    </div>
-    <div className="hero-c-text">
-      <Eyebrow />
-      <p className="hero-name">{PROJECT_NAME}</p>
-      <h1 className="hero-title">{THESIS}</h1>
-      <p className="hero-lede">{HOW}</p>
-      <Actions onOpenLayers={onOpenLayers} />
-    </div>
-  </header>;
-}
-
-// --- The loop diagram: one data list, drawn wide (desktop) or tall (phone). ---
-const STEPS = [
-  { title: 'Solve', caption: 'Nemotron roles on Crusoe work the task and leave Shared Brain notes.' },
-  { title: 'Review', caption: 'A Reviewer reads You.com results and proposes changes with numeric claims.' },
-  { title: 'Gate', caption: 'An exact verifier measures each claim on dev tasks: keep or reject.' },
-  { title: 'Publish', caption: "Kept changes publish as papers to SA's Library." },
-  { title: 'Held-out check', caption: 'The final version runs on tasks the team never saw.' },
-];
-
-function wrap(text: string, maxChars: number) {
-  const lines: string[] = [];
-  let line = '';
-  for (const word of text.split(' ')) {
-    if (line && (line + ' ' + word).length > maxChars) { lines.push(line); line = word; }
-    else line = line ? `${line} ${word}` : word;
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-function StepBox({ x, y, w, h, index, maxChars }: { x: number; y: number; w: number; h: number; index: number; maxChars: number }) {
-  const step = STEPS[index];
-  const isExit = index === STEPS.length - 1;
-  return <g className={isExit ? 'hero-loop-exit' : 'hero-loop-step'}>
-    <rect x={x} y={y} width={w} height={h} rx={10} />
-    <text className="hero-loop-num" x={x + 18} y={y + 30}>{index + 1}</text>
-    <text className="hero-loop-title" x={x + 40} y={y + 30}>{step.title}</text>
-    {wrap(step.caption, maxChars).map((line, lineIndex) =>
-      <text key={lineIndex} className="hero-loop-caption" x={x + 18} y={y + 58 + lineIndex * 21}>{line}</text>)}
-  </g>;
-}
-
-function LoopWide() {
-  const w = 206; const h = 160; const gap = 42; const top = 20;
-  const xs = STEPS.map((_, index) => index * (w + gap));
-  const width = xs[xs.length - 1] + w;
-  const bottom = top + h;
-  const loopY = bottom + 46;
-  return <svg className="hero-loop-wide" viewBox={`-2 0 ${width + 4} ${loopY + 34}`} role="img"
-    aria-label="Loop: solve, review, gate, publish, then back to solve as the next version; the final version runs on held-out tasks.">
-    <defs>
-      <marker id="hero-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M0,0 L10,5 L0,10 z" className="hero-loop-head" />
-      </marker>
-    </defs>
-    {STEPS.map((_, index) => index < STEPS.length - 1 && <line key={index} className={index === 3 ? 'hero-loop-edge hero-loop-edge-exit' : 'hero-loop-edge'}
-      x1={xs[index] + w + 4} y1={top + h / 2} x2={xs[index + 1] - 6} y2={top + h / 2} markerEnd="url(#hero-arrow)" />)}
-    <path className="hero-loop-edge" d={`M${xs[3] + w / 2},${bottom + 4} V${loopY} H${xs[0] + w / 2} V${bottom + 8}`} markerEnd="url(#hero-arrow)" />
-    <text className="hero-loop-edge-label" x={(xs[0] + xs[3] + w) / 2} y={loopY + 24} textAnchor="middle">kept changes become version N+1, and the loop repeats</text>
-    <text className="hero-loop-edge-label" x={xs[4] - gap / 2} y={top + h / 2 - 12} textAnchor="middle">end</text>
-    {STEPS.map((_, index) => <StepBox key={index} x={xs[index]} y={top} w={w} h={h} index={index} maxChars={20} />)}
-  </svg>;
-}
-
-function LoopTall() {
-  const w = 280; const h = 122; const gap = 34; const left = 4;
-  const ys = STEPS.map((_, index) => 4 + index * (h + gap));
-  const height = ys[ys.length - 1] + h + 6;
-  const loopX = left + w + 22;
-  return <svg className="hero-loop-tall" viewBox={`0 0 ${loopX + 16} ${height}`} role="img"
-    aria-label="Loop: solve, review, gate, publish, then back to solve as the next version; the final version runs on held-out tasks.">
-    <defs>
-      <marker id="hero-arrow-tall" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M0,0 L10,5 L0,10 z" className="hero-loop-head" />
-      </marker>
-    </defs>
-    {STEPS.map((_, index) => index < STEPS.length - 1 && <line key={index} className={index === 3 ? 'hero-loop-edge hero-loop-edge-exit' : 'hero-loop-edge'}
-      x1={left + w / 2} y1={ys[index] + h + 3} x2={left + w / 2} y2={ys[index + 1] - 5} markerEnd="url(#hero-arrow-tall)" />)}
-    <path className="hero-loop-edge" d={`M${left + w + 3},${ys[3] + h / 2} H${loopX} V${ys[0] + h / 2} H${left + w + 7}`} markerEnd="url(#hero-arrow-tall)" />
-    <text className="hero-loop-edge-label" x={loopX + 10} y={(ys[0] + ys[3]) / 2 + h / 2} textAnchor="middle"
-      transform={`rotate(90 ${loopX + 10} ${(ys[0] + ys[3]) / 2 + h / 2})`}>version N+1, repeat</text>
-    {STEPS.map((_, index) => <StepBox key={index} x={left} y={ys[index]} w={w} h={h} index={index} maxChars={28} />)}
-  </svg>;
-}
-
-function Loop() {
-  return <section className="hero-section" aria-labelledby="hero-loop-heading">
-    <div className="hero-section-head">
-      <h2 id="hero-loop-heading">The loop</h2>
-      <p>One harness, reused unchanged in every layer. A change is kept for a dev gain of 0.05 or more with no lost passes, or a cost cut of 15% or more at equal score.</p>
-    </div>
-    <div className="hero-loop">
-      <LoopWide />
-      <LoopTall />
-    </div>
-  </section>;
-}
-
-function LayerTiles({ tiles, loaded, generatedAt, error }: { tiles: Tile[]; loaded: boolean; generatedAt: string; error: string }) {
-  return <section className="hero-section" aria-labelledby="hero-layers-heading">
-    <div className="hero-section-head">
-      <h2 id="hero-layers-heading">Four layers, live</h2>
-      <p>Every gain is v0 cold to final, measured on held-out tasks.</p>
-    </div>
-    <div className="hero-tiles">
-      {tiles.map((tile) => <article key={tile.id} className="hero-tile">
-        <div className="hero-tile-head">
-          <h3><span className="hero-index">{tile.index}</span>{tile.name}</h3>
-          <StatusPill status={tile.status} />
-        </div>
-        <p className="hero-tile-verifier">{tile.verifier}</p>
-        <div className="hero-tile-main">
-          <span className={`hero-tile-delta hero-tone-${tile.tone}`}>{loaded ? tile.delta : '…'}</span>
-          {tile.deltaSuffix && <span className="hero-tile-suffix">{tile.deltaSuffix}</span>}
-          <span className="hero-tile-path">
-            <span>v0 cold {tile.v0}</span>
-            <span>final {tile.final}</span>
-          </span>
-        </div>
-        {tile.sota && <p className="hero-tile-sota">{tile.sota}</p>}
-        <p className="hero-tile-meta">
-          {tile.deltaSuffix ? '' : tile.scoreLabel}{tile.n != null && tile.status !== 'not run' ? `${tile.deltaSuffix ? '' : ', '}${tile.n} held-out ${tile.unit}` : ''}
-        </p>
-        {tile.extra && <p className="hero-tile-extra">{tile.extra}</p>}
-        {tile.device && <p className="hero-tile-extra">Runs on: {tile.device}</p>}
-      </article>)}
-    </div>
-    <p className="hero-stamp">
-      {error ? `Last refresh failed (${error}); showing the last numbers loaded. ` : ''}
-      {loaded ? `Data from datacenter.json, updated ${generatedAt || 'n/a'}. Reloads every 60 s.` : !error ? 'Loading datacenter.json…' : ''}
-    </p>
-  </section>;
-}
-
-const PROOF = [
-  { title: 'Exact verifiers, no LLM judge', body: "DoneTwin's scorer for halls, recomputed QAP cost for placement, timed kernels with reward-hack guards, and code-computed answers for inference." },
-  { title: 'Held-out tasks the team never saw', body: 'Train, dev and held-out splits are disjoint. Touching a held-out task before the final report raises an error.' },
-  { title: 'Every claim beside its measurement', body: "Each change carries a numeric claim. The measured result is logged next to it and published to SA's Library." },
-];
-
-function Proof() {
-  return <section className="hero-section" aria-labelledby="hero-proof-heading">
-    <div className="hero-section-head"><h2 id="hero-proof-heading">How we know it's real</h2></div>
-    <ol className="hero-proof">
-      {PROOF.map((point, index) => <li key={point.title}>
-        <span className="hero-proof-num">{index + 1}</span>
-        <div><h3>{point.title}</h3><p>{point.body}</p></div>
-      </li>)}
-    </ol>
-  </section>;
-}
-
-const STACK = [
-  ['Crusoe Managed Inference', 'every model call, with cost per role'],
-  ['NVIDIA Nemotron', 'Nano, Super, Lightning'],
-  ['You.com search', 'sources for the Reviewer'],
-  ['DoneTwin', 'data-hall twin and scorer, by Rikin'],
-  ['Dashboard and Library', 'by SA'],
-] as const;
-
-function BuiltWith() {
-  return <section className="hero-section hero-built" aria-labelledby="hero-built-heading">
-    <div className="hero-section-head"><h2 id="hero-built-heading">Built with</h2></div>
-    <ul className="hero-stack">
-      {STACK.map(([name, detail]) => <li key={name}><strong>{name}</strong><span>{detail}</span></li>)}
-    </ul>
-    <p className="hero-team">Team: Nathan, SA, Rikin. Crusoe x Cerebral Valley, Recursive Agents Hackathon.</p>
-  </section>;
-}
-
-function readVariant(): 'a' | 'b' | 'c' {
-  if (typeof window === 'undefined') return 'b';
-  const value = new URLSearchParams(window.location.search).get('hero')?.toLowerCase();
-  return value === 'a' || value === 'c' ? value : 'b';
-}
-
-export default function Hero({ active, onOpenLayers }: { active: boolean; onOpenLayers: () => void }) {
-  const [variant] = useState(readVariant);
+export default function Hero({ active, onOpenLayers, onOpenBenchmarks }: { active: boolean; onOpenLayers: () => void; onOpenBenchmarks: () => void }) {
   const { tiles, loaded, generatedAt, error } = useDatacenter(active);
-  return <div className={`hero-page hero-page-${variant}`}>
-    {variant === 'a' && <HeroCentered onOpenLayers={onOpenLayers} />}
-    {variant === 'b' && <HeroSplit onOpenLayers={onOpenLayers} tiles={tiles} loaded={loaded} />}
-    {variant === 'c' && <HeroNumbers onOpenLayers={onOpenLayers} tiles={tiles} loaded={loaded} />}
-    <Loop />
-    <LayerTiles tiles={tiles} loaded={loaded} generatedAt={generatedAt} error={error} />
-    <Proof />
-    <BuiltWith />
+  return <div className="hero-page">
+    <header className="home-intro">
+      <div className="home-copy">
+        <p className="home-eyebrow"><span /> RECURSIVE AGENTS / VERSION N+1</p>
+        <h1>Bring a verifier.<br />Get a team that <em>improves.</em></h1>
+        <p className="home-lede">Agents develop original research, run experiments, and rewrite how they work. Every improvement has to prove itself.</p>
+        <div className="home-actions"><button className="home-primary" onClick={onOpenBenchmarks}>Explore benchmarks <span aria-hidden="true">↗</span></button><a className="home-secondary" href="#home-loop">How it works <span aria-hidden="true">↓</span></a></div>
+        <p className="home-footnote">Built with NVIDIA Nemotron · Crusoe · You.com</p>
+      </div>
+      <EvolutionGraphic />
+    </header>
+    <section className="home-loop" id="home-loop" aria-labelledby="home-loop-title">
+      <div className="home-section-heading"><div><p className="home-eyebrow">THE METHOD</p><h2 id="home-loop-title">Every version earns its place.</h2></div><p>A shared memory of findings.<br />An independent check on every claim.</p></div>
+      <div className="home-steps">{LOOP.map(([number, title, description]) => <article key={number}><span className="home-step-number">{number}</span><h3>{title}<span aria-hidden="true">↗</span></h3><p>{description}</p></article>)}</div>
+    </section>
+    <section className="home-results" aria-labelledby="home-results-title">
+      <div className="home-section-heading"><div><p className="home-eyebrow">ONE LOOP. MANY PROBLEMS.</p><h2 id="home-results-title">From the floor plan<br />to the inference engine.</h2></div><button className="home-text-button" onClick={onOpenLayers}>Explore the four layers <span aria-hidden="true">↗</span></button></div>
+      <div className="home-result-grid">{tiles.map(tile => <article key={tile.id} className="home-result-card"><div className="home-result-top"><span>0{tile.index} / {tile.name}</span><span className="home-result-status">{loaded ? statusText[tile.status] : 'Loading'}</span></div><strong className={'home-result-value home-result-' + tile.tone}>{loaded ? tile.delta === 'n/a' ? 'Pending' : tile.delta : '…'}</strong><p className="home-result-path">{tile.v0} <span aria-hidden="true">→</span> {tile.final}{tile.scoreLabel && <span className="home-result-unit">{tile.scoreLabel}</span>}</p><p className="home-result-description">{tile.verifier}</p>{tile.extra && <p className="home-result-note">{tile.extra}</p>}{tile.device && <p className="home-result-note">{tile.device}</p>}</article>)}</div>
+      <p className="home-source">Reported baseline → final results from the shared run data. {generatedAt && <>Snapshot: {generatedAt}.</>} {error && <span role="status">Results could not refresh; showing the last available snapshot.</span>}</p>
+    </section>
+    <footer className="home-outro"><div className="home-monogram">N+1</div><div><h2>The next idea starts here.</h2><p>Bring a measurable problem. Let the team get to work.</p></div><button className="home-primary" onClick={onOpenBenchmarks}>Find a benchmark <span aria-hidden="true">↗</span></button></footer>
   </div>;
 }

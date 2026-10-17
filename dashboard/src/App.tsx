@@ -75,7 +75,7 @@ export default function App() {
             hidden={activeTab !== tab}
             tabIndex={0}
           >
-            {tab === 'Overview' && <Hero active={activeTab === 'Overview'} onOpenLayers={() => setActiveTab('AI Data Center')} />}
+            {tab === 'Overview' && <Hero active={activeTab === 'Overview'} onOpenLayers={() => setActiveTab('AI Data Center')} onOpenBenchmarks={() => setActiveTab('Benchmarks')} />}
             {tab === 'Stage' && <Stage active={activeTab === 'Stage'} />}
             {tab === 'Benchmarks' && <Benchmarks active={activeTab === 'Benchmarks'} />}
             {tab === 'Library' && <Library active={activeTab === 'Library'} />}
