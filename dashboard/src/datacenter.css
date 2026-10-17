@@ -1,0 +1,61 @@
+/* AI Data Center tab. Same zinc palette, type scale and borders as benchmarks.css and styles.css. */
+.dc .benchmarks-header { align-items: flex-start; }
+.dc .benchmarks-header .node-count { white-space: nowrap; }
+.dc-status-done::before { background: #16a34a; }
+.dc-status-running::before { background: #d97706; }
+.dc-status-not-run::before { background: #a1a1aa; }
+.dc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin: 0 0 40px; }
+.dc-card { border: 1px solid #e4e4e7; border-radius: 8px; padding: 16px; min-width: 0; display: flex; flex-direction: column; }
+.dc-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dc-card h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -0.2px; }
+.dc-card-problem { margin: 6px 0 14px; font-size: 12px; line-height: 1.6; color: #71717a; }
+.dc-card-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 12px 0; border-top: 1px solid #e4e4e7; border-bottom: 1px solid #e4e4e7; }
+.dc-card-numbers dt { font-size: 11px; color: #71717a; margin-bottom: 4px; }
+.dc-card-numbers dd { margin: 0; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; color: #18181b; overflow-wrap: anywhere; }
+.dc-card-numbers .dc-up { color: #166534; }
+.dc-card-numbers .dc-down { color: #b91c1c; }
+.dc-card-baseline { margin: 10px 0 0; font-size: 11px; color: #71717a; line-height: 1.5; }
+.dc-card-summary { margin: 8px 0 0; font-size: 12px; line-height: 1.6; color: #3f3f46; }
+.dc-layer { border-top: 1px solid #e4e4e7; padding-top: 24px; margin-top: 32px; }
+.dc-layer .section-heading { margin-bottom: 10px; }
+.dc-layer .section-heading h2 { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dc-layer .section-heading h2 .benchmark-status { font-weight: 400; }
+.dc-layer .section-heading p { line-height: 1.6; max-width: 820px; }
+.dc-summary { margin: 0 0 20px; padding: 14px 16px; background: #fafafa; border-radius: 6px; font-size: 13px; line-height: 1.7; color: #27272a; max-width: 980px; }
+.dc-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 16px; }
+.dc-chart { margin: 0; border: 1px solid #e4e4e7; border-radius: 8px; padding: 14px 14px 10px; min-width: 0; overflow: hidden; }
+.dc-chart figcaption { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+.dc-chart figcaption strong { font-size: 12px; font-weight: 500; color: #27272a; }
+.dc-chart figcaption span { font-size: 11px; color: #71717a; line-height: 1.5; }
+.dc-chart svg { display: block; overflow: visible; }
+.dc-grid { stroke: #f4f4f5; stroke-width: 1; }
+.dc-axis { fill: #71717a; font-size: 10px; font-variant-numeric: tabular-nums; }
+.dc-axis-title { fill: #a1a1aa; font-size: 10px; }
+.dc-value { fill: #27272a; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.dc-setting-label { fill: #3f3f46; font-size: 11px; }
+.dc-bar-baseline { fill: #e4e4e7; }
+.dc-bar-cold { fill: #d4d4d8; }
+.dc-bar-brain { fill: #71717a; }
+.dc-bar-final { fill: #18181b; }
+.dc-bar-track { fill: #f4f4f5; }
+.dc-reference { stroke: #d97706; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.dc-step { fill: none; stroke: #18181b; stroke-width: 1.5; }
+.dc-dev-dot { fill: #18181b; }
+.dc-accepted { fill: #16a34a; stroke: #fff; stroke-width: 1; }
+.dc-rejected { fill: #fff; stroke: #dc2626; stroke-width: 1.5; }
+.dc-point { fill: #18181b; }
+.dc-point-baseline { fill: #fff; stroke: #d97706; stroke-width: 2; }
+.dc-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; font-size: 11px; color: #71717a; }
+.dc-key::before { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; content: ''; }
+.dc-key-dev::before { background: #18181b; }
+.dc-key-accepted::before { background: #16a34a; }
+.dc-key-rejected::before { background: #fff; box-shadow: inset 0 0 0 1.5px #dc2626; }
+.dc-not-run { display: flex; flex-direction: column; gap: 6px; padding: 28px 20px; border: 1px dashed #d4d4d8; border-radius: 8px; font-size: 12px; color: #71717a; line-height: 1.6; }
+.dc-not-run strong { color: #27272a; font-weight: 500; font-size: 13px; }
+.dc-empty { padding: 28px 20px; border: 1px dashed #d4d4d8; border-radius: 8px; font-size: 12px; color: #71717a; line-height: 1.6; }
+.dc .catalog-note code, .dc .error-banner code { font-size: 11px; }
+@media (max-width: 600px) {
+  .dc-cards { grid-template-columns: 1fr; margin-bottom: 28px; }
+  .dc .benchmarks-header { flex-direction: column; gap: 12px; }
+  .dc-chart { padding: 12px 10px 8px; }
+}

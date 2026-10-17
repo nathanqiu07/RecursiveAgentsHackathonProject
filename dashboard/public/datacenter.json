@@ -1,0 +1,597 @@
+{
+ "generated_at": "2026-10-17 15:48:46 PDT",
+ "command": ".venv/bin/python scripts/build_datacenter_view.py",
+ "pitch": "Every layer of an AI data center as a verifiable optimization problem.",
+ "layers": [
+  {
+   "id": "hall",
+   "name": "Hall layout",
+   "problem": "Place racks, CDUs and power in a data hall (DoneTwin).",
+   "verified": "DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible",
+   "score_label": "DoneTwin score / 100",
+   "digits": 3,
+   "baseline": {
+    "name": "greedy layout (no LLM)",
+    "score": 0.71
+   },
+   "best": {
+    "run": "datahall-live-1",
+    "label": "v0 + empty brain (cold)",
+    "score": 0.71,
+    "baseline": 0.71,
+    "delta": 0.0
+   },
+   "status": "done",
+   "summary": "On 21 held-out halls across 2 finished runs, the team's best layouts score +0.00 points vs greedy. With Nano 30B, reasoning on, max 32k tokens, it beat greedy by 2.66 points on 4 train halls; with reasoning off no layout was feasible. datahall-live-2d is running: 3 candidate changes scored on dev so far, 0 accepted.",
+   "runs": [
+    {
+     "id": "datahall-live-1",
+     "status": "done",
+     "status_detail": "final report and live usage written",
+     "baseline": {
+      "name": "greedy baseline (no LLM)",
+      "score": 0.71,
+      "source": "final held-out table"
+     },
+     "heldout": [
+      {
+       "label": "greedy baseline (no LLM)",
+       "kind": "baseline",
+       "score": 0.71,
+       "pass_rate": 1.0,
+       "n": 15,
+       "cost_usd": 0.0
+      },
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.71,
+       "pass_rate": 1.0,
+       "n": 15,
+       "cost_usd": 0.019749
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.71,
+       "pass_rate": 1.0,
+       "n": 15,
+       "cost_usd": 0.02268
+      },
+      {
+       "label": "final (v0: no change passed the gate)",
+       "kind": "final",
+       "score": 0.71,
+       "pass_rate": 1.0,
+       "n": 15,
+       "cost_usd": 0.02268
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.7034
+      },
+      {
+       "gen": 1,
+       "score": 0.7027
+      },
+      {
+       "gen": 2,
+       "score": 0.7027
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.7027,
+       "parent_score": 0.7034,
+       "accepted": false,
+       "reason": "gain -0.001 < 0.05",
+       "change": "tool capacity_calc enabled=True"
+      },
+      {
+       "gen": 0,
+       "score": 0.7027,
+       "parent_score": 0.7034,
+       "accepted": false,
+       "reason": "gain -0.001 < 0.05",
+       "change": "Planner prompt: You are the power and cooling Planner for a 2N AI data hall. Before..."
+      },
+      {
+       "gen": 1,
+       "score": 0.7027,
+       "parent_score": 0.7027,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.05",
+       "change": "tools.capacity_calc.enabled = true"
+      },
+      {
+       "gen": 1,
+       "score": 0.7027,
+       "parent_score": 0.7027,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.05",
+       "change": "Layout step: Validate CDU capacity and hose reach: for each CDU, count assigned..."
+      },
+      {
+       "gen": 1,
+       "score": 0.7027,
+       "parent_score": 0.7027,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.05",
+       "change": "Planner prompt: When budgeting racks per busway row, enforce 2N dual\u2011feed power red..."
+      },
+      {
+       "gen": 2,
+       "score": 0.7027,
+       "parent_score": 0.7027,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.05",
+       "change": "tools.capacity_calc.enabled = true"
+      },
+      {
+       "gen": 2,
+       "score": 0.7027,
+       "parent_score": 0.7027,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.05",
+       "change": "Planner step: Use the capacity_calc tool to determine the maximum number of racks..."
+      }
+     ],
+     "cost_usd": 0.173016,
+     "calls": 475,
+     "last_update": "15:18 PDT",
+     "n_heldout": 15
+    },
+    {
+     "id": "datahall-live-2",
+     "status": "done",
+     "status_detail": "final report and live usage written",
+     "baseline": {
+      "name": "greedy baseline (no LLM)",
+      "score": 0.688,
+      "source": "final held-out table"
+     },
+     "heldout": [
+      {
+       "label": "greedy baseline (no LLM)",
+       "kind": "baseline",
+       "score": 0.688,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.0
+      },
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.008658
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.011372
+      },
+      {
+       "label": "final (v0: no change passed the gate)",
+       "kind": "final",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.011372
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.6916
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost -2% misses the -15% cut",
+       "change": "tool capacity_calc enabled=True"
+      },
+      {
+       "gen": 0,
+       "score": 0.6925,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.001 < 0.02; cost +2% misses the -15% cut",
+       "change": "tool nearest_examples enabled=True"
+      },
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost +11% misses the -15% cut",
+       "change": "Layout step: After proposing a rack placement, invoke capacity_calc to verify bu..."
+      }
+     ],
+     "cost_usd": 0.04334,
+     "calls": 128,
+     "last_update": "15:32 PDT",
+     "n_heldout": 6
+    },
+    {
+     "id": "datahall-live-2d",
+     "status": "running",
+     "status_detail": "3 candidates scored on dev, generation 0; started 15:30 PDT, last write 15:46 PDT",
+     "baseline": {
+      "name": "greedy layout (no LLM)",
+      "score": 0.6879000000000001,
+      "source": "run log (greedy is deterministic)"
+     },
+     "heldout": [],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.6916
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost -1% misses the -15% cut",
+       "change": "Layout step: Validate each rack's assigned CDU has a hose length within Manhatta..."
+      },
+      {
+       "gen": 0,
+       "score": 0.6964,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.005 < 0.02; cost +1190% misses the -15% cut",
+       "change": "thinking = {\"Layout\": true}"
+      },
+      {
+       "gen": 0,
+       "score": 0.6916,
+       "parent_score": 0.6916,
+       "accepted": false,
+       "reason": "gain +0.000 < 0.02; cost +0% misses the -15% cut",
+       "change": "max_tokens = 32000"
+      }
+     ],
+     "cost_usd": null,
+     "calls": null,
+     "last_update": "15:46 PDT",
+     "n_heldout": null
+    }
+   ],
+   "settings": [
+    {
+     "label": "Nano 30B, reasoning off, max 6k tokens",
+     "tag": "main",
+     "variant": "A",
+     "gain_pts": 0.0,
+     "score": 0.6949,
+     "greedy": 0.6949,
+     "feasible": 0,
+     "attempts": 12,
+     "halls": 4,
+     "cost_usd": 0.005607
+    },
+    {
+     "label": "Nano 30B, reasoning on, max 16k tokens",
+     "tag": "main",
+     "variant": "B",
+     "gain_pts": 1.345,
+     "score": 0.7084,
+     "greedy": 0.6949,
+     "feasible": 1,
+     "attempts": 12,
+     "halls": 4,
+     "cost_usd": 0.039392
+    },
+    {
+     "label": "Nano 30B, reasoning on, max 16k tokens",
+     "tag": "rep",
+     "variant": "B",
+     "gain_pts": 0.0,
+     "score": 0.6949,
+     "greedy": 0.6949,
+     "feasible": 0,
+     "attempts": 12,
+     "halls": 4,
+     "cost_usd": 0.040405
+    },
+    {
+     "label": "Nano 30B, reasoning on, max 32k tokens",
+     "tag": "rep",
+     "variant": "B32",
+     "gain_pts": 2.663,
+     "score": 0.7216,
+     "greedy": 0.6949,
+     "feasible": 3,
+     "attempts": 12,
+     "halls": 4,
+     "cost_usd": 0.071866
+    },
+    {
+     "label": "Super 120B, reasoning off, max 6k tokens",
+     "tag": "main",
+     "variant": "C",
+     "gain_pts": 0.0,
+     "score": 0.6949,
+     "greedy": 0.6949,
+     "feasible": 0,
+     "attempts": 12,
+     "halls": 4,
+     "cost_usd": 0.045938
+    },
+    {
+     "label": "Super 120B, reasoning on, max 16k tokens",
+     "tag": "main",
+     "variant": "D",
+     "gain_pts": 0.0,
+     "score": 0.6981,
+     "greedy": 0.6981,
+     "feasible": 0,
+     "attempts": 1,
+     "halls": 1,
+     "cost_usd": 0.039054
+    },
+    {
+     "label": "Nano 30B, reasoning off, max 6k tokens, small-edit playbook",
+     "tag": "pb",
+     "variant": "G",
+     "gain_pts": 0.0,
+     "score": 0.6949,
+     "greedy": 0.6949,
+     "feasible": 0,
+     "attempts": 12,
+     "halls": 4,
+     "cost_usd": 0.004759
+    }
+   ]
+  },
+  {
+   "id": "placement",
+   "name": "Equipment placement",
+   "problem": "Quadratic assignment: put equipment in slots to cut flow x distance.",
+   "verified": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
+   "score_label": "best-known / cost",
+   "digits": 3,
+   "baseline": {
+    "name": "2-swap local search (no LLM)",
+    "score": 0.9954
+   },
+   "best": {
+    "run": "qaplib-evolve-3",
+    "label": "v0 + final brain",
+    "score": 0.93,
+    "baseline": 0.9954,
+    "delta": -0.0654
+   },
+   "status": "done",
+   "summary": "On 6 held-out QAPLIB instances, 2-swap scores 0.995. The team went from 0.853 cold to 0.930 with the shared brain, still 6.5 points below 2-swap. qaplib-evolve-5 is running: 1 candidate change scored on dev so far, 0 accepted.",
+   "runs": [
+    {
+     "id": "qaplib-evolve-3",
+     "status": "done",
+     "status_detail": "final report and live usage written",
+     "baseline": {
+      "name": "2-swap baseline (no LLM, 10 s restarts)",
+      "score": 0.9954,
+      "source": "final held-out table"
+     },
+     "heldout": [
+      {
+       "label": "2-swap baseline (no LLM, 10 s restarts)",
+       "kind": "baseline",
+       "score": 0.9954,
+       "pass_rate": 0.8333,
+       "n": 6,
+       "cost_usd": 0.0
+      },
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.8529,
+       "pass_rate": 0.0,
+       "n": 6,
+       "cost_usd": 0.001929
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.93,
+       "pass_rate": 0.3333,
+       "n": 6,
+       "cost_usd": 0.00214
+      },
+      {
+       "label": "final (v0: no change passed the gate)",
+       "kind": "final",
+       "score": 0.93,
+       "pass_rate": 0.3333,
+       "n": 6,
+       "cost_usd": 0.00214
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.9725
+      },
+      {
+       "gen": 1,
+       "score": 0.9206
+      }
+     ],
+     "candidates": [],
+     "cost_usd": 0.011061,
+     "calls": 54,
+     "last_update": "15:45 PDT",
+     "n_heldout": 6,
+     "family": "QAPLIB"
+    },
+    {
+     "id": "qaplib-evolve-5",
+     "status": "running",
+     "status_detail": "1 candidate scored on dev, generation 0; started 15:38 PDT, last write 15:47 PDT",
+     "baseline": {
+      "name": "2-swap local search, 10 s restarts (no LLM)",
+      "score": 0.9954,
+      "source": "reports/qaplib_baseline.json on this run's 6 held-out instances"
+     },
+     "heldout": [],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.9864
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.9814,
+       "parent_score": 0.9864,
+       "accepted": false,
+       "reason": "gain -0.005 < 0.003",
+       "change": "solver prompt: You write heuristic optimization programs for the Quadratic Assignm..."
+      }
+     ],
+     "cost_usd": null,
+     "calls": null,
+     "last_update": "15:47 PDT",
+     "n_heldout": null,
+     "family": "QAPLIB"
+    },
+    {
+     "id": "qaplib-dc-1",
+     "status": "running",
+     "status_detail": "6 candidates scored on dev, generation 1; started 15:41 PDT, last write 15:47 PDT",
+     "baseline": {
+      "name": "2-swap local search, 10 s restarts (no LLM)",
+      "score": 0.9887,
+      "source": "reports/qaplib_baseline.json, all held-out instances"
+     },
+     "heldout": [],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.8041
+      },
+      {
+       "gen": 1,
+       "score": 0.7151
+      }
+     ],
+     "candidates": [
+      {
+       "gen": 0,
+       "score": 0.5617,
+       "parent_score": 0.8041,
+       "accepted": false,
+       "reason": "gain -0.242 < 0.003",
+       "change": "solver step: Validate permutation length matches problem size before execution"
+      },
+      {
+       "gen": 0,
+       "score": 0.5873,
+       "parent_score": 0.8041,
+       "accepted": false,
+       "reason": "gain -0.217 < 0.003",
+       "change": "max_tokens = 4000"
+      },
+      {
+       "gen": 0,
+       "score": 0.4084,
+       "parent_score": 0.8041,
+       "accepted": false,
+       "reason": "gain -0.396 < 0.003",
+       "change": "temperature = 0.1"
+      },
+      {
+       "gen": 1,
+       "score": 0.4742,
+       "parent_score": 0.7151,
+       "accepted": false,
+       "reason": "gain -0.241 < 0.003",
+       "change": "max_tokens = 4000"
+      },
+      {
+       "gen": 1,
+       "score": 0.8084,
+       "parent_score": 0.7151,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "temperature = 0.1"
+      }
+     ],
+     "cost_usd": null,
+     "calls": null,
+     "last_update": "15:47 PDT",
+     "n_heldout": null,
+     "family": "GPU rack placement"
+    }
+   ]
+  },
+  {
+   "id": "kernels",
+   "name": "GPU kernels",
+   "problem": "KernelBench mini: write faster CUDA kernels.",
+   "verified": "compile, correctness on 5 signed input sets plus a held-back seed, CUDA-event timing; score = speedup over torch eager if correct (cap 10), else 0",
+   "score_label": "speedup vs PyTorch eager",
+   "digits": 2,
+   "baseline": {
+    "name": "PyTorch eager",
+    "score": 1.0
+   },
+   "best": null,
+   "status": "not run",
+   "summary": "Not run: our Crusoe project has zero GPU quota, so there is no live result to show.",
+   "runs": []
+  },
+  {
+   "id": "inference",
+   "name": "Inference cost",
+   "problem": "Answer exact data-center ops questions on Crusoe for the least $ per correct answer.",
+   "verified": "exact numeric answers checked in code within a stated tolerance; score = accuracy, pass = accuracy >= 0.9; cost = Crusoe billed tokens x team.crusoe.PRICES (the run's goal is the same accuracy at lower cost; see reports/inference_opt_1/heldout_cost_latency.md)",
+   "score_label": "$ per correct answer (lower is better)",
+   "digits": 6,
+   "baseline": {
+    "name": "v0: Super, reasoning on, 4000 tokens, 1 question per call",
+    "score": null
+   },
+   "best": null,
+   "status": "running",
+   "summary": "Running: no held-out result yet. inference-opt-1 is running: 0 candidate changes scored on dev so far, 0 accepted.",
+   "runs": [
+    {
+     "id": "inference-opt-1",
+     "status": "running",
+     "status_detail": "0 candidates scored on dev; started 15:48 PDT, last write 15:48 PDT",
+     "baseline": {
+      "name": "v0: Super, reasoning on, one call per question",
+      "score": null,
+      "source": "1.0 by definition of the score"
+     },
+     "heldout": [],
+     "dev": [],
+     "candidates": [],
+     "cost_usd": null,
+     "calls": null,
+     "last_update": "15:48 PDT",
+     "n_heldout": null
+    }
+   ],
+   "scatter": []
+  }
+ ]
+}
