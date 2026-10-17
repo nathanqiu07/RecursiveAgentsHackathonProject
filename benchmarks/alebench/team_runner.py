@@ -163,10 +163,10 @@ def run_team(version: Any, brain: Any, task: Task, llm: Any) -> RunResult:
         else:
             ev = score_cases(code, feedback_seeds, s["time_limit"], s["case_workers"])
             attempt = {"k": k, "technique": technique, "status": ev["status"], "mean_ratio": ev["mean_ratio"],
-                       "code": code}
+                       "code": code, "cases": ev["cases"]}
             outcome = f"{ev['status']}, mean ratio {ev['mean_ratio']:.3f} vs greedy"
             lines = feedback_lines(ev["cases"])
-        history.append({key: v for key, v in attempt.items() if key != "code"})
+        history.append({key: v for key, v in attempt.items() if key not in ("code", "cases")})
         if attempt["status"] != "ok":
             result.failures.append(f"{ROLE}: {attempt['status']}")
         if code is not None and (best is None or attempt["mean_ratio"] > best["mean_ratio"]):
@@ -181,6 +181,9 @@ def run_team(version: Any, brain: Any, task: Task, llm: Any) -> RunResult:
         result.score = final["mean_ratio"] if final else best["mean_ratio"]
         result.passed = result.score >= 1.0
         result.claimed_done = True
+        result.solution = {"case_study": "alebench", "technique": best["technique"],
+                           "feedback_mean_ratio": best["mean_ratio"], "solution": {"program": best["code"]},
+                           "cases": (final or {}).get("cases") or best.get("cases")}
         notes.update(technique=best["technique"], feedback_mean_ratio=best["mean_ratio"], program=best["code"],
                      total=final["total"] if final else None)
         if not heldout:

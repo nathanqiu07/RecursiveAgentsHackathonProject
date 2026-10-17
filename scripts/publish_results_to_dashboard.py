@@ -12,18 +12,24 @@ Verifiers it expects (started separately; see each file's docstring):
   data hall  http://127.0.0.1:9000/evaluations  donetwin/verifier_server.py, bound to Hall B (data_hall_2n)
   QAPLIB     http://127.0.0.1:9001/evaluations  benchmarks/qaplib/verifier_api.py
   AHC039     http://127.0.0.1:9002/evaluations  benchmarks/alebench/verifier_api.py
+  held-out   http://127.0.0.1:9003/evaluations  benchmarks/datahall/verifier_api.py (any generated hall by seed, tier)
 
 Solutions it finds:
   data hall  the greedy layout for Hall B (recomputed; deterministic)
   QAPLIB     the random and 2-swap baselines on the held-out split (2-swap cached in runs/dashboard/)
   AHC039     the greedy and naive reference programs, plus every runs/alebench-*/logs/*.py the team runner saved
-  all        any run solution file runs/<run>/solutions/**/<name>.json of this shape (the runners do not write
-             these yet; this is the contract for that fix):
-               {"case_study": "datahall" | "qaplib" | "alebench", "task_id": str, "config": "v0 + final brain",
-                "hall": "<hall name, data hall only>",
-                "solution": {"racks": [...]} | {"instance": str, "permutation": [int]} | {"program": str}}
-             A data-hall layout is submitted only for Hall B (the hall the 9000 verifier is bound to); a QAPLIB
-             config only once it covers every held-out instance.
+  held-out   per run, the greedy layouts of its held-out halls (or of load_tasks()'s held-out split when no
+             run has saved one), then each config's held-out layouts, as one {"halls": [...]} entry per (run, config)
+  all        any run solution file runs/<run>/solutions/<config slug>/<task id>.json, written by team.evolve from
+             RunResult.solution:
+               {"case_study": "datahall" | "qaplib" | "alebench" | "kernelbench", "task_id": str,
+                "config": "v0 + final brain", "version": int, "split": "train" | "dev" | "heldout", "score": float,
+                "hall", "seed", "tier": <data hall only>,
+                "solution": {"racks": [...]} | {"instance": str, "permutation": [int]} | {"program": str}
+                            | {"model_new": str}}
+             A Hall B layout goes to the 9000 board and a generated hall's held-out layout to the 9003 board; a
+             QAPLIB config only once it covers every held-out instance; AHC039 only held-out configs (the board's
+             seeds are public); KernelBench is listed, not submitted (its evaluator needs a CUDA host).
 """
 from __future__ import annotations
 
@@ -195,10 +201,79 @@ def datahall_entries() -> list[dict[str, Any]]:
     entries = [{"title": "greedy (no LLM)", "submitted_by": "donetwin greedy baseline", "payload": greedy.solve(hall)}]
     for f, d in run_solutions("datahall"):
         if d.get("hall") != hall["name"]:
-            print(f"  no verifier for hall {d.get('hall')!r} (9000 is bound to {hall['name']}): {f}")
-            continue
+            continue  # a generated hall: scored by the 9003 verifier on the held-out board
         entries.append({"title": f"{d.get('config', 'run')}, {run_name(f)}", "submitted_by": run_name(f),
                         "payload": d["solution"]})
+    return entries
+
+
+# ---------------------------------------------------------------- data hall, held-out generated halls
+
+def datahall_heldout_definition() -> dict[str, Any]:
+    from donetwin import halls
+
+    seeds = halls.heldout_seeds()
+    layout = datahall_definition()["submission_schema"]["properties"]["racks"]
+    item = {"type": "object", "properties": {
+        "seed": {"type": "integer", "minimum": seeds[0], "maximum": seeds[-1]},
+        "tier": {"type": "string", "enum": sorted(halls.TIERS)},
+        "layout": {"type": "object", "properties": {"racks": layout}, "required": ["racks"],
+                   "additionalProperties": False}},
+        "required": ["seed", "tier", "layout"], "additionalProperties": False}
+    return {
+        "title": "GPU data hall, held-out",
+        "prompt": (f"Place GPU racks in generated 2N AI data halls from donetwin's held-out seeds ({seeds[0]}-{seeds[-1]}; "
+                   "never used for training or Gate decisions). Each hall is rebuilt by the verifier from (seed, tier) "
+                   "with donetwin/donetwin/halls.py generate(seed, tier) and scored by donetwin/donetwin/score.py "
+                   "(same hard rules as Hall B; any violation scores 0; score = 70 x density + 20 x resilience + "
+                   "10 x hose, 0-100). Score = mean hall score over the submitted halls. Entries are comparable "
+                   "within one run (same held-out halls): each run's greedy baseline is listed beside its configs."),
+        "submission_instructions": ("Submit {\"halls\": [{\"seed\": int, \"tier\": \"small\" | \"medium\" | \"large\", "
+                                    "\"layout\": {\"racks\": [...]}}]}, one entry per hall, no duplicates."),
+        "submission_schema": {"type": "object", "properties": {"halls": {"type": "array", "items": item, "minItems": 1,
+                                                                          "maxItems": 64}},
+                              "required": ["halls"], "additionalProperties": False},
+        "score_name": "Mean hall score (0-100)",
+        "score_direction": "higher",
+        "score_min": 0,
+        "score_max": 100,
+        "verifier": {"url": "http://127.0.0.1:9003/evaluations", "method": "POST", "mode": "synchronous",
+                     "score_path": "score", "feedback_path": "feedback", "timeout_seconds": 600},
+    }
+
+
+def _greedy_halls(keys: list[tuple[int, str]]) -> list[dict[str, Any]]:
+    from donetwin import greedy, halls
+
+    return [{"seed": seed, "tier": tier, "layout": greedy.solve(halls.generate(seed, tier))} for seed, tier in keys]
+
+
+def datahall_heldout_entries() -> list[dict[str, Any]]:
+    by_config: dict[tuple[str, str], dict[tuple[int, str], Any]] = {}
+    for f, d in run_solutions("datahall"):
+        if d.get("split") == "heldout" and isinstance(d.get("seed"), int) and d.get("tier"):
+            by_config.setdefault((run_name(f), d.get("config", "run")), {})[(d["seed"], d["tier"])] = d["solution"]
+    runs: dict[str, list[tuple[int, str]]] = {}
+    for (run, _), layouts in by_config.items():
+        runs[run] = sorted(set(runs.get(run, [])) | set(layouts))
+    entries = []
+    if not runs:
+        from team.datahall import load_tasks
+
+        held = load_tasks()[2]
+        entries.append({"title": f"greedy (no LLM), load_tasks() held-out split ({len(held)} halls)",
+                        "submitted_by": "donetwin greedy baseline",
+                        "payload": {"halls": [{"seed": t.payload["seed"], "tier": t.payload["tier"],
+                                               "layout": t.payload["greedy_layout"]} for t in held]}})
+    for run, keys in sorted(runs.items()):
+        entries.append({"title": f"greedy (no LLM), {run} held-out halls ({len(keys)})",
+                        "submitted_by": "donetwin greedy baseline", "payload": {"halls": _greedy_halls(keys)}})
+    for (run, config), layouts in sorted(by_config.items()):
+        if len(layouts) < len(runs[run]):
+            print(f"  {run} {config}: only {len(layouts)}/{len(runs[run])} held-out halls saved; not submitted")
+            continue
+        entries.append({"title": f"{config}, {run}", "submitted_by": run,
+                        "payload": {"halls": [{"seed": k[0], "tier": k[1], "layout": layouts[k]} for k in runs[run]]}})
     return entries
 
 
@@ -323,11 +398,16 @@ def alebench_entries() -> list[dict[str, Any]]:
         label = f"{m['task']} best program, v{m['ver']}" if m else f.stem
         entries.append({"title": f"{label}, {run_name(f)}", "submitted_by": run_name(f),
                         "payload": {"program": f.read_text()}})
+    seen = {digest(e["payload"]) for e in entries}
     for f, d in run_solutions("alebench"):
         program = (d.get("solution") or {}).get("program")
-        if isinstance(program, str) and program.strip():
-            entries.append({"title": f"{d.get('config', 'run')}, {d.get('task_id', f.stem)}, {run_name(f)}",
-                            "submitted_by": run_name(f), "payload": {"program": program}})
+        if d.get("split", "heldout") != "heldout" or not isinstance(program, str) or not program.strip():
+            continue
+        if digest({"program": program}) in seen:
+            continue
+        seen.add(digest({"program": program}))
+        entries.append({"title": f"{d.get('config', 'run')}, {d.get('task_id', f.stem)}, {run_name(f)}",
+                        "submitted_by": run_name(f), "payload": {"program": program}})
     return entries
 
 
@@ -337,8 +417,11 @@ def run_name(f: Path) -> str:
     return f.relative_to(RUNS).parts[0]
 
 
+RUN_PREFIXES = {"datahall": "datahall", "qaplib": "qaplib", "alebench": "alebench", "kernelbench": "kernelbench"}
+
+
 def run_solutions(case_study: str) -> list[tuple[Path, dict[str, Any]]]:
-    """Solution files a runner saved under runs/<run>/solutions/; none exist until the runners persist them."""
+    """Solution files team.evolve saved under runs/<run>/solutions/ (case study from the file, else the run name)."""
     out = []
     for f in sorted(RUNS.glob("*/solutions/**/*.json")):
         try:
@@ -346,7 +429,8 @@ def run_solutions(case_study: str) -> list[tuple[Path, dict[str, Any]]]:
         except ValueError:
             print(f"  unreadable solution file: {f}")
             continue
-        if d.get("case_study") == case_study and "solution" in d:
+        cs = d.get("case_study") or next((c for pre, c in RUN_PREFIXES.items() if run_name(f).startswith(pre)), None)
+        if cs == case_study and "solution" in d:
             out.append((f, d))
     return out
 
@@ -355,6 +439,7 @@ CASE_STUDIES = {
     "datahall": (datahall_definition, datahall_entries, "http://127.0.0.1:9000/health"),
     "qaplib": (qaplib_definition, qaplib_entries, "http://127.0.0.1:9001/health"),
     "alebench": (alebench_definition, alebench_entries, "http://127.0.0.1:9002/health"),
+    "datahall_heldout": (datahall_heldout_definition, datahall_heldout_entries, "http://127.0.0.1:9003/health"),
 }
 
 
@@ -376,7 +461,8 @@ def main() -> None:
     args = ap.parse_args()
     base = checkpoint_url(args.checkpoint_ref)
     print(f"base_checkpoint_url: {base}")
-    print("KernelBench mini: skipped; benchmarks/kernelbench_mini/evaluate.py needs a CUDA host with torch.")
+    print("KernelBench mini: skipped; benchmarks/kernelbench_mini/evaluate.py needs a CUDA host with torch "
+          f"({len(run_solutions('kernelbench'))} saved ModelNew solutions under runs/*/solutions/).")
     boards = []
     for name in args.only or list(CASE_STUDIES):
         definition_fn, entries_fn, health = CASE_STUDIES[name]

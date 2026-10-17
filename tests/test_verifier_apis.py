@@ -150,5 +150,57 @@ class DataHallVerifierApi(unittest.TestCase):
             srv.server_close()
 
 
+class DataHallHeldoutVerifierApi(unittest.TestCase):
+    """benchmarks/datahall/verifier_api.py (port 9003) against donetwin's scorer on regenerated halls."""
+
+    @classmethod
+    def setUpClass(cls):
+        from benchmarks.datahall import verifier_api as dh_api
+
+        cls.srv, cls.url = serve(dh_api.Handler)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+
+    def test_greedy_score_matches_score_py_for_single_and_multi_hall(self):
+        from donetwin import greedy, halls
+        from donetwin import score as scoring
+
+        keys = [(10003, "small"), (10011, "medium")]
+        direct, items = [], []
+        for seed, tier in keys:
+            hall = halls.generate(seed, tier)
+            layout = greedy.solve(hall)
+            direct.append(float(scoring.score(hall, layout)["score"]))
+            items.append({"seed": seed, "tier": tier, "layout": layout})
+        code, res = post(self.url, {"submission": items[0]})
+        self.assertEqual(code, 200)
+        self.assertAlmostEqual(res["score"], direct[0], places=9)
+        code, res = post(self.url, {"submission": {"halls": items}})
+        self.assertEqual(code, 200)
+        self.assertAlmostEqual(res["score"], sum(direct) / 2, places=9)
+
+    def test_violating_layout_scores_zero_with_violations_in_feedback(self):
+        from donetwin import greedy, halls
+
+        layout = greedy.solve(halls.generate(10003, "small"))
+        layout["racks"].append(dict(layout["racks"][0], id="R_DUP"))
+        code, res = post(self.url, {"submission": {"seed": 10003, "tier": "small", "layout": layout}})
+        self.assertEqual(code, 200)
+        self.assertEqual(res["score"], 0.0)
+        self.assertFalse(res["feasible"])
+        self.assertTrue(res["violations"])
+        self.assertIn("INFEASIBLE", res["feedback"])
+
+    def test_bad_tier_and_duplicate_halls_are_rejected_not_scored(self):
+        code, res = post(self.url, {"submission": {"seed": 1, "tier": "huge", "layout": {"racks": []}}})
+        self.assertEqual((code, res["status"]), (422, "rejected"))
+        item = {"seed": 1, "tier": "small", "layout": {"racks": []}}
+        code, res = post(self.url, {"submission": {"halls": [item, item]}})
+        self.assertEqual((code, res["status"]), (422, "rejected"))
+
+
 if __name__ == "__main__":
     unittest.main()

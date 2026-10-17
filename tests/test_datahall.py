@@ -192,6 +192,25 @@ class DataHallTest(unittest.TestCase):
         self.assertEqual(a.payload["hall"], b.payload["hall"])
         self.assertEqual(a.payload["greedy_score"], b.payload["greedy_score"])
 
+    def test_final_report_writes_each_configs_best_layout_as_a_solution_file(self) -> None:
+        from team.evolve import Evolver
+        from team.sa_library import NullLibrary
+
+        task = HELDOUT[0]
+        root = Path(self.tmp.name) / "run"
+        ev = Evolver(datahall_run_team, layout_llm("garbage"), "reviewer", self.brain, root / "versions",
+                     initial=datahall_v0(), reports_dir=root / "reports", library=NullLibrary())
+        ev.final_report([task])
+        files = sorted((root / "solutions").glob("*/*.json"))
+        # v0 and vN share the "v0 + final brain" label (and file) when the Gate accepted no version
+        self.assertEqual([f.parent.name for f in files], ["v0-empty-brain-cold", "v0-final-brain"])
+        d = json.loads(files[0].read_text())
+        self.assertEqual((d["case_study"], d["task_id"], d["split"], d["seed"], d["tier"]),
+                         ("datahall", task.id, "heldout", task.payload["seed"], task.payload["tier"]))
+        self.assertEqual(d["config"], "v0 + empty brain (cold)")
+        self.assertEqual(d["solution"], task.payload["greedy_layout"])  # nothing beat greedy
+        self.assertAlmostEqual(d["score"], round(task.payload["greedy_score"] / 100, 4), places=4)
+
 
 if __name__ == "__main__":
     unittest.main()

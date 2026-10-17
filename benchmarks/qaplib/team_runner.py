@@ -120,7 +120,8 @@ def evaluate_attempt(reply_text: str, task: Task, instance_json: Path, time_limi
     v = verify(p["name"], lines[-1], bks=p["bks"], dat_path=p["path"])
     if v["status"] != "ok":
         return {**result, "status": "invalid", "error": v["error"]}
-    return {**result, "status": "ok", "cost": v["cost"], "score": v["score"], "gap_pct": v["gap_pct"]}
+    return {**result, "status": "ok", "cost": v["cost"], "score": v["score"], "gap_pct": v["gap_pct"],
+            "perm": [int(x) for x in v["perm"]]}
 
 
 def describe(a: dict[str, Any], bks: int) -> str:
@@ -189,7 +190,7 @@ def run_team(version: Any, brain: Any, task: Task, llm: Any) -> RunResult:
             result.cost_usd += reply.cost_usd
             result.iterations = k
             attempt = evaluate_attempt(reply.text, task, instance_json, time_limit, workdir, k)
-            history.append({k2: v for k2, v in attempt.items() if k2 != "stderr_tail"})
+            history.append({k2: v for k2, v in attempt.items() if k2 not in ("stderr_tail", "perm")})
             if attempt["status"] == "ok" and (best is None or attempt["cost"] < best["cost"]):
                 best = attempt
             if attempt["status"] != "ok" or attempt["cost"] > p["bks"]:
@@ -204,6 +205,8 @@ def run_team(version: Any, brain: Any, task: Task, llm: Any) -> RunResult:
         result.score = best["score"]
         result.passed = best["gap_pct"] <= PASS_GAP_PCT
         result.claimed_done = True
+        result.solution = {"case_study": "qaplib", "verified_cost": best["cost"],
+                           "solution": {"instance": p["name"], "permutation": best["perm"]}}
         text = (f"QAP {family(p['name'])} n={p['n']}: {best['technique']} reached gap {best['gap_pct']:.2f}% "
                 f"on {p['name']} within {time_limit:g}s")[:MAX_TEXT]
         result.notes = json.dumps({"proposals": [{

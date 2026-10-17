@@ -481,4 +481,7 @@ def datahall_run_team(version: TeamVersion, brain: SharedBrain, task: Task, llm:
                      iterations=len(attempts), calls=run.calls, prompt_tokens=run.prompt_tokens,
                      completion_tokens=run.completion_tokens, cost_usd=round(run.cost_usd, 8),
                      wall_s=round(time.perf_counter() - start, 3), failures=failures,
-                     brain_ids_read=sorted(run.brain_ids), notes=json.dumps(notes))
+                     brain_ids_read=sorted(run.brain_ids), notes=json.dumps(notes),
+                     solution={"case_study": "datahall", "hall": run.hall["name"], "seed": task.payload.get("seed"),
+                               "tier": task.payload.get("tier"), "verified_score": best_res["score"],
+                               "solution": run.incumbent})

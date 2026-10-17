@@ -398,6 +398,19 @@ class Evolver:
             brain.propose(proposals, run_id)
         return result
 
+    def _save_solutions(self, label: str, version: TeamVersion, tasks: list[Task], rs: list[RunResult]) -> None:
+        """<reports_dir parent>/solutions/<config slug>/<task id>.json per result that carries a solution, for the
+        dashboard publisher (scripts/publish_results_to_dashboard.py), which re-verifies every one from scratch."""
+        out = self.reports_dir.parent / "solutions" / (re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-") or "run")
+        for t, r in zip(tasks, rs):
+            if not isinstance(r.solution, dict) or "solution" not in r.solution:
+                continue
+            out.mkdir(parents=True, exist_ok=True)
+            record = {**r.solution, "task_id": r.task_id, "config": label, "version": version.version,
+                      "split": t.split, "score": r.score, "passed": r.passed}
+            name = re.sub(r"[^A-Za-z0-9._-]+", "_", r.task_id)
+            (out / f"{name}.json").write_text(json.dumps(record, default=str))
+
     def _usage_by_role(self) -> dict[str, dict] | None:
         ledger = getattr(self.llm, "ledger", None)
         return ledger.summary()["by_role"] if ledger is not None else None
@@ -440,6 +453,7 @@ class Evolver:
             parent = self.current
             usage_before = self._usage_by_role()
             train = self._batch(parent, self.brain, train_tasks, tag=f"v{parent.version}g{g}")
+            self._save_solutions(f"v{parent.version} g{g} train", parent, train_tasks, train)
             role_usage = per_task_usage(usage_before, self._usage_by_role(), len(train))
             pruned = self.brain.prune()
             disputes = self._settle_disputes(g, parent, dev_tasks)
@@ -453,6 +467,7 @@ class Evolver:
                 "train_mean": mean(r.score for r in train) if train else None,
                 "min_gain": self.gate.min_gain, "min_cost_cut": self.gate.min_cost_cut})
             parent_dev = self._batch(parent, self.brain, dev_tasks)
+            self._save_solutions(f"v{parent.version} g{g} dev", parent, dev_tasks, parent_dev)
             best = None
             for m, claim_id in zip(mutations, claims):
                 cand = apply_mutation(parent, m, self.brain, parent.version + 1)
@@ -488,6 +503,7 @@ class Evolver:
 
     def _row(self, label: str, version: TeamVersion, brain: SharedBrain, tasks: list[Task]) -> dict:
         rs = self._batch(version, brain, tasks)
+        self._save_solutions(label, version, tasks, rs)
         n = max(1, len(rs))
         tokens, cost, score = (sum(r.prompt_tokens + r.completion_tokens for r in rs), sum(r.cost_usd for r in rs),
                                sum(r.score for r in rs))

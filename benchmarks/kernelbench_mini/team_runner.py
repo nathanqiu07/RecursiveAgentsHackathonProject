@@ -188,6 +188,8 @@ def _run_team(version: Any, brain: Any, task: Task, llm: Any, evaluator: Evaluat
         result.score = round(best["score"], 4)
         result.passed = bool(ev.get("correct")) and float(ev.get("speedup", 0)) > 1.0
         result.claimed_done = True
+        result.solution = {"case_study": "kernelbench", "problem": p["problem"], "technique": best["technique"],
+                           "speedup": ev.get("speedup"), "solution": {"model_new": best["code"]}}
     result.notes = json.dumps({"proposals": proposals[-3:], "attempts": history,
                                "best": ({"technique": best["technique"], "speedup": best["ev"].get("speedup"),
                                          "suspicious": best["ev"].get("suspicious", False)} if best else None),

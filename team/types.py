@@ -60,3 +60,6 @@ class RunResult:
     brain_ids_read: list[str] = field(default_factory=list)
     notes: str = ""
     log_path: str | None = None
+    # The run's best verified solution, as {"case_study", "solution": <verifier payload>, ...task metadata};
+    # team.evolve writes it to <run>/solutions/ for scripts/publish_results_to_dashboard.py. None = nothing to submit.
+    solution: Any = None
