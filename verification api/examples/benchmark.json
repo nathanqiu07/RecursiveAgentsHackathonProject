@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "runner_script": "scripts/run_benchmarks.py",
+  "engine": {
+    "entrypoint": "your_engine:Engine",
+    "model": "your-model",
+    "model_revision": "pin-the-model-revision",
+    "precision": "bf16",
+    "tensor_parallel_size": 1
+  },
+  "benchmarks": [
+    {
+      "id": "synthetic-c32-i1024-o256",
+      "workload": "synthetic",
+      "concurrency": 32,
+      "num_requests": 1000,
+      "input_tokens": 1024,
+      "output_tokens": 256,
+      "warmup_requests": 20,
+      "parameters": {"seed": 42}
+    },
+    {
+      "id": "gsm8k-c8",
+      "workload": "gsm8k",
+      "concurrency": 8,
+      "num_requests": 100,
+      "output_tokens": 512,
+      "warmup_requests": 5,
+      "parameters": {"split": "test", "dataset_path": "/datasets/gsm8k/test.jsonl"}
+    }
+  ],
+  "timeout_seconds": 3600
+}

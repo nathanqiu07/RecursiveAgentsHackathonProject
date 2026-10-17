@@ -2,8 +2,10 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import Resources from './Resources';
 import Benchmarks from './Benchmarks';
 import Guide from './Guide';
+import Agents from './Agents';
+import Connections from './Connections';
 
-const tabs = ['Benchmarks', 'Library', 'Agents', 'Resources', 'Guide'] as const;
+const tabs = ['Benchmarks', 'Library', 'Agents', 'Connections', 'Resources', 'Guide'] as const;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('Benchmarks');
@@ -70,6 +72,8 @@ export default function App() {
           >
             {tab === 'Benchmarks' && <Benchmarks active={activeTab === 'Benchmarks'} />}
             {tab === 'Resources' && <Resources active={activeTab === 'Resources'} />}
+            {tab === 'Agents' && <Agents active={activeTab === 'Agents'} />}
+            {tab === 'Connections' && <Connections active={activeTab === 'Connections'} />}
             {tab === 'Guide' && <Guide />}
           </section>
         ))}

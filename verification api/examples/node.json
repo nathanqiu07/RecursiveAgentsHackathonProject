@@ -1,0 +1,20 @@
+{
+  "id": "gpu-node-01",
+  "config": {
+    "hardware": {
+      "gpu_model": "NVIDIA H100",
+      "gpu_count": 1,
+      "gpu_memory_gb": 80,
+      "cpu_cores": 32,
+      "ram_gb": 128
+    },
+    "software": {
+      "cuda_version": "12.8",
+      "driver_version": "your-driver-version"
+    },
+    "labels": {
+      "region": "us-west",
+      "pool": "benchmark"
+    }
+  }
+}

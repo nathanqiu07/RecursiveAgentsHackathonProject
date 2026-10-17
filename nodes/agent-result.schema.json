@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {"type": "string", "enum": ["ready", "prerequisites_ready", "blocked"]},
+    "receipt_path": {"type": "string"},
+    "error": {"type": ["string", "null"]}
+  },
+  "required": ["status", "receipt_path", "error"],
+  "additionalProperties": false
+}

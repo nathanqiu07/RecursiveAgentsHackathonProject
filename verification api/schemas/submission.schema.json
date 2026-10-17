@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "repository": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Repository",
+      "type": "string"
+    },
+    "commit": {
+      "pattern": "^(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})$",
+      "title": "Commit",
+      "type": "string"
+    },
+    "manifest_path": {
+      "default": "verification.json",
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Manifest Path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "repository",
+    "commit"
+  ],
+  "title": "JobSubmission",
+  "type": "object"
+}

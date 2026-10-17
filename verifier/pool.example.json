@@ -1,0 +1,44 @@
+{
+  "model": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4",
+  "revision": "bee7596271d1495f6992ae224aefde4410e816b8",
+  "suite_dir": "data/mini",
+  "reference": "vllm-reference",
+  "vm_safety_timeout_seconds": 21600,
+  "nodes": [
+    {"id": "a5000-01", "connection_file": "~/.crusoe-nodes/a5000-01/connection.json"},
+    {"id": "a5000-02", "connection_file": "~/.crusoe-nodes/a5000-02/connection.json"},
+    {"id": "a5000-03", "connection_file": "~/.crusoe-nodes/a5000-03/connection.json"}
+  ],
+  "deployments": {
+    "vllm-reference": {
+      "base_url": "http://127.0.0.1:18100/v1",
+      "runtime": "vllm",
+      "repository": "https://github.com/ShardulAgg/vllm",
+      "commit": "7879f3687b5b6a4be4754242e70b9c21cf7b4183",
+      "model_revision": "bee7596271d1495f6992ae224aefde4410e816b8",
+      "execution": "W4A16",
+      "settings": {
+        "max_model_len": 4096,
+        "max_num_seqs": 4,
+        "gpu_memory_utilization": 0.9,
+        "enable_prefix_caching": false,
+        "kv_cache_dtype": "auto"
+      }
+    },
+    "sglang-candidate": {
+      "base_url": "http://127.0.0.1:18100/v1",
+      "runtime": "sglang",
+      "repository": "https://github.com/ShardulAgg/sglang",
+      "commit": "05ce0e980f00aa80864190d6f1cd5d9b685802f1",
+      "model_revision": "bee7596271d1495f6992ae224aefde4410e816b8",
+      "execution": "W4A16",
+      "settings": {
+        "context_length": 4096,
+        "max_running_requests": 4,
+        "mem_fraction_static": 0.9,
+        "disable_radix_cache": true,
+        "kv_cache_dtype": "auto"
+      }
+    }
+  }
+}

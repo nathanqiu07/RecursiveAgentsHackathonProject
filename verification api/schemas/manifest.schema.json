@@ -1,0 +1,136 @@
+{
+  "$defs": {
+    "BenchmarkSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "workload": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Workload",
+          "type": "string"
+        },
+        "concurrency": {
+          "maximum": 4096,
+          "minimum": 1,
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "num_requests": {
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Num Requests",
+          "type": "integer"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "warmup_requests": {
+          "maximum": 10000,
+          "minimum": 0,
+          "title": "Warmup Requests",
+          "type": "integer"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "workload",
+        "concurrency",
+        "num_requests",
+        "output_tokens",
+        "warmup_requests"
+      ],
+      "title": "BenchmarkSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "runner_script": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Runner Script",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": true,
+      "title": "Parameters",
+      "type": "object"
+    },
+    "engine": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engine"
+    },
+    "benchmarks": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/BenchmarkSpec"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Benchmarks"
+    },
+    "timeout_seconds": {
+      "maximum": 86400,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "runner_script",
+    "timeout_seconds"
+  ],
+  "title": "JobManifest",
+  "type": "object"
+}

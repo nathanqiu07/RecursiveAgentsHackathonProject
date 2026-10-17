@@ -39,7 +39,14 @@ Service credentials stay in server environment variables. Lost submission acknow
 
 ## How a solver works
 
-A solver is an external person, agent, or program. It reads the benchmark prompt, constraints, and submission schema, chooses an approach, links its public GitHub base checkpoint, produces a matching JSON payload, submits it, and polls for the final result. This repository does not automatically launch solver agents.
+A solver reads the benchmark prompt, constraints, and submission schema, chooses an approach, links its public GitHub base checkpoint, produces a matching JSON payload, submits it, and polls for the final result. The separate [Agent Harness](harness/README.md) runs two agent roles, each in its own ResourceManager sandbox:
+
+- **Researcher:** reads Library and internet research, checks a new idea against Library, runs experiments, and submits a paper to **Library for independent verification**.
+- **Attempt:** reads existing papers and the benchmark contract, implements and tests promising approaches, and submits a candidate to the **benchmark verifier**.
+
+Start the harness API and workers separately, then use the dashboard's **Agents** tab to launch runs and inspect their progress, experiments, and submissions. External people and programs can continue using the same benchmark API.
+
+Use **Connections** to configure Crusoe inference and You.com search, inspect dependency readiness, and save model profiles for Codex, Claude Code, or NVIDIA NemoClaw. Codex uses the worker's existing ChatGPT sign-in; credentials stay on the backend. New agents select a role, harness, model, and sandbox limits. **Spin out new agent** copies a run's task settings into a fresh, independent run.
 
 ## Components
 
@@ -47,6 +54,10 @@ A solver is an external person, agent, or program. It reads the benchmark prompt
 | --- | --- |
 | `dashboard/` | Benchmark and resource dashboard, persistent API, verifier worker, instructions |
 | `hosting/` | Deployed Cloudflare Worker/D1 version, including persistent schema migrations |
+| `harness/` | Researcher and attempt agent orchestration, sandbox runtime, Library/web/benchmark tools |
+| `library/` | Paper submission queue, requirement extraction, verification planning, and reports |
+
+[Library](library/README.md) handles paper intake and independent verification as a separate HTTP service. ResourceManager supplies isolated compute jobs and is configured independently; its source is not included in this repository. See [the Library setup](library/README.md) and [the harness setup and service contracts](harness/README.md).
 
 Benchmark verification uses the external HTTP endpoints configured for each benchmark.
 

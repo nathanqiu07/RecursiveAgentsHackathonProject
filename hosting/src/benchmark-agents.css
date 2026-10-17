@@ -1,0 +1,47 @@
+.benchmark-agents { padding: 26px 0; color: #27272a; }
+.bma-header, .bma-launch-footer, .bma-runs-heading, .bma-run-top, .bma-run-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.bma-header { align-items: flex-start; }
+.bma-header h3, .bma-runs-heading h3 { margin: 0 0 8px; font-size: 15px; font-weight: 500; }
+.bma-header p { margin: 0; max-width: 660px; color: #71717a; font-size: 12px; line-height: 1.8; }
+.bma-header > button { flex-shrink: 0; }
+.bma-health { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 22px 0; color: #71717a; font-size: 11px; }
+.bma-health > span::before { content: ''; display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #a1a1aa; vertical-align: 1px; }
+.bma-launch { padding: 22px; border: 1px solid #e4e4e7; border-radius: 8px; background: #fafafa; }
+.bma-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.bma-launch label { display: flex; flex-direction: column; gap: 7px; min-width: 0; font-size: 11px; font-weight: 500; }
+.bma-launch label > span { font-size: 10px; font-weight: 400; color: #71717a; line-height: 1.7; }
+.bma-launch input, .bma-launch select, .bma-launch textarea { width: 100%; min-width: 0; border: 1px solid #d4d4d8; padding: 9px 10px; background: #fff; color: #27272a; font: inherit; font-size: 12px; border-radius: 5px; }
+.bma-launch textarea { line-height: 1.8; resize: vertical; }
+.bma-objective { margin-top: 20px; }
+.bma-launch-footer { margin-top: 20px; }
+.bma-launch-footer > p { margin: 0; font-size: 11px; color: #71717a; line-height: 1.8; }
+.bma-launch-footer strong { font-weight: 500; color: #52525b; }
+.bma-launch-footer button { flex-shrink: 0; }
+.bma-warning { border: 1px solid #f1dfb5; padding: 12px 14px; border-radius: 5px; background: #fffbeb; font-size: 11px; line-height: 1.8; color: #854d0e; overflow-wrap: anywhere; }
+.bma-warning p { margin: 0 0 10px; }
+.bma-notice { color: #166534; font-size: 12px; line-height: 1.8; }
+.bma-readiness { margin-top: 18px; font-size: 11px; color: #854d0e; line-height: 1.8; }
+.bma-readiness > summary { cursor: pointer; }
+.bma-readiness ul { padding-left: 18px; margin-bottom: 0; }
+.bma-runs-heading { margin: 30px 0 14px; }
+.bma-runs-heading h3 { margin: 0; }
+.bma-runs-heading > span { color: #71717a; font-size: 11px; }
+.bma-empty { padding: 25px 16px; border: 1px dashed #d4d4d8; border-radius: 5px; color: #71717a; font-size: 12px; line-height: 1.8; }
+.bma-run-list { padding: 0; margin: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.bma-run-list > li { min-width: 0; border: 1px solid #e4e4e7; border-radius: 7px; padding: 18px; }
+.bma-run-top { flex-wrap: wrap; gap: 8px; }
+.bma-run-top > strong { font-size: 12px; font-weight: 500; }
+.bma-status { font-size: 10px; color: #71717a; }
+.bma-status::before { content: ''; display: inline-block; width: 5px; height: 5px; margin-right: 5px; border-radius: 50%; background: #a1a1aa; }
+.bma-status-queued::before, .bma-status-running::before { background: #d97706; }
+.bma-status-completed::before, .bma-status-submitted::before { background: #16a34a; }
+.bma-status-failed::before, .bma-status-needs_attention::before { background: #dc2626; }
+.bma-run-list > li > p { margin: 12px 0; color: #52525b; font-size: 11px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bma-run-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: #71717a; font-size: 10px; line-height: 1.8; }
+.bma-run-list progress { width: 100%; height: 4px; border: 0; accent-color: #71717a; margin-top: 12px; }
+.bma-run-list > li > .bma-run-error { color: #b91c1c; }
+.bma-run-list > li > .bma-run-note { color: #854d0e; }
+.bma-run-actions { margin-top: 16px; color: #a1a1aa; font-size: 10px; }
+.bma-history-note { margin-top: 16px; color: #71717a; font-size: 10px; line-height: 1.8; }
+@media (max-width: 800px) { .bma-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bma-run-list { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .bma-form-grid { grid-template-columns: 1fr; } .bma-launch { padding: 16px; } .bma-launch-footer { align-items: flex-start; flex-direction: column; } .bma-header { flex-wrap: wrap; } }

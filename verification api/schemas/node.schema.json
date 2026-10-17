@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "config": {
+      "additionalProperties": true,
+      "title": "Config",
+      "type": "object"
+    },
+    "status": {
+      "enum": [
+        "idle",
+        "busy",
+        "offline"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "active_job_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Active Job Id"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "number"
+    },
+    "updated_at": {
+      "title": "Updated At",
+      "type": "number"
+    },
+    "last_seen": {
+      "title": "Last Seen",
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "config",
+    "status",
+    "active_job_id",
+    "created_at",
+    "updated_at",
+    "last_seen"
+  ],
+  "title": "NodeInfo",
+  "type": "object"
+}

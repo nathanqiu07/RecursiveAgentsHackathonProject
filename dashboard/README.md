@@ -11,9 +11,45 @@ The UI runs at `http://127.0.0.1:5173` and the API at `http://127.0.0.1:3001`. B
 
 ## Benchmarks
 
-**Benchmarks** replaces the Tasks tab. Choose **Create benchmark** to define an open-ended objective, submission instructions, a full submission format, and the verification API that scores solutions. Open the benchmark and choose **Submit solution** to provide a name, submitter, and JSON payload. The dashboard shows verification progress, feedback, submitted payloads, and the resulting leaderboard. No example benchmarks or scores are inserted automatically.
+**Benchmarks** replaces the Tasks tab. Choose **Create benchmark** to define an open-ended objective, submission instructions, a full submission format, and the verification API that scores solutions. Open the benchmark and choose **Submit solution** to provide a name, submitter, and JSON payload. The dashboard shows verification progress, feedback, submitted payloads, and the resulting leaderboard. No benchmarks or leaderboard scores are inserted automatically.
 
-Every submission also requires a top-level `base_checkpoint_url` pointing to a public GitHub checkpoint: `https://github.com/OWNER/REPO/commit/FULL_COMMIT_SHA` or `/tree/FULL_COMMIT_SHA`. Use a complete 40- or 64-character hexadecimal commit hash; branch links and private checkpoints are rejected. The server checks that the pinned checkpoint is publicly reachable before sending the submission to its verifier. This universal envelope field is separate from the benchmark's `submission_schema`, which validates `payload`.
+The empty dashboard offers **Benchmark 01: Optimize Nemotron Lightning**, prepared for the released Nemotron 3.5 Lightning 30B-A3B NVFP4 checkpoint on one RTX A5000 24 GB. The target is **C20 / 2K input / 1K output**: the engine may queue requests and use fewer active sequences to fit memory, while the verifier maintains 20 clients in flight. One A5000 is a memory optimization target, not a verified fit; NVIDIA's stock W4A16 NIM profile starts at 32 GB.
+
+**Set up benchmark** prefills the pinned model, submission schema, and throughput rules. The [local verifier](../verifier/README.md) first freezes a fast baseline: 57 stratified MMLU questions, 16 GSM8K problems, and 4,096 WikiText-2 tokens for PPL. Each candidate may have at most one additional wrong answer per accuracy task and at most 1% higher PPL. Failed quality checks stop before the C20 performance run. These are mini regression checks; published full-model scores are separate references.
+
+`GET /api/verifiers/nemotron/status` reads local verifier readiness and measured baseline values; `POST /api/verifiers/nemotron/baseline` starts the fixed reference check with no caller-selected evaluation settings. Set `NEMOTRON_VERIFIER_URL` (default `http://127.0.0.1:9000`) and `BENCHMARK_VERIFIER_NEMOTRON_KEY` in the dashboard API environment. The service key stays on the backend. The prepared challenge's **Measure mini baseline** control enables only when the local verifier is ready, and its solution submission control requires a measured reference. The GPU server hosts job VMs and inference; harnesses and verifier services stay local.
+
+## Agents
+
+The **Agents** tab launches the separate [Agent Harness](../harness/README.md). Choose **New agent** to investigate a new idea, run experiments, and submit a paper to Library. Choose **New attempt** to apply existing papers to a selected benchmark; the dialog also lets you switch between the two roles. Select a harness and model, provide an objective, choose an available ResourceManager sandbox pool, and set bounded CPU, memory, scratch, time, and step limits. An attempt requires a benchmark. Each run receives its own isolated compute environment.
+
+You can open and review new-agent settings while capacity is unavailable; submitting stays disabled until an eligible pool and harness are available. From a selected run, **Spin out new agent** copies the role, objective, benchmark, and model selection into a review dialog. Launching creates an independent run with a new request key, fresh sandbox, and empty experiment history. It does not resume or reuse the source run's workspace or submissions.
+
+Codex is the launch default and uses the existing Codex sign-in on the worker. The launcher also lists the built-in research harness, Claude Code, and NVIDIA NemoClaw with their detected availability. Choose a named model profile to use a saved model for that harness, or select a direct catalog model for Codex/the built-in harness. Claude Code and NemoClaw require saved profiles and their external runtimes. Installing or selecting a profile does not make an unavailable runtime ready.
+
+Run history refreshes automatically. Select a run to inspect its current activity, step budget, Library novelty review, experiment commands and output, submission details, and independent verification feedback. Paper submissions show the Library verdict; benchmark submissions show the verified score, including zero. Activity history is paginated, and verification continues refreshing after the agent has submitted. Cancel controls preserve cancellation-pending and sandbox-cleanup states.
+
+Start the harness API on `http://127.0.0.1:8003`, its model worker, and the ResourceManager API/execution worker separately using their setup instructions. The dashboard shows real worker heartbeats and available pools; it does not invent capacity or launch a host process as a sandbox fallback. No available pools disables the launch submission. A queued run can wait for a worker.
+
+The local server defaults to `AGENT_HARNESS_URL=http://127.0.0.1:8003`. Configure `AGENT_HARNESS_API_KEY` in the dashboard's server environment when the harness uses `HARNESS_API_KEY`. These values stay on the server; the browser uses fixed `/api/agents/*` routes. Unchanged launch retries reuse a persistent harness idempotency key to avoid duplicate runs after a lost acknowledgement. Run-list responses omit model transcripts and full experiment output; selected-run details retain the recorded evidence.
+
+The harness can be remote by changing `AGENT_HARNESS_URL` to its HTTP(S) origin. It is separate from the dashboard's own resource registry: the launcher uses the harness's ResourceManager pool snapshot, whose available capacity can change before allocation.
+
+## Connections
+
+Use the **Connections** tab with the local dashboard and a running harness backend to configure provider access and model profiles. Codex reuses its local sign-in without copying OAuth credentials into the dashboard. Add multiple named model profiles for a harness to switch models between runs. API-key profiles store credentials encrypted in the harness backend; the browser receives only key-presence flags. A blank key keeps an existing profile key. Removing a profile disables it for future launches.
+
+For the built-in research harness, save a **Crusoe Foundry inference** API key, load the available models, select a model ID, and run **Test connection**. This key is separate from the Crusoe cloud capacity credentials used by Resources. Optionally save and test a **You.com Search** key for web research. Saved keys remain on the harness backend, and entering a replacement key clears the password field after a successful save. **Disconnect** disables that provider for new runs. Active runs keep their current connections.
+
+For **NVIDIA NemoClaw**, add an API-key model profile and choose **Crusoe**, **OpenAI**, **NVIDIA API Endpoints**, or a custom compatible inference endpoint. The provider selector fills its API base URL; enter that provider's API key and exact model ID. To use Nemotron through Crusoe, copy the ID available in your Crusoe model catalog rather than assuming the same name works across providers. An OpenAI connection uses an OpenAI API key; the existing Codex OAuth sign-in remains specific to Codex profiles. Changing a saved profile's endpoint requires a key for the new target. The backend environment authentication option remains available for operator-managed NemoClaw connections, and the NemoClaw/OpenShell runtime must still be installed and enabled.
+
+The readiness panel checks model configuration, worker heartbeat, sandbox capacity, Library, and the benchmark API. Refreshing status performs read-only health checks; explicit provider connection tests make small inference/search requests and may incur provider usage. A successful settings save is not a completed agent run. Verify the live readiness checks and run a bounded agent experiment after configuring credentials and sandbox services.
+
+All controls use the dashboard's fixed same-origin `/api/agents/settings/*` bridge. Provider secrets belong to the harness service rather than the dashboard SQLite database, frontend build, or browser storage. See [harness configuration and runtime setup](../harness/README.md) for backend startup, environment fallbacks, and credential storage.
+
+## Benchmark submission contract
+
+Every benchmark submission also requires a top-level `base_checkpoint_url` pointing to a public GitHub checkpoint: `https://github.com/OWNER/REPO/commit/FULL_COMMIT_SHA` or `/tree/FULL_COMMIT_SHA`. Use a complete 40- or 64-character hexadecimal commit hash; branch links and private checkpoints are rejected. The server checks that the pinned checkpoint is publicly reachable before sending the submission to its verifier. This universal envelope field is separate from the benchmark's `submission_schema`, which validates `payload`.
 
 Every benchmark has a `submission_schema` JSON Schema object. The server validates the schema at creation and validates each payload before queueing verification; invalid payloads return HTTP 422. Draft 2020-12 is the default, and explicit draft-07 is also supported. Local fragment references such as `#/$defs/solution` work; remote references are rejected. Validation checks types, required fields, formats, patterns, and other schema constraints without coercing values or inserting defaults. Define artifact revisions, inputs, and other reproducibility requirements in the schema and instructions.
 
@@ -144,7 +180,7 @@ Register a node in Resources or send `POST /api/nodes/register` with:
   "cpus": 12,
   "memory_mb": 122880,
   "gpus": 1,
-  "gpu_model": "NVIDIA A100 PCIe",
+  "gpu_model": "NVIDIA RTX A5000",
   "gpu_memory_mb": 81920,
   "max_concurrent_jobs": 1,
   "specifications": { "os": "Linux", "cuda_version": "12.8" }

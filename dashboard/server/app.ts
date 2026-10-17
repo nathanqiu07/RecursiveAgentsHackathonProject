@@ -8,6 +8,8 @@ import { CrusoeError, crusoeConfigured, fetchCrusoeCapacity } from './crusoe.ts'
 import { ResourceStore, StoreError } from './store.ts';
 import { BenchmarkStore } from './benchmark-store.ts';
 import { benchmarkDefinitionSchema, solutionSubmissionSchema } from '../shared/api-schemas.ts';
+import { agentHarnessApi } from './agent-harness.ts';
+import { nemotronStatus, startNemotronBaseline } from './nemotron-verifier.ts';
 
 const querySchema = z.object({
   node_id: z.string().max(100).optional(),
@@ -44,6 +46,39 @@ export function createApp(store: ResourceStore, benchmarks = new BenchmarkStore(
   });
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', database: 'sqlite' }));
+  app.get('/api/verifiers/nemotron/status', async (_req, res) => res.json(await nemotronStatus()));
+  app.post('/api/verifiers/nemotron/baseline', async (req, res) => {
+    if (req.body !== undefined && (typeof req.body !== 'object' || req.body === null || Array.isArray(req.body) || Object.keys(req.body).length)) {
+      return res.status(400).json({ error: 'The baseline check does not accept evaluation settings.' });
+    }
+    const result = await startNemotronBaseline();
+    return res.status(result.status).json(result.body);
+  });
+  app.use('/api/agents', async (req, res) => {
+    const url = new URL(req.originalUrl, 'http://127.0.0.1');
+    const path = url.pathname.replace(/^\/api\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+    const headers = new Headers();
+    for (const name of ['content-type', 'idempotency-key']) {
+      const value = req.get(name);
+      if (value) headers.set(name, value);
+    }
+    const controller = new AbortController();
+    const abort = () => { if (!res.writableEnded) controller.abort(); };
+    req.once('aborted', abort);
+    res.once('close', abort);
+    try {
+      const request = new Request(url, { method: req.method, headers, signal: controller.signal,
+        ...(req.method === 'POST' && req.body !== undefined ? { body: JSON.stringify(req.body) } : {}) });
+      const response = await agentHarnessApi(request, path, {
+        ...process.env, AGENT_HARNESS_URL: process.env.AGENT_HARNESS_URL ?? 'http://127.0.0.1:8003',
+      });
+      if (!response) return res.status(404).json({ error: 'Agent route not found' });
+      res.status(response.status).type('application/json').send(await response.text());
+    } finally {
+      req.off('aborted', abort);
+      res.off('close', abort);
+    }
+  });
   app.get('/api/schemas/benchmark', (_req, res) => res.json(benchmarkDefinitionSchema));
   app.get('/api/schemas/submission', (_req, res) => res.json(solutionSubmissionSchema));
   app.get('/api/benchmarks', (_req, res) => res.json({ benchmarks: benchmarks.listBenchmarks() }));

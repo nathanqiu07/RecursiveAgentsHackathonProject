@@ -72,6 +72,35 @@
 .benchmark-submit-instructions { background: #fafafa; border-radius: 6px; padding: 12px 14px; font-size: 12px; color: #52525b; line-height: 1.7; white-space: pre-wrap; margin: 0 0 22px; overflow-wrap: anywhere; }
 .benchmark-loading { color: #71717a; font-size: 13px; padding: 45px 0; }
 .benchmark-success { font-size: 12px; color: #166534; margin: 0 0 20px; line-height: 1.6; }
+.nemotron-challenge { border: 1px solid #e4e4e7; border-radius: 10px; padding: 28px; }
+.nemotron-challenge-heading, .nemotron-baseline-heading, .nemotron-challenge-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.nemotron-eyebrow { color: #71717a; font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; }
+.nemotron-setup-status { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 5px; padding: 4px 8px; font-size: 11px; }
+.nemotron-challenge h2 { margin: 20px 0 8px; font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+.nemotron-challenge-description { font-size: 13px; color: #52525b; line-height: 1.7; margin: 0; }
+.nemotron-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 24px; }
+.nemotron-tags span { border: 1px solid #e4e4e7; border-radius: 5px; padding: 5px 9px; font-size: 11px; color: #52525b; }
+.nemotron-memory-note { font-size: 12px; color: #71717a; line-height: 1.8; margin: -8px 0 24px; }
+.nemotron-memory-note a { color: #52525b; text-underline-offset: 3px; }
+.nemotron-contract { margin: 12px 0 0; font-size: 12px; color: #71717a; }
+.nemotron-contract summary { cursor: pointer; }
+.nemotron-contract .benchmark-prompt { margin-top: 14px; font-size: 12px; }
+.nemotron-baselines { margin: 0 0 24px; }
+.nemotron-baseline-heading { align-items: baseline; margin-bottom: 12px; flex-wrap: wrap; gap: 6px 16px; }
+.nemotron-baseline-heading h3 { font-size: 12px; font-weight: 500; color: #3f3f46; margin: 0; }
+.nemotron-baseline-heading > span { font-size: 11px; color: #71717a; }
+.nemotron-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.nemotron-metric { padding: 16px; border: 1px solid #e4e4e7; border-radius: 6px; background: #fafafa; }
+.nemotron-metric h4 { font-size: 12px; font-weight: 500; color: #52525b; margin: 0 0 10px; }
+.nemotron-metric strong { font-size: 21px; font-weight: 500; letter-spacing: -0.4px; color: #71717a; }
+.nemotron-metric p { font-size: 11px; color: #71717a; line-height: 1.6; margin: 9px 0 7px; }
+.nemotron-metric > span { display: block; font-size: 11px; color: #52525b; line-height: 1.6; }
+.nemotron-reference { font-size: 11px; color: #71717a; line-height: 1.8; margin: 12px 0 0; }
+.nemotron-reference a { color: #52525b; text-underline-offset: 3px; }
+.nemotron-baseline-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.nemotron-baseline-controls p { font-size: 12px; color: #71717a; line-height: 1.7; flex: 1 1 280px; margin: 0; }
+.nemotron-challenge-footer { border-top: 1px solid #e4e4e7; padding-top: 20px; flex-wrap: wrap; }
+.nemotron-challenge-footer p { font-size: 12px; color: #71717a; line-height: 1.7; margin: 0; max-width: 640px; flex: 1 1 320px; }
 .benchmark-name:focus-visible, .benchmark-breadcrumb button:focus-visible, .benchmark-form textarea:focus-visible, .benchmark-advanced summary:focus-visible { outline: 2px solid #71717a; outline-offset: 3px; }
 .benchmark-guide { max-width: 920px; }
 .guide-links { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: -4px 0 30px; font-size: 12px; }
@@ -101,9 +130,21 @@
   .benchmark-empty { padding: 56px 22px; }
 }
 @media (max-width: 480px) {
+  .nemotron-challenge { padding: 20px; }
+  .nemotron-challenge-heading { flex-wrap: wrap; gap: 10px; }
+  .nemotron-metrics { grid-template-columns: 1fr; }
   .benchmarks-header { flex-direction: column; align-items: stretch; gap: 16px; }
   .benchmark-form-row { grid-template-columns: 1fr; }
   .benchmark-dialog { padding: 20px; }
   .tabs { gap: 0 20px; flex-wrap: wrap; }
   .tab { font-size: 13px; }
 }
+.benchmark-views { display:flex; gap:6px; overflow-x:auto; border-bottom:1px solid var(--border, #dce2e8); margin:22px 0 26px; padding-bottom:7px; }
+.benchmark-views button { white-space:nowrap; cursor:pointer; color:var(--muted, #637081); border:0; border-radius:8px; background:transparent; font:inherit; font-size:14px; padding:11px 16px; }
+.benchmark-views button[aria-selected="true"] { background:var(--surface-raised, #edf2f7); color:var(--text, #182333); font-weight:650; }
+.benchmark-views button:hover { background:var(--surface-raised, #edf2f7); }
+.benchmark-overview-flow { margin:20px 0; max-width:720px; color:var(--muted, #637081); line-height:1.7; }
+.benchmark-readiness-callout { display:grid; gap:8px; margin:22px 0; padding:22px; border:1px solid var(--border, #dce2e8); border-radius:12px; background:var(--surface-raised, #f8fafc); }
+.benchmark-readiness-callout p { margin:0; color:var(--muted, #637081); }
+.benchmark-readiness-callout .button { justify-self:start; margin-top:5px; }
+.benchmarks [role="tabpanel"][hidden] { display:none; }

@@ -1,0 +1,9 @@
+<network>
+  <name>gpu-jobs</name>
+  <bridge name="virbr-gpu" stp="on" delay="0"/>
+  <ip address="192.168.191.1" netmask="255.255.255.0">
+    <dhcp>
+      <range start="192.168.191.20" end="192.168.191.200"/>
+    </dhcp>
+  </ip>
+</network>

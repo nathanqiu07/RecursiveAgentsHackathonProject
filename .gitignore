@@ -14,6 +14,10 @@ data/
 *.sqlite3
 *.sqlite-wal
 *.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.settings.key
+.settings-key-*
 .DS_Store
 .sites-runtime/
 .wrangler/
@@ -21,8 +25,20 @@ data/
 .next/
 sites/
 
-# Separate local components excluded from this repository for now.
-/Library/
-/ResourceManager/
-/Resources/
-/verification api/
+# Private operator configuration; share source and examples for every service.
+/verifier/config.json
+/verifier/config.local.json
+/nodes/inventory.json
+/nodes/*.local.json
+/Resources/*.json
+!/Resources/local-cpu.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.qcow2
+*.img
+*.safetensors
+*.bin
+
+*.tsbuildinfo

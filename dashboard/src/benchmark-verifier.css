@@ -1,0 +1,48 @@
+.benchmark-verifier-view { max-width: 1000px; }
+.verifier-view-header h2 { margin: 0 0 9px; font-size: 19px; font-weight: 550; letter-spacing: -0.3px; }
+.verifier-view-header p, .verifier-section > p { font-size: 12px; line-height: 1.8; color: #52525b; margin: 10px 0 16px; }
+.verifier-section { padding: 26px 0; border-bottom: 1px solid #e4e4e7; }
+.verifier-section h3 { font-size: 13px; font-weight: 550; margin: 0 0 14px; }
+.verifier-section-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 18px; }
+.verifier-state { display: inline-block; border: 1px solid #e4e4e7; border-radius: 5px; padding: 4px 8px; background: #fafafa; color: #71717a; font-size: 10px; line-height: 1.2; white-space: nowrap; }
+.verifier-state-ready { border-color: #bbf7d0; color: #166534; background: #f0fdf4; }
+.verifier-state-busy { border-color: #fde68a; color: #92400e; background: #fffbeb; }
+.verifier-setup-steps { padding-left: 19px; margin: 4px 0 20px; }
+.verifier-setup-steps li { padding-left: 5px; font-size: 12px; color: #52525b; line-height: 1.8; }
+.verifier-setup-steps li + li { margin-top: 10px; }
+.verifier-setup-steps strong, .verifier-target strong { font-weight: 550; color: #3f3f46; }
+.verifier-baseline-table-wrap { overflow-x: auto; margin: 18px 0; }
+.verifier-baseline-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; min-width: 520px; }
+.verifier-baseline-table th, .verifier-baseline-table td { padding: 13px 14px 13px 0; border-bottom: 1px solid #e4e4e7; vertical-align: top; }
+.verifier-baseline-table thead th { font-size: 10px; color: #71717a; font-weight: 500; }
+.verifier-baseline-table tbody th { font-weight: 500; }
+.verifier-empty { padding: 16px; margin: 0; font-size: 12px; line-height: 1.8; color: #71717a; border: 1px solid #e4e4e7; border-radius: 6px; background: #fafafa; }
+.verifier-measure-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.verifier-measure-controls p { margin: 0; font-size: 12px; color: #71717a; line-height: 1.7; flex: 1 1 270px; }
+.verifier-quality-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.verifier-quality-grid article { padding: 16px; border: 1px solid #e4e4e7; border-radius: 6px; background: #fafafa; }
+.verifier-quality-grid h4 { font-size: 13px; font-weight: 550; margin: 0 0 9px; }
+.verifier-quality-grid p { font-size: 11px; color: #71717a; line-height: 1.7; margin: 0 0 10px; }
+.verifier-quality-grid strong { font-size: 11px; color: #52525b; font-weight: 500; line-height: 1.7; }
+.verifier-note, .verifier-section > p.verifier-note { font-size: 11px; color: #71717a; line-height: 1.8; }
+.verifier-workload { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.verifier-workload div { display: flex; flex-direction: column; gap: 7px; }
+.verifier-workload strong { font-size: 25px; font-weight: 500; letter-spacing: -0.5px; }
+.verifier-workload span { color: #71717a; font-size: 11px; }
+.verifier-section > p.verifier-target { padding: 13px 16px; background: #fafafa; border-left: 2px solid #d4d4d8; }
+.verifier-contract-fields { margin: 18px 0; }
+.verifier-contract-fields > div { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; margin: 14px 0; font-size: 12px; line-height: 1.7; }
+.verifier-contract-fields dt { color: #71717a; }
+.verifier-contract-fields dd { margin: 0; color: #3f3f46; overflow-wrap: anywhere; }
+.verifier-contract-fields code { font-size: 11px; }
+.verifier-schema-links { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 20px 0; font-size: 11px; }
+.verifier-schema-links a { color: #52525b; text-underline-offset: 3px; }
+.verifier-details { margin: 14px 0 0; font-size: 12px; color: #71717a; }
+.verifier-details > summary, .verifier-manifest > summary { cursor: pointer; width: fit-content; }
+.verifier-details pre { padding: 16px; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 6px; max-height: 440px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.75; color: #52525b; }
+.verifier-details > p { font-size: 11px; line-height: 1.8; }
+.verifier-full-recipe { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 560px; overflow: auto; padding: 16px; border: 1px solid #e4e4e7; border-radius: 6px; background: #fafafa; color: #52525b; }
+.verifier-manifest { margin-top: 7px; color: #71717a; font-size: 10px; font-weight: 400; }
+.verifier-manifest code { display: block; max-width: 220px; overflow-wrap: anywhere; margin-top: 6px; font-size: 10px; }
+.verifier-details > summary:focus-visible, .verifier-manifest > summary:focus-visible { outline: 2px solid #71717a; outline-offset: 4px; }
+@media (max-width: 620px) { .verifier-quality-grid { grid-template-columns: 1fr; } .verifier-contract-fields > div { grid-template-columns: 1fr; gap: 5px; } .verifier-workload { gap: 9px; } .verifier-workload strong { font-size: 21px; } }
