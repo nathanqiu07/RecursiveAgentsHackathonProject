@@ -1,6 +1,8 @@
 export type LibraryIdea = {
   id: string;
   run_id: string;
+  benchmark_id?: string | null;
+  recursive_generation?: number | null;
   title: string;
   hypothesis: string;
   novelty_difference: string;

@@ -96,6 +96,8 @@ function ideas(run: Record<string, unknown>, publications: LibraryPaper[]): Libr
     const runStatus = statuses.includes(String(run.status)) ? String(run.status) : 'unknown';
     return [{
       id: `draft:${runId}:${seen.size - 1}`, run_id: runId, title: text(proposal.title, 160) || hypothesis.slice(0, 110),
+      benchmark_id: identifier(request.benchmark_id) || null,
+      recursive_generation: Number.isSafeInteger(request.recursive_generation) && Number(request.recursive_generation) >= 0 ? Number(request.recursive_generation) : null,
       hypothesis, novelty_difference: text(proposal.novelty_difference, 10000),
       source_urls: [...new Set(sources.map(safeUrl).filter((value): value is string => value !== null))].slice(0, 20),
       experiment_plan: plans.slice(0, 10).flatMap((plan) => record(plan) ? [{ baseline: text(plan.baseline), experiment: text(plan.experiment), metric: text(plan.metric), success_criterion: text(plan.success_criterion) }] : []),

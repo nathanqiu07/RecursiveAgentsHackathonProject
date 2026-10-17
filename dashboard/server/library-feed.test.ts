@@ -130,3 +130,15 @@ test('paper excerpts declare truncation without changing full-snapshot counts', 
   assert.equal(body.papers[0].paper_text_truncated, true);
   assert.deepEqual(body.counts, { unverified: 1, in_verification: 0, verified: 1 });
 });
+
+test('draft provenance preserves explicit generation and never infers it from proposal order', async () => {
+  const benchmark = 'b9d6b8c7-3e72-46e9-a35b-9fd17b613426';
+  for (const generation of [0, 2, undefined, -1, '3']) {
+    const tagged = { ...run, request: { ...run.request, benchmark_id: benchmark, recursive_generation: generation } };
+    const { body } = await call(url => url.pathname === '/papers'
+      ? Response.json({ papers: [], total: 0 })
+      : url.pathname === '/runs' ? Response.json({ runs: [tagged], total: 1 }) : Response.json(tagged));
+    assert.equal(body.ideas[0].benchmark_id, benchmark);
+    assert.equal(body.ideas[0].recursive_generation, typeof generation === 'number' && generation >= 0 ? generation : null);
+  }
+});

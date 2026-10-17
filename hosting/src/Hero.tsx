@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import './benchmarks.css';
 import './hero.css';
+import InferenceResearchTimeline from './InferenceResearchTimeline';
 import BenchmarkProgress, { type ProgressRun } from './BenchmarkProgress';
 
 // The Overview tab. Numbers come from /datacenter.json (scripts/build_datacenter_view.py), the same file the
@@ -194,7 +195,7 @@ export default function Hero({ active, onOpenLayers, onOpenBenchmarks }: { activ
       <EvolutionGraphic />
     </header>
     <BenchmarkProgress runs={runs} />
-    <section className="home-visualizations" aria-label="Research paper timeline from the deck"><div className="home-section-heading"><div><p className="home-eyebrow">DECK SNAPSHOT</p><h2>Research papers, round by round.</h2></div><p>Historical proposal timeline from the presentation.</p></div><div className="home-viz-grid"><figure><a href="/deck/timeline.svg" target="_blank" rel="noreferrer" aria-label="Open historical research paper timeline"><img src="/deck/timeline.svg" alt="Agent research proposals by recorded round across Data hall, QAPLIB and ALE in the presentation snapshot." /></a></figure></div></section>
+    <InferenceResearchTimeline active={active} />
     <section className="home-loop" id="home-loop" aria-labelledby="home-loop-title">
       <div className="home-section-heading"><div><p className="home-eyebrow">THE METHOD</p><h2 id="home-loop-title">Every version earns its place.</h2></div><p>A shared memory of findings.<br />An independent check on every claim.</p></div>
       <div className="home-steps">{LOOP.map(([number, title, description]) => <article key={number}><span className="home-step-number">{number}</span><h3>{title}<span aria-hidden="true">↗</span></h3><p>{description}</p></article>)}</div>
