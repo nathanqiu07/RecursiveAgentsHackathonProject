@@ -1117,3 +1117,29 @@
 .stage-cand-label {
   pointer-events: none;
 }
+
+.stage-cand-tag rect {
+  fill: #fff;
+  stroke: var(--stage-line);
+  stroke-width: 1;
+}
+
+.stage-cand-tag .stage-cand-label {
+  font-family: inherit;
+  font-size: 16px;
+  stroke: none;
+}
+
+.stage-cand-tag {
+  pointer-events: none;
+  transition: opacity 150ms ease-out;
+}
+
+.stage-cand-tag.is-skip {
+  opacity: 0;
+}
+
+.stage-cand:hover .stage-cand-tag.is-skip,
+.stage-cand.is-selected .stage-cand-tag.is-skip {
+  opacity: 1;
+}

@@ -24,6 +24,7 @@ const PITCH = 'Every layer of an AI data center as a verifiable optimization pro
 const QAPLIB_SOTA_LINE = 'QAPLIB: 3.6% from best-known solutions (SOTA)';
 const QAPLIB_SOTA_V0 = 'v0 cold: 4.3%';
 const RACK_NOTE = 'v0 produced an invalid placement on 1 of 6; on the other 5, +0.229';
+const KERNELS_CAVEAT = 'no kernel beat PyTorch eager yet';
 const RACK_NOTE_RUN = 'qaplib-dc-research-1';
 // The team's chosen headline run per layer; used when it is finished, else the largest held-out gain wins.
 const PREFERRED_RUN: Record<string, string> = { placement: 'qaplib-dc-research-2' };
@@ -48,10 +49,32 @@ function sourceTitle(url: string) {
     const last = decodeURIComponent(parts[parts.length - 1] ?? '').replace(/\.(pdf|html?|aspx?)$/i, '');
     const words = last.replace(/[-_+]+/g, ' ').replace(/^\d+\s+/, '').trim();
     if (!words || /^[\d.\s]+$/.test(words)) return parts.length > 1 ? decodeURIComponent(parts[parts.length - 2]).replace(/[-_]+/g, ' ') : host(url);
+    if (!/\s/.test(words) || /\d+\.\d+/.test(words)) return '';
     return words.length > 64 ? `${words.slice(0, 62)}...` : words;
-  } catch { return url; }
+  } catch { return ''; }
 }
 const sourceUrl = (source: unknown) => (typeof source === 'string' ? source : (source as { url?: string })?.url ?? '');
+// A mutation in plain words, from its knob and value.
+function plainLabel(cand: ClimbCandidate) {
+  const change = cand.change ?? '';
+  const target = (cand.target ?? '').replace(/^tools?\./, '').replace(/\.enabled$/, '');
+  const raw = change.includes('=') ? change.split('=').slice(1).join('=').trim() : '';
+  const truthy = /true/i.test(raw) ? true : /false/i.test(raw) ? false : null;
+  const words = (text: string) => text.replace(/[_.]+/g, ' ').trim();
+  const step = change.match(/^(\w+)\s+(step|prompt)\s*:\s*(.*)$/i);
+  if (step) {
+    const role = step[1].toLowerCase();
+    const kind = step[2].toLowerCase();
+    if (/runtime.?error/i.test(step[3]) && /abort/i.test(step[3])) return `${role} step: abort on runtime error`;
+    const tool = step[3].match(/\b([a-z]+_[a-z_]+)\b/i);
+    return tool ? `${role} ${kind}: use ${words(tool[1])}` : `${role} ${kind} edit`;
+  }
+  if (/thinking|reasoning/i.test(target)) return truthy === false ? 'reasoning off' : 'reasoning on';
+  if (/^attempts?$/i.test(target) && /^\d+$/.test(raw)) return `${raw} attempt${raw === '1' ? '' : 's'}`;
+  if (cand.type === 'tool_set' || /^tools?\b/i.test(change)) return `${words(target)} tool ${truthy === false ? 'off' : 'on'}`;
+  if (raw && target) return `${words(target)} ${truthy === null ? raw.replace(/^"|"$/g, '') : truthy ? 'on' : 'off'}`.slice(0, 30);
+  return shortChange(change, 26);
+}
 const shortChange = (text: string, max = 22) => (text.length > max ? `${text.slice(0, max - 1)}...` : text);
 
 function useReducedMotion() {
@@ -120,6 +143,7 @@ const LOOP = [
   { title: 'Held-out check', sub: 'unseen tasks, v0 cold vs final', x: 40, y: 300 },
 ];
 const BOX_W = 320;
+const TAG_H = 28;
 const BOX_H = 130;
 
 function Thesis({ t, pitch }: { t: number; pitch: string }) {
@@ -224,6 +248,7 @@ function Layers({ t, layers, runs }: { t: number; layers: Layer[]; runs: Indexed
           <p className="stage-tile-foot">{notRun ? 'Zero GPU quota on Crusoe.' : [isNum(layer.best?.n) ? `${layer.best!.n} unseen tasks` : (layer.id === 'inference' ? '48 unseen questions' : null), layer.score_label].filter(Boolean).join(', ')}</p>
           {layer.id === 'placement' && !notRun && <p className="stage-tile-sota">{QAPLIB_SOTA_LINE}<span>{QAPLIB_SOTA_V0}</span></p>}
           {layer.id === 'placement' && !notRun && headline?.name === RACK_NOTE_RUN && <p className="stage-tile-caveat">Rack placement: {RACK_NOTE}</p>}
+          {layer.id === 'kernels' && !notRun && <p className="stage-tile-caveat">{typeof layer.device === 'string' ? `${layer.device}; ` : ''}{KERNELS_CAVEAT}</p>}
           {layer.id === 'inference' && !notRun && <p className="stage-tile-caveat">{INFERENCE_CAVEATS[0]}</p>}
         </article>;
       })}
@@ -322,6 +347,21 @@ function Replay({ t, run, runs, layer, pickRun, speed, setSpeed, selected, onSel
     if (isNum(end)) incumbent = lerp(incumbent, end, phase(u, 0.55, 0.3));
   });
 
+  // Label boxes: alternate above and below each dot; try the other side on collision, else hide until hover or click.
+  const placed: { x: number; y: number; w: number; h: number }[] = cands.map((c) => ({ x: x(cands.indexOf(c)) - 14, y: y(c.score) - 14, w: 28, h: 28 }));
+  const hits = (a: { x: number; y: number; w: number; h: number }, b: typeof a) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  const tags = cands.map((cand, i) => {
+    const text = plainLabel(cand);
+    const w = text.length * 9 + 18;
+    const cx = Math.max(L + w / 2, Math.min(W - R - w / 2, x(i)));
+    const sides = i % 2 === 0 ? [-1, 1] : [1, -1];
+    for (const side of sides) {
+      const box = { x: cx - w / 2, y: side < 0 ? y(cand.score) - 20 - TAG_H : y(cand.score) + 20, w, h: TAG_H };
+      if (box.y < T - 8 || box.y + TAG_H > H - B) continue;
+      if (!placed.some((other) => hits(box, other))) { placed.push(box); return { ...box, text, skip: false }; }
+    }
+    return { x: cx - w / 2, y: y(cand.score) - 20 - TAG_H, w, text, skip: true };
+  });
   const genBreaks = cands.map((c, i) => (i > 0 && cands[i - 1].gen !== c.gen ? i : -1)).filter((i) => i > 0);
   const held = run.heldout;
   const heldP = phase(t, plan.heldStart, 600);
@@ -329,6 +369,7 @@ function Replay({ t, run, runs, layer, pickRun, speed, setSpeed, selected, onSel
     ? [{ kind: 'cold', label: 'v0 cold', score: held.v0 }, { kind: 'final', label: 'final', score: held.final }]
     : (['cold', 'brain', 'final'] as const).map((kind) => (climb?.heldout ?? []).find((point) => point.kind === kind)).filter(Boolean)
       .map((point) => ({ kind: point!.kind, label: point!.kind === 'cold' ? 'v0 cold' : point!.kind === 'brain' ? 'v0 + brain' : 'final', score: point!.score }));
+  const heldN = layer?.best?.run === run.name && isNum(layer.best.n) ? layer.best.n : null;
   const heldMax = Math.max(...heldBars.map((bar) => bar.score).filter(isNum), 1e-9);
   const deltaP = phase(t, plan.heldStart + 1600, 1200);
   const heldDelta = held ? deltaText(held.v0, held.final, lower, deltaP) : null;
@@ -401,13 +442,15 @@ function Replay({ t, run, runs, layer, pickRun, speed, setSpeed, selected, onSel
             if (u < 0) return null;
             const p = phase(u, 0, 0.18);
             const stamp = phase(u, 0.3, 0.15);
-            const labelY = y(cand.score) + (i % 2 === 0 ? -22 : 36);
-            return <g key={cand.id} className={`stage-cand${cand.accepted ? ' is-kept' : ' is-rejected'}${shownIndex === i ? ' is-current' : ''}`}
+            const tag = tags[i];
+            return <g key={cand.id} className={`stage-cand${cand.accepted ? ' is-kept' : ' is-rejected'}${shownIndex === i ? ' is-current' : ''}${selected === i ? ' is-selected' : ''}`}
               onClick={() => onSelect(i)} role="button" aria-label={`Candidate ${cand.id}: ${cand.change}`}>
               <circle cx={x(i)} cy={y(cand.score)} r={30} className="stage-cand-hit" />
               <circle cx={x(i)} cy={y(cand.score)} r={11 * p} className="stage-cand-dot" style={{ fillOpacity: stamp > 0 ? 1 : 0.25 }} />
-              <text x={i === 0 ? x(i) - 14 : i === plan.n - 1 && plan.n > 1 ? x(i) + 14 : x(i)} y={labelY}
-                textAnchor={i === 0 ? 'start' : i === plan.n - 1 && plan.n > 1 ? 'end' : 'middle'} className="stage-cand-label" style={{ opacity: p }}>{shortChange(cand.change, plan.n > 5 ? 15 : 24)}</text>
+              <g style={{ opacity: p }}><g className={`stage-cand-tag${tag.skip ? ' is-skip' : ''}`}>
+                <rect x={tag.x} y={tag.y} width={tag.w} height={TAG_H} rx="5" />
+                <text x={tag.x + tag.w / 2} y={tag.y + TAG_H / 2 + 6} textAnchor="middle" className="stage-cand-label">{tag.text}</text>
+              </g></g>
             </g>;
           })}
         </svg>
@@ -447,7 +490,7 @@ function Replay({ t, run, runs, layer, pickRun, speed, setSpeed, selected, onSel
 
     <div className="stage-replay-foot" style={{ opacity: heldP }}>
       <div className="stage-held">
-        <p className="stage-held-head">Held-out{held ? `, ${held.metric}` : ''}{lower ? ', lower is better' : ''}</p>
+        <p className="stage-held-head">{held ? (/^held-out/i.test(held.metric) ? held.metric.replace(/^held-out/i, 'Held-out') : `Held-out ${held.metric}`) : 'Held-out'}{heldN ? `, ${heldN} unseen ${run.layer === 'inference' ? 'questions' : 'instances'}` : ''}{lower ? ', lower is better' : ''}</p>
         <div className="stage-held-bars">
           {heldBars.map((bar, k) => {
             const p = phase(t, plan.heldStart + 200 + k * 260, 900);
@@ -461,6 +504,7 @@ function Replay({ t, run, runs, layer, pickRun, speed, setSpeed, selected, onSel
         </div>
         {heldDelta && <p className="stage-held-delta" style={{ opacity: phase(t, plan.heldStart + 1600, 300) }}>{lower ? heldDelta : `${heldDelta} on held-out`}</p>}
         {lower && run.layer === 'inference' && <p className="stage-held-caveat">{INFERENCE_CAVEATS[0]}</p>}
+        {run.layer === 'kernels' && <p className="stage-held-caveat">{KERNELS_CAVEAT}</p>}
         {run.name === RACK_NOTE_RUN && <p className="stage-held-caveat">{RACK_NOTE}</p>}
       </div>
       <div className="stage-lib" style={{ opacity: libP, transform: `translateY(${(1 - libP) * 24}px)` }}>
