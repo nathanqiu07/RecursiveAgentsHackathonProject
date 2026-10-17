@@ -77,8 +77,10 @@ class RemoteVMRuntime:
         if (
             health.get("node_id") != self.resource.node_id
             or health.get("status") != "ready"
-            or health.get("runtime") != "libvirt-kvm-vfio"
-            or not health.get("verification", {}).get("boot_verified")
+            or not (
+                (health.get("runtime") == "libvirt-kvm-vfio" and health.get("verification", {}).get("boot_verified"))
+                or (health.get("runtime") == "direct-host-systemd" and self.receipt.get("runtime") == "direct-host-systemd" and health.get("verification", {}).get("direct_execution_verified") and health.get("verification", {}).get("runner_verified"))
+            )
         ):
             raise RuntimeFailure("remote_vm_not_ready")
 

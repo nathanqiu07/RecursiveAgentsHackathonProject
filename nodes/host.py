@@ -771,7 +771,7 @@ def make_handler(node):
                                     "max_timeout_seconds"
                                 ],
                             },
-                            "runtime": "libvirt-kvm-vfio",
+                            "runtime": getattr(node, "runtime", "libvirt-kvm-vfio"),
                         }
                     )
                 if self.command == "POST" and path == "/v1/probe":
@@ -790,7 +790,7 @@ def make_handler(node):
                         {
                             "fresh": True,
                             "gpu": gpu,
-                            "image_sha256": node.target["guest_image_sha256"],
+                            "image_sha256": node.target.get("guest_image_sha256"),
                             "deployment": deployment["metadata"]
                             if deployment
                             else None,

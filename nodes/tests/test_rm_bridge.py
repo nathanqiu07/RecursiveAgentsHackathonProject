@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ResourceManager"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 try:
     from resource_manager.remote_vm_runtime import RemoteVMRuntime
@@ -127,3 +128,22 @@ class BridgeTests(unittest.TestCase):
         ):
             runtime.run(job, "token", queue)
         self.assertTrue(runtime.cleanup_confirmed)
+
+@unittest.skipIf(RemoteVMRuntime is None, "use ResourceManager virtualenv")
+class DirectBridgeTests(unittest.TestCase):
+    def test_direct_mode_requires_explicit_receipt_and_runner_probe(self):
+        import tempfile
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "connection.json"
+            resource = SimpleNamespace(node_manifest=str(path), node_id="a4000-01")
+            receipt = {"node_id": "a4000-01", "status": "ready", "address": "http://127.0.0.1:18100", "key": "rn_test", "runtime": "direct-host-systemd"}
+            common.private_json(path, receipt)
+            health = {"node_id": "a4000-01", "status": "ready", "runtime": "direct-host-systemd", "verification": {"direct_execution_verified": True, "runner_verified": True, "boot_verified": False}}
+            with patch.object(RemoteVMRuntime, "request", return_value=health):
+                RemoteVMRuntime(resource).check_ready()
+                receipt.pop("runtime")
+                common.private_json(path, receipt)
+                with self.assertRaises(RuntimeFailure):
+                    RemoteVMRuntime(resource).check_ready()

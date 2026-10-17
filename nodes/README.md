@@ -150,3 +150,37 @@ ResourceManager/.venv/bin/python -m pytest ResourceManager/tests -q
 ```
 
 Tests exercise actual local HTTP, scoped auth, one-GPU ownership, deployment/idempotency checks, JSONL exchange through the durable local manager, guest command execution/timeouts, VFIO/IOMMU preflight, VM XML, private credentials and lost-ack cleanup. VM/GPU operations are mocked in protocol tests. No live SSH, KVM/VFIO boot, driver compatibility, model fit or baseline benchmark score is claimed without real hosts.
+
+## Existing GPU VM: direct execution
+
+When the operator explicitly chooses to use an existing GPU VM directly, install
+`direct_host.py` with `install_direct.py`. This mode needs a working NVIDIA driver
+and systemd, but no nested KVM, VFIO, or guest image. It reports
+`direct-host-systemd`, the GPU's actual model/UUID/memory, and `boot_verified:false`.
+It must not be advertised as the A5000 benchmark resource when the device is an A4000.
+
+On the server, from this repository:
+
+```sh
+sudo python3 nodes/install_direct.py --node-id a4000-01 --port 18100 --cpus 4 --memory-mb 8192
+```
+
+Choose CPU/RAM values within the existing VM's capacity. The installer saves a
+private scoped connection key in
+`/var/lib/crusoe-direct-node/server-connection.json`; it never prints that key.
+The API listens only on server loopback. Import the receipt over trusted SSH,
+forward its port, test authenticated `/v1/health` plus a real job, then create a
+private controller receipt with `status:ready` and `runtime:direct-host-systemd`.
+Run `python3 nodes/install_rm_bridge.py` and restart the local ResourceManager
+API/worker when safe. Its `remote_vm` transport adapter supports both runtimes;
+the explicit direct runtime in the receipt is required to accept direct execution.
+
+Jobs execute as the dedicated unprivileged `resourcejob` user in individual
+systemd cgroups with CPU/RAM limits and a private workspace. Systemd kills the
+entire job cgroup on cancellation, including child sessions. Host system and home
+paths are read-only/hidden; job workspace and private temp space are writable.
+One GPU job runs at a time. This is trusted direct execution, not a new VM/security
+boundary per job. Scratch capacity is admission metadata, not a disk quota.
+The current direct mode supports the JSONL experiment executor; approved inference
+deployments for verifier submissions are not yet configured. GPU availability does
+not claim model fit or measured benchmark results.

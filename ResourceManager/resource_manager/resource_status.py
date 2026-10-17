@@ -59,9 +59,11 @@ def remote_state(resource):
         if (
             health.get("node_id") != resource.node_id
             or health.get("status") != "ready"
-            or health.get("runtime") != "libvirt-kvm-vfio"
+            or not (
+                (health.get("runtime") == "libvirt-kvm-vfio" and health.get("verification", {}).get("boot_verified") is True)
+                or (health.get("runtime") == "direct-host-systemd" and receipt.get("runtime") == "direct-host-systemd" and health.get("verification", {}).get("direct_execution_verified") is True and health.get("verification", {}).get("runner_verified") is True)
+            )
             or not isinstance(health.get("busy"), bool)
-            or health.get("verification", {}).get("boot_verified") is not True
         ):
             raise ValueError
         return {"status": "busy" if health["busy"] else "available"}

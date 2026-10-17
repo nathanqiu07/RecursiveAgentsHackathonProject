@@ -224,6 +224,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--workspace", type=Path, default=DEFAULT_WORKSPACE)
     args = parser.parse_args()
     if args.self_test:
         measured = execute("printf node-runner-ready", 5)
@@ -231,4 +232,4 @@ if __name__ == "__main__":
             raise SystemExit(2)
         print(json.dumps({"ready": True, "protocol": "execution_result-jsonl-v1"}))
     else:
-        serve()
+        serve(workspace=args.workspace)
