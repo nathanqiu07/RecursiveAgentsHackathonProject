@@ -64,17 +64,35 @@ CASE_STUDIES: list[dict[str, Any]] = [
          note="v0 cold saved a solution for 5 of the 6 held-out halls. The missing hall is scored as invalid "
               "(score 0), so 0.4773 is the mean over all 6 with that hall at 0 (the 5 saved halls average "
               "0.5728)."),
+    dict(id="qaplib-evolve-3", name="QAPLIB, live run 3 (Shared Brain only)", dirs=["reports/qaplib_live/run3_nano"],
+         aliases=["runs/qaplib-evolve-3"], log="reports/qaplib_live/run3_nano/run.log", **QAPLIB),
+    dict(id="qaplib-research-2", name="QAPLIB, live run with research on the fixed runner",
+         dirs=["reports/qaplib_live/research2_nano"], aliases=["runs/qaplib-research-2"],
+         log="reports/qaplib_live/research2_nano/run.log", **QAPLIB,
+         note="v0 cold found no valid permutation on tai15a in either attempt, so it scores 0 there. Without "
+              "tai15a, v0 cold averages 0.8089 on the other 5 and v1 0.7410 (-0.068): no gain on QAPLIB."),
+    dict(id="qaplib-dc-research-2", name="GPU rack placement (data-center QAP), research on the fixed runner",
+         dirs=["reports/qaplib_live/dc_research2_nano"], aliases=["runs/qaplib-dc-research-2"],
+         log="reports/qaplib_live/dc_research2_nano/run.log", **DC_QAP),
     dict(id="alebench-live-1", name="ALE-Bench AHC039 (Purse Seine Fishing)", dirs=["runs/alebench-live-1"],
          log="runs/alebench-live-1.log", digits=3, baseline_kind="fixed", baseline_score=1.0,
          verifier="ALE-Bench AHC039 scorer on private Lite seeds; score = mean case score / greedy case score "
                   "(1.0 = greedy); rank vs 583 contestants on all 150 private seeds",
          baseline_name="reference greedy (no LLM)"),
-    dict(id="kernelbench-mini", name="KernelBench mini (CUDA kernels)", glob="runs/kernelbench-*",
+    dict(id="kernelbench-mini", name="KernelBench mini (CUDA kernels)", glob="runs/kernelbench-[!m]*",
          digits=2, baseline_kind="fixed", baseline_score=1.0,
          verifier="compile, correctness on 5 signed input sets plus a held-back seed, CUDA-event timing; "
                   "score = speedup over torch eager if correct (cap 10), else 0",
          baseline_name="torch eager (speedup 1.0x)",
          missing_status=("blocked", "needs a Crusoe GPU VM (no runs/kernelbench-* yet)")),
+    dict(id="kernelbench-mps-2", name="KernelBench mini on Apple GPU (MPS)", dirs=["runs/kernelbench-mps-2"],
+         log="runs/kernelbench-mps-2.log", digits=3, baseline_kind="fixed", baseline_score=1.0,
+         verifier="correct vs the PyTorch reference on fresh inputs, then timed against PyTorch eager on the Mac's "
+                  "Apple GPU (MPS); hack guards reject copies, caching and input mutation; score = speedup if "
+                  "correct, else 0",
+         baseline_name="PyTorch eager on MPS (speedup 1.0x)",
+         note="correct kernels 20% -> 60% (v0 cold -> final). No kernel beat PyTorch eager (fast_1 0%); "
+              "MPS timings are not comparable to CUDA. Full numbers: reports/kernelbench_mps/SUMMARY.md."),
     dict(id="inference-opt-2", name="Inference serving cost (exact-answer data-center ops Q&A)",
          dirs=["runs/inference-opt-2"], log="runs/inference-opt-2.log", digits=3, baseline_kind="fixed",
          baseline_score=None,

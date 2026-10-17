@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-17 16:36:47 PDT",
+ "generated_at": "2026-10-17 16:42:48 PDT",
  "command": ".venv/bin/python scripts/build_datacenter_view.py",
  "pitch": "Every layer of an AI data center as a verifiable optimization problem.",
  "layers": [
@@ -26,7 +26,7 @@
     "v0_invalid": 0
    },
    "status": "done",
-   "summary": "From v0 0.688 to 0.688 (+0.000) on 6 unseen halls. datahall-live-4 is running: 1 candidate change scored on dev so far, 1 accepted.",
+   "summary": "From v0 0.688 to 0.688 (+0.000) on 6 unseen halls. datahall-live-5 is running: 0 candidate changes scored on dev so far, 0 accepted.",
    "runs": [
     {
      "id": "datahall-live-1",
@@ -377,9 +377,9 @@
      "n_heldout": 6
     },
     {
-     "id": "datahall-live-4",
+     "id": "datahall-live-5",
      "status": "running",
-     "status_detail": "2 candidates scored on dev, generation 0; started 16:25 PDT, last write 16:36 PDT",
+     "status_detail": "1 candidate scored on dev, generation 0; started 16:41 PDT, last write 16:42 PDT",
      "baseline": {
       "name": "v0 cold",
       "score": null
@@ -391,25 +391,11 @@
       "delta": null
      },
      "heldout": [],
-     "dev": [
-      {
-       "gen": 0,
-       "score": 0.6916
-      }
-     ],
-     "candidates": [
-      {
-       "gen": 0,
-       "score": 0.6916,
-       "parent_score": 0.6916,
-       "accepted": true,
-       "reason": "cheaper at equal score: cost -48%",
-       "change": "max_tokens = 16000"
-      }
-     ],
+     "dev": [],
+     "candidates": [],
      "cost_usd": null,
      "calls": null,
-     "last_update": "16:36 PDT",
+     "last_update": "16:42 PDT",
      "n_heldout": null
     }
    ],
@@ -419,7 +405,7 @@
    "id": "placement",
    "name": "Equipment placement",
    "problem": "Quadratic assignment: put equipment in slots to cut flow x distance.",
-   "verified": "DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible",
+   "verified": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
    "score_label": "best-known / cost",
    "digits": 3,
    "baseline": {
@@ -446,7 +432,7 @@
     "v0_invalid": 0
    },
    "status": "done",
-   "summary": "From v0 0.597 to 0.845 (+0.248) on 6 unseen rack placements. QAPLIB: 3.6% from best-known solutions (SOTA) on 6 unseen instances (qaplib-research-1 final); v0 cold: 4.3% from best-known. qaplib-dc-research-3 is running: 6 candidate changes scored on dev so far, 4 accepted.",
+   "summary": "From v0 0.597 to 0.845 (+0.248) on 6 unseen rack placements. QAPLIB: 3.6% from best-known solutions (SOTA) on 6 unseen instances (qaplib-research-1 final); v0 cold: 4.3% from best-known. qaplib-dc-research-3 is running: 8 candidate changes scored on dev so far, 6 accepted.",
    "runs": [
     {
      "id": "qaplib-evolve-3",
@@ -1002,7 +988,7 @@
     {
      "id": "qaplib-dc-research-3",
      "status": "running",
-     "status_detail": "8 candidates scored on dev, generation 1; started 16:26 PDT, last write 16:36 PDT",
+     "status_detail": "12 candidates scored on dev, generation 2; started 16:26 PDT, last write 16:42 PDT",
      "baseline": {
       "name": "v0 cold",
       "score": null
@@ -1022,6 +1008,10 @@
       {
        "gen": 1,
        "score": 0.5668
+      },
+      {
+       "gen": 2,
+       "score": 0.5993
       }
      ],
      "candidates": [
@@ -1072,11 +1062,27 @@
        "accepted": true,
        "reason": "accepted",
        "change": "max_tokens = 8000"
+      },
+      {
+       "gen": 2,
+       "score": 0.835,
+       "parent_score": 0.5993,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "max_tokens = 4000"
+      },
+      {
+       "gen": 2,
+       "score": 0.804,
+       "parent_score": 0.5993,
+       "accepted": true,
+       "reason": "accepted",
+       "change": "temperature = 0.2"
       }
      ],
      "cost_usd": null,
      "calls": null,
-     "last_update": "16:36 PDT",
+     "last_update": "16:42 PDT",
      "n_heldout": null,
      "family": "GPU rack placement"
     }
@@ -1086,30 +1092,30 @@
    "id": "kernels",
    "name": "GPU kernels",
    "problem": "KernelBench mini: write faster GPU kernels.",
-   "verified": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
+   "verified": "correct vs the PyTorch reference on fresh inputs, then timed against PyTorch eager on the Mac's Apple GPU (MPS); hack guards reject copies, caching and input mutation",
    "score_label": "KernelBench score (mean)",
    "digits": 3,
    "device": "Apple GPU (MPS)",
    "baseline": {
     "name": "v0 cold",
-    "score": 0.0911
+    "score": 0.1945
    },
    "best": {
-    "run": "kernelbench-mps-1",
+    "run": "kernelbench-mps-2",
     "label": "final (v0: no change passed the gate)",
-    "score": 0.2844,
-    "baseline": 0.0911,
-    "delta": 0.1933,
+    "score": 0.4388,
+    "baseline": 0.1945,
+    "delta": 0.2443,
     "n": 5,
     "family": "timed on Apple GPU (MPS)",
     "v0_invalid": 0
    },
    "status": "done",
    "caveats": [
-    "correct kernels 20% \u2192 40%",
-    "no kernel beat PyTorch eager yet (fast_1 0%); MPS timings are not comparable to CUDA"
+    "correct kernels 20% \u2192 60%",
+    "no kernel beat PyTorch eager (fast_1 0%); MPS timings are not comparable to CUDA"
    ],
-   "summary": "From v0 0.091 to 0.284 (+0.193) on 5 unseen problems. kernelbench-mps-2 is running: 0 candidate changes scored on dev so far, 0 accepted.",
+   "summary": "From v0 0.195 to 0.439 (+0.244) on 5 unseen problems.",
    "runs": [
     {
      "id": "kernelbench-mps-1",
@@ -1188,28 +1194,78 @@
     },
     {
      "id": "kernelbench-mps-2",
-     "status": "running",
-     "status_detail": "2 candidates scored on dev, generation 1; started 16:29 PDT, last write 16:34 PDT",
+     "status": "done",
+     "status_detail": "final report and live usage written",
      "baseline": {
       "name": "v0 cold",
-      "score": null
+      "score": 0.1945
      },
      "vs_v0": {
-      "v0": null,
-      "final": null,
-      "final_label": null,
-      "delta": null
+      "v0": 0.1945,
+      "final": 0.4388,
+      "final_label": "final (v0: no change passed the gate)",
+      "delta": 0.2443
      },
-     "heldout": [],
-     "dev": [],
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.1945,
+       "pass_rate": null,
+       "n": 5,
+       "cost_usd": 0.049624
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.4388,
+       "pass_rate": null,
+       "n": 5,
+       "cost_usd": 0.046054
+      },
+      {
+       "label": "final (v0: no change passed the gate)",
+       "kind": "final",
+       "score": 0.4388,
+       "pass_rate": null,
+       "n": 5,
+       "cost_usd": 0.046054
+      }
+     ],
+     "dev": [
+      {
+       "gen": 0,
+       "score": 0.0
+      },
+      {
+       "gen": 1,
+       "score": 0.0
+      }
+     ],
      "candidates": [],
-     "cost_usd": null,
-     "calls": null,
-     "last_update": "16:34 PDT",
-     "n_heldout": null,
+     "cost_usd": 0.190845,
+     "calls": 98,
+     "last_update": "16:37 PDT",
+     "n_heldout": 5,
      "device": "Apple GPU (MPS)",
      "family": "timed on Apple GPU (MPS)",
-     "kernel": {}
+     "kernel": {
+      "cold": {
+       "fast_1": "0%",
+       "correct": "20%",
+       "speedup": "0.97x"
+      },
+      "brain": {
+       "fast_1": "0%",
+       "correct": "60%",
+       "speedup": "0.73x"
+      },
+      "final": {
+       "fast_1": "0%",
+       "correct": "60%",
+       "speedup": "0.73x"
+      }
+     }
     }
    ]
   },
@@ -1217,7 +1273,7 @@
    "id": "inference",
    "name": "Inference cost",
    "problem": "Answer exact data-center ops questions on Crusoe for the least $ per correct answer.",
-   "verified": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
+   "verified": "answers computed in code from DoneTwin hall data; numeric answers within a stated tolerance, rack counts exact; cost from Crusoe token usage",
    "score_label": "$ per correct answer (lower is better)",
    "digits": 6,
    "baseline": {
@@ -2051,6 +2107,32 @@
       "end": 0.6916
      }
     ],
+    "heldout": []
+   }
+  },
+  {
+   "name": "datahall-live-5",
+   "layer": "hall",
+   "layer_name": "Hall layout",
+   "benchmark": "DoneTwin data hall",
+   "status": "running",
+   "started": "2026-10-17 16:41",
+   "ended": null,
+   "solver": "Nano",
+   "reviewer": "Super",
+   "research": true,
+   "generations": 0,
+   "candidates": 0,
+   "accepted": 0,
+   "heldout": null,
+   "cost_usd": null,
+   "calls": null,
+   "climb": {
+    "metric": "dev score",
+    "baseline": null,
+    "baseline_label": null,
+    "candidates": [],
+    "generations": [],
     "heldout": []
    }
   },
@@ -3387,9 +3469,9 @@
    "solver": "Nano",
    "reviewer": "Nano",
    "research": true,
-   "generations": 2,
-   "candidates": 6,
-   "accepted": 4,
+   "generations": 3,
+   "candidates": 8,
+   "accepted": 6,
    "heldout": null,
    "cost_usd": null,
    "calls": null,
@@ -3577,6 +3659,66 @@
        "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
       ],
       "incumbent": 0.9117
+     },
+     {
+      "i": 6,
+      "gen": 2,
+      "id": "g2-c0",
+      "parent": 2,
+      "type": "config_set",
+      "target": "max_tokens",
+      "change": "max_tokens = 4000",
+      "rationale": "Reducing max_tokens from 6000 to 4000 cuts token consumption per call, lowering cost per task; a modest gain in dev s...",
+      "claim_gain": 0.02,
+      "claim_cost_pct": -0.18,
+      "score": 0.835,
+      "parent_score": 0.5993,
+      "gain": 0.2358,
+      "cost": 0.0010397,
+      "parent_cost": 0.00110957,
+      "cost_pct": -6.3,
+      "n": 3,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "reproduced",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.835
+     },
+     {
+      "i": 7,
+      "gen": 2,
+      "id": "g2-c1",
+      "parent": 2,
+      "type": "config_set",
+      "target": "temperature",
+      "change": "temperature = 0.2",
+      "rationale": "Lowering temperature to 0.2 makes outputs more deterministic, reducing retries and token waste; a small improvement i...",
+      "claim_gain": 0.01,
+      "claim_cost_pct": -0.12,
+      "score": 0.804,
+      "parent_score": 0.5993,
+      "gain": 0.2048,
+      "cost": 0.00132168,
+      "parent_cost": 0.00110957,
+      "cost_pct": 19.12,
+      "n": 3,
+      "accepted": true,
+      "accepted_by": "score",
+      "reason": "accepted",
+      "verdict": "accepted, effect smaller than claimed",
+      "research_query": "quadratic assignment problem data center placement heuristic tabu search dc medium 1381 gap dc medium 1381 gap",
+      "sources": [
+       "https://leeds-faculty.colorado.edu/glover/Publications/TS%20-%20QAP.pdf",
+       "https://www.researchgate.net/publication/222564570_A_Tabu_search_heuristic_for_the_generalized_assignment_problem",
+       "https://pubsonline.informs.org/doi/10.1287/ijoc.2.1.33"
+      ],
+      "incumbent": 0.835
      }
     ],
     "generations": [
@@ -3589,6 +3731,11 @@
       "gen": 1,
       "start": 0.5668,
       "end": 0.9117
+     },
+     {
+      "gen": 2,
+      "start": 0.5993,
+      "end": 0.835
      }
     ],
     "heldout": []
@@ -3649,25 +3796,49 @@
    "layer": "kernels",
    "layer_name": "GPU kernels",
    "benchmark": "KernelBench (Apple GPU, MPS)",
-   "status": "running",
+   "status": "done",
    "started": "2026-10-17 16:29",
-   "ended": null,
+   "ended": "2026-10-17 16:37",
    "solver": "Super",
    "reviewer": "Nano",
    "research": true,
    "generations": 0,
    "candidates": 0,
    "accepted": 0,
-   "heldout": null,
-   "cost_usd": null,
-   "calls": null,
+   "heldout": {
+    "metric": "held-out mean",
+    "final": 0.4388,
+    "v0": 0.1945,
+    "delta": 0.2443,
+    "final_label": "final (v0: no change passed the gate)",
+    "lower_is_better": false,
+    "v0_invalid": 0
+   },
+   "cost_usd": 0.190845,
+   "calls": 98,
    "climb": {
     "metric": "dev score",
     "baseline": null,
     "baseline_label": null,
     "candidates": [],
     "generations": [],
-    "heldout": []
+    "heldout": [
+     {
+      "kind": "cold",
+      "label": "v0 + empty brain (cold)",
+      "score": 0.1945
+     },
+     {
+      "kind": "brain",
+      "label": "v0 + final brain",
+      "score": 0.4388
+     },
+     {
+      "kind": "final",
+      "label": "final (v0: no change passed the gate)",
+      "score": 0.4388
+     }
+    ]
    }
   },
   {

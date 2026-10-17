@@ -200,7 +200,9 @@ function Twin({ t, hall }: { t: number; hall?: Layer }) {
 /* ---------- beat (c): four layers ---------- */
 
 function layerNumbers(layer: Layer, runs: IndexedRun[]) {
-  const preferred = runs.find((item) => item.name === PREFERRED_RUN[layer.id] && item.status === 'done' && item.heldout);
+  // The layer's `best` is the held-out headline; a run-level arm is only a fallback when `best` is missing.
+  const best = layer.best && isNum(layer.best.score) ? layer.best : null;
+  const preferred = best ? undefined : runs.find((item) => item.name === PREFERRED_RUN[layer.id] && item.status === 'done' && item.heldout);
   const run = preferred ?? runs.find((item) => item.name === layer.best?.run);
   const lower = lowerIsBetter(run, layer);
   const v0 = preferred ? preferred.heldout!.v0 : layer.best?.baseline ?? layer.baseline?.score ?? null;
@@ -248,7 +250,8 @@ function Layers({ t, layers, runs }: { t: number; layers: Layer[]; runs: Indexed
           <p className="stage-tile-foot">{notRun ? 'Zero GPU quota on Crusoe.' : [isNum(layer.best?.n) ? `${layer.best!.n} unseen tasks` : (layer.id === 'inference' ? '48 unseen questions' : null), layer.score_label].filter(Boolean).join(', ')}</p>
           {layer.id === 'placement' && !notRun && <p className="stage-tile-sota">{QAPLIB_SOTA_LINE}<span>{QAPLIB_SOTA_V0}</span></p>}
           {layer.id === 'placement' && !notRun && headline?.name === RACK_NOTE_RUN && <p className="stage-tile-caveat">Rack placement: {RACK_NOTE}</p>}
-          {layer.id === 'kernels' && !notRun && <p className="stage-tile-caveat">{typeof layer.device === 'string' ? `${layer.device}; ` : ''}{KERNELS_CAVEAT}</p>}
+          {layer.id === 'kernels' && !notRun && <p className="stage-tile-caveat">{[typeof layer.device === 'string' ? layer.device : null,
+            ...(Array.isArray(layer.caveats) && layer.caveats.length ? layer.caveats as string[] : [KERNELS_CAVEAT])].filter(Boolean).join('; ')}</p>}
           {layer.id === 'inference' && !notRun && <p className="stage-tile-caveat">{INFERENCE_CAVEATS[0]}</p>}
         </article>;
       })}

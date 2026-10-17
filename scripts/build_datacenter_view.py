@@ -239,10 +239,16 @@ def placement_layer(procs: str) -> dict[str, Any]:
     notes = [n for n in [best and invalid_note(best)] if n]
     return {"id": "placement", "name": "Equipment placement",
             "problem": "Quadratic assignment: put equipment in slots to cut flow x distance.",
-            "verified": spec["verifier"], "score_label": "best-known / cost", "digits": 3,
+            "verified": cr.QAPLIB["verifier"], "score_label": "best-known / cost", "digits": 3,
             "baseline": {"name": "v0 cold", "score": best["baseline"] if best else None},
             "sota": sota, "caveats": notes,
             "best": best, "status": layer_status(runs), "summary": summary + progress_note(runs), "runs": runs}
+
+
+KERNELS_VERIFIED = ("correct vs the PyTorch reference on fresh inputs, then timed against PyTorch eager on the Mac's "
+                    "Apple GPU (MPS); hack guards reject copies, caching and input mutation")
+INFERENCE_VERIFIED = ("answers computed in code from DoneTwin hall data; numeric answers within a stated tolerance, "
+                      "rack counts exact; cost from Crusoe token usage")
 
 
 def kernel_rows(text: str) -> dict[str, dict]:
@@ -279,13 +285,13 @@ def kernel_layer(procs: str) -> dict[str, Any]:
         if cold.get("correct") and fin.get("correct"):
             caveats.append(f"correct kernels {cold['correct']} → {fin['correct']}")
         fast = fin.get("fast_1")
-        caveats.append((f"no kernel beat PyTorch eager yet (fast_1 {fast})" if fast == "0%" else
+        caveats.append((f"no kernel beat PyTorch eager (fast_1 {fast})" if fast == "0%" else
                         f"fast_1 {fast or 'n/a'} (correct and faster than PyTorch eager)")
                        + "; MPS timings are not comparable to CUDA")
     elif runs:
         summary = "Running: no held-out result yet." + progress_note(runs)
     return {"id": "kernels", "name": "GPU kernels", "problem": "KernelBench mini: write faster GPU kernels.",
-            "verified": spec["verifier"], "score_label": "KernelBench score (mean)", "digits": 3,
+            "verified": KERNELS_VERIFIED, "score_label": "KernelBench score (mean)", "digits": 3,
             "device": device, "baseline": {"name": "v0 cold", "score": best["baseline"] if best else None},
             "best": best, "status": layer_status(runs) if runs else "not run", "caveats": caveats,
             "summary": summary + (progress_note(runs) if best else ""), "runs": runs}
@@ -351,7 +357,7 @@ def inference_layer(procs: str) -> dict[str, Any]:
             caveats = inference_caveats(points, base, top)
     return {"id": "inference", "name": "Inference cost",
             "problem": "Answer exact data-center ops questions on Crusoe for the least $ per correct answer.",
-            "verified": spec["verifier"], "score_label": "$ per correct answer (lower is better)", "digits": 6,
+            "verified": INFERENCE_VERIFIED, "score_label": "$ per correct answer (lower is better)", "digits": 6,
             "baseline": {"name": "v0 cold: Super, reasoning on, 4000 tokens, 1 question per call",
                          "score": base["cost_per_correct_usd"] if base else None},
             "caveats": caveats,
