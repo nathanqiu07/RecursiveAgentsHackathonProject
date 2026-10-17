@@ -1,0 +1,28 @@
+{
+ "changelog": [
+  "v0: one model for every question type, reasoning on, one question per call"
+ ],
+ "config": {
+  "batch_size": 1,
+  "default_model": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B",
+  "knob_notes": "Roles are question types. models/thinking/max_tokens_by_type are keyed by question type; batch_size = questions of one type answered in one JSON call (1..12): fewer calls and less repeated prompt, but one bad reply loses the whole batch. A type's failures are wrong:<type>, bad_json:<type>, truncated:<type> (hit max_tokens), slow:<type> (mean call latency > 20 s).",
+  "max_tokens": 4000,
+  "models": {},
+  "temperature": 0.0,
+  "thinking": {
+   "busway_left": true,
+   "cdu_headroom": true,
+   "hose_slack": true,
+   "rack_fit": true
+  }
+ },
+ "parent": null,
+ "playbooks": {},
+ "prompts": {
+  "busway_left": "You are a data-center operations analyst. Compute each answer exactly from the facts given, using the reference rules. Give plain numbers (no units).",
+  "cdu_headroom": "You are a data-center operations analyst. Compute each answer exactly from the facts given, using the reference rules. Give plain numbers (no units).",
+  "hose_slack": "You are a data-center operations analyst. Compute each answer exactly from the facts given, using the reference rules. Give plain numbers (no units).",
+  "rack_fit": "You are a data-center operations analyst. Compute each answer exactly from the facts given, using the reference rules. Give plain numbers (no units)."
+ },
+ "version": 0
+}

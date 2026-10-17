@@ -5,11 +5,15 @@ import Guide from './Guide';
 import Agents from './Agents';
 import Connections from './Connections';
 import Library from './Library';
+import DataCenter from './DataCenter';
+import Hero from './Hero';
+import Stage from './Stage';
 
-const tabs = ['Benchmarks', 'Library', 'Agents', 'Connections', 'Resources', 'Guide'] as const;
+const tabs = ['Overview', 'Stage', 'Benchmarks', 'AI Data Center', 'Library', 'Agents', 'Connections', 'Resources', 'Guide'] as const;
+const slug = (tab: string) => tab.toLowerCase().replace(/\s+/g, '-');
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('Benchmarks');
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>('Overview');
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -47,11 +51,11 @@ export default function App() {
               tabRefs.current[index] = element;
             }}
             className="tab"
-            id={`${tab.toLowerCase()}-tab`}
+            id={`${slug(tab)}-tab`}
             type="button"
             role="tab"
             aria-selected={activeTab === tab}
-            aria-controls={`${tab.toLowerCase()}-panel`}
+            aria-controls={`${slug(tab)}-panel`}
             tabIndex={activeTab === tab ? 0 : -1}
             onClick={() => setActiveTab(tab)}
             onKeyDown={(event) => handleKeyDown(event, index)}
@@ -65,14 +69,17 @@ export default function App() {
         {tabs.map((tab) => (
           <section
             key={tab}
-            id={`${tab.toLowerCase()}-panel`}
+            id={`${slug(tab)}-panel`}
             role="tabpanel"
-            aria-labelledby={`${tab.toLowerCase()}-tab`}
+            aria-labelledby={`${slug(tab)}-tab`}
             hidden={activeTab !== tab}
             tabIndex={0}
           >
+            {tab === 'Overview' && <Hero active={activeTab === 'Overview'} onOpenLayers={() => setActiveTab('AI Data Center')} />}
+            {tab === 'Stage' && <Stage active={activeTab === 'Stage'} />}
             {tab === 'Benchmarks' && <Benchmarks active={activeTab === 'Benchmarks'} />}
             {tab === 'Library' && <Library active={activeTab === 'Library'} />}
+            {tab === 'AI Data Center' && <DataCenter active={activeTab === 'AI Data Center'} />}
             {tab === 'Resources' && <Resources active={activeTab === 'Resources'} />}
             {tab === 'Agents' && <Agents active={activeTab === 'Agents'} />}
             {tab === 'Connections' && <Connections active={activeTab === 'Connections'} />}

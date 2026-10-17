@@ -1,0 +1,6 @@
+{"key": "42b47dbd7c564ad3", "paper_id": "7a2791b6-7427-4514-b6cf-e1ab42aea48c", "title": "[datahall] g0 v0: tool_set capacity_calc: True", "kind": "mutation", "generation": 0}
+{"key": "6e8cf4cd0e0bc731", "paper_id": "7c0f6767-b6dd-4102-9062-202e7ec16a8c", "title": "[datahall] g0 v0: tool_set nearest_examples: True", "kind": "mutation", "generation": 0}
+{"key": "56de50a29d6a51a1", "paper_id": "50ddbbfd-b472-41a6-bc6d-c74e2b7d2615", "title": "[datahall] g0 v0: playbook_add Layout: After proposing a rack placement, invoke capacity_calc to verify busway row and CDU capaci...", "kind": "mutation", "generation": 0}
+{"key": "42b47dbd7c564ad3", "paper_id": "7a2791b6-7427-4514-b6cf-e1ab42aea48c", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "6e8cf4cd0e0bc731", "paper_id": "7c0f6767-b6dd-4102-9062-202e7ec16a8c", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "56de50a29d6a51a1", "paper_id": "50ddbbfd-b472-41a6-bc6d-c74e2b7d2615", "verdict": "not_verified", "verdict_via": "report"}

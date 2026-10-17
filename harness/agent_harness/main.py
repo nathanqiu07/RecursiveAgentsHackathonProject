@@ -397,11 +397,14 @@ def create_research_run(
             benchmark_id=body.benchmark_id,
             allocation=None,
             objective=(
-                f"Produce an original research paper for {title[:200]} (benchmark {body.benchmark_id}). "
+                f"Produce an original research paper for {title[:200]} "
+                f"(benchmark {body.benchmark_id}). "
                 "Read the complete benchmark contract, search the Library and external papers, "
-                "develop your own optimization, run controlled experiments, and write your own paper. "
+                "develop your own optimization, run controlled experiments, "
+                "and write your own paper. "
                 "Begin research immediately; request GPU execution only when needed. "
-                "Submit the original paper with measured results and reproducible evidence to the Library. "
+                "Submit the original paper with measured results "
+                "and reproducible evidence to the Library. "
                 "Online papers are references; a reading list or idea alone is not the deliverable."
             ),
             harness=harness,

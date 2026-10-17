@@ -1,0 +1,3 @@
+{"key": "84fe1bae7967bfa5", "paper_id": "7c3f0722-205f-4531-94e5-ef9f37156dda", "title": "[datahall] g0 v0: playbook_add Layout: Return exactly one JSON object; if the generated plan would exceed max_tokens, truncate to...", "kind": "mutation", "generation": 0}
+{"key": "96beb4e1f153ba6b", "paper_id": "fd894879-46af-4a3b-8f0d-566617093ecc", "title": "[datahall] g0 v0: config_set thinking.Layout: True", "kind": "mutation", "generation": 0}
+{"key": "0980f0f007753081", "paper_id": "e5ab8446-286d-44a7-8a82-2cc9a4c6c2e3", "title": "[datahall] g0 v0: config_set capacity_calc.Enabled: True", "kind": "mutation", "generation": 0}

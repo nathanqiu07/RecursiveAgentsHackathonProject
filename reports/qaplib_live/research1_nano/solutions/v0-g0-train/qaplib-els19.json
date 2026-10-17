@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 20694866, "solution": {"instance": "els19", "permutation": [0, 1, 2, 16, 5, 12, 13, 3, 11, 17, 8, 18, 7, 10, 14, 15, 4, 9, 6]}, "task_id": "qaplib-els19", "config": "v0 g0 train", "version": 0, "split": "train", "score": 0.8317303431682042, "passed": false}

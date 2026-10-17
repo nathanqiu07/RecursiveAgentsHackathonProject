@@ -1,0 +1,3 @@
+{"key": "fe70cbd27e2cf96d", "paper_id": "1980b10a-775b-4e5a-9fa0-08950265f6db", "title": "[datahall] g0 v0: prompt_edit Planner: You are the power and cooling Planner for a 2N AI data hall. Before any rack is placed, ca...", "kind": "mutation", "generation": 0}
+{"key": "08c51fb3f8d57a1f", "paper_id": "2146b85a-2905-4dfa-bb58-b150be375a5a", "title": "[datahall] g0 v0: playbook_add Layout: Before placing a rack, verify that its Manhattan distance to the assigned CDU port satisfi...", "kind": "mutation", "generation": 0}
+{"key": "794709b3daeea78f", "paper_id": "b1b5ddb4-dd72-446a-9d01-56ac325652b9", "title": "[datahall] g0 v0: config_set thinking: {'Planner': False}", "kind": "mutation", "generation": 0}

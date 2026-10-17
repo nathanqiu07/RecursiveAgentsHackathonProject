@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 94870, "solution": {"instance": "kra30b", "permutation": [7, 1, 4, 19, 0, 2, 6, 16, 5, 8, 15, 21, 12, 10, 11, 18, 23, 29, 28, 24, 25, 20, 3, 14, 9, 22, 17, 27, 13, 26]}, "task_id": "qaplib-kra30b", "config": "v0 g0 train", "version": 0, "split": "train", "score": 0.9636344471381891, "passed": false}

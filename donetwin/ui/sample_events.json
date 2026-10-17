@@ -1,0 +1,1691 @@
+[
+ {
+  "seq": 0,
+  "t": 0.0,
+  "type": "run_start",
+  "goal": "Insert a heavy-duty robotic arm between conveyor line A and sorting bin B.",
+  "scenario": {
+   "name": "sorting_cell",
+   "title": "Line A sorting cell retrofit",
+   "goal": "Insert a heavy-duty robotic arm between conveyor line A and sorting bin B.",
+   "floor": {
+    "w": 16,
+    "d": 10
+   },
+   "objects": [
+    {
+     "id": "walkway_main",
+     "kind": "walkway",
+     "x": 8.0,
+     "y": 0.75,
+     "w": 16.0,
+     "d": 1.5,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P1",
+     "kind": "pillar",
+     "x": 3.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P2",
+     "kind": "pillar",
+     "x": 9.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P3",
+     "kind": "pillar",
+     "x": 15.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P4",
+     "kind": "pillar",
+     "x": 3.0,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P5",
+     "kind": "pillar",
+     "x": 9.3,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P6",
+     "kind": "pillar",
+     "x": 15.0,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "conveyor_A",
+     "kind": "conveyor",
+     "x": 4.0,
+     "y": 8.6,
+     "w": 7.0,
+     "d": 0.8,
+     "h": 0.9,
+     "rot": 0,
+     "fixed": true,
+     "points": {
+      "pick": [
+       3.2,
+       0.0
+      ]
+     },
+     "note": "flows +x; parts arrive at the pick point at the east end"
+    },
+    {
+     "id": "sensor_S",
+     "kind": "sensor",
+     "x": 10.4,
+     "y": 6.6,
+     "w": 0.2,
+     "d": 0.2,
+     "h": 0.1,
+     "z": 2.8,
+     "rot": 0,
+     "fixed": true,
+     "points": {
+      "target": [
+       0.0,
+       0.0
+      ]
+     },
+     "note": "overhead fill-level / drop-off sensor on a fixed gantry"
+    },
+    {
+     "id": "bin_B",
+     "kind": "bin",
+     "x": 10.5,
+     "y": 6.6,
+     "w": 1.2,
+     "d": 1.0,
+     "h": 1.1,
+     "rot": 0,
+     "fixed": false,
+     "points": {
+      "drop": [
+       0.0,
+       0.0
+      ]
+     },
+     "note": "sorting bin; movable"
+    }
+   ]
+  },
+  "models": {
+   "planner": "nvidia/Nemotron-3-Super-120B-A12B",
+   "vision": "nvidia/Nemotron-3-Nano-Omni-Reasoning-30B-A3B"
+  }
+ },
+ {
+  "seq": 1,
+  "t": 0.3,
+  "type": "log",
+  "agent": "spec",
+  "msg": "Reading goal and scene: 10 objects, 16 x 10 m floor."
+ },
+ {
+  "seq": 2,
+  "t": 1.5,
+  "type": "log",
+  "agent": "spec",
+  "msg": "Composing the definition of done from the check library..."
+ },
+ {
+  "seq": 3,
+  "t": 13.3,
+  "type": "spec",
+  "spec": {
+   "interpretation": "Add one heavy-duty arm (HD-500) that picks parts at the east end of conveyor A and drops them into bin B, without touching structure or the walkway.",
+   "assumptions": [
+    "\"Heavy-duty\" means the HD-500 (500 kg payload, 3.1 m reach, 0.7 m dead zone).",
+    "Pick at conveyor_A.pick (7.20, 8.60); place at bin_B.drop.",
+    "bin_B may move; pillars, conveyor, walkway and sensor are fixed.",
+    "Usable reach is 90% of maximum reach."
+   ],
+   "new_objects": [
+    {
+     "id": "robot_1",
+     "kind": "robot",
+     "model": "HD-500",
+     "pick": "conveyor_A.pick",
+     "place": "bin_B.drop"
+    }
+   ],
+   "checks": [
+    {
+     "type": "exists",
+     "params": {
+      "id": "robot_1",
+      "kind": "robot"
+     },
+     "why": "The goal adds a robot; a layout without it has silently dropped the task."
+    },
+    {
+     "type": "no_collision",
+     "params": {},
+     "why": "mandatory: physical collisions are never acceptable"
+    },
+    {
+     "type": "in_bounds",
+     "params": {},
+     "why": "mandatory: the layout must fit the floor"
+    },
+    {
+     "type": "fixed_unchanged",
+     "params": {},
+     "why": "mandatory: structural elements are immovable"
+    },
+    {
+     "type": "reach",
+     "params": {
+      "robot": "robot_1",
+      "point": "conveyor_A.pick",
+      "margin": 0.9
+     },
+     "why": "The arm must reach parts at the conveyor's east end with a 10% reach reserve."
+    },
+    {
+     "type": "reach",
+     "params": {
+      "robot": "robot_1",
+      "point": "bin_B.drop",
+      "margin": 0.9
+     },
+     "why": "The arm must reach the bin drop point with a 10% reach reserve."
+    },
+    {
+     "type": "swing_clear",
+     "params": {
+      "robot": "robot_1",
+      "from": "conveyor_A.pick",
+      "to": "bin_B.drop",
+      "against_kinds": [
+       "pillar"
+      ],
+      "arm_width": 0.4
+     },
+     "why": "Carrying a heavy part from pick to place must not sweep through a structural column in at least one direction."
+    },
+    {
+     "type": "min_clearance",
+     "params": {
+      "subject": "robot_1",
+      "against_kinds": [
+       "pillar",
+       "conveyor",
+       "bin"
+      ],
+      "distance": 0.4
+     },
+     "why": "0.4 m around the base for maintenance access and cable routing."
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "walkway_main",
+      "include_envelopes": true
+     },
+     "why": "People walk on walkway_main; no footprint or reach envelope may enter it (ISO 10218-2)."
+    },
+    {
+     "type": "aligned",
+     "params": {
+      "a": "bin_B.drop",
+      "b": "sensor_S.target",
+      "tolerance": 0.05
+     },
+     "why": "The overhead fill-level sensor must look straight into the bin, or drops are not counted."
+    }
+   ]
+  }
+ },
+ {
+  "seq": 4,
+  "t": 13.4,
+  "type": "log",
+  "agent": "spec",
+  "msg": "Definition of done: 10 checks (3 mandatory, 7 goal-specific)."
+ },
+ {
+  "seq": 5,
+  "t": 14.0,
+  "type": "iteration_start",
+  "iter": 1
+ },
+ {
+  "seq": 6,
+  "t": 14.8,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Writing placement program for robot_1 (HD-500)."
+ },
+ {
+  "seq": 7,
+  "t": 15.6,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Strategy: midpoint between conveyor_A.pick and bin_B.drop."
+ },
+ {
+  "seq": 8,
+  "t": 26.1,
+  "type": "layout",
+  "iter": 1,
+  "code": "# iteration 1: first placement\n# Put the arm halfway between where parts arrive and where they go.\npick = scene.point(\"conveyor_A.pick\")\ndrop = scene.point(\"bin_B.drop\")\nmx = (pick[0] + drop[0]) / 2\nmy = (pick[1] + drop[1]) / 2\nprint(f\"pick={pick} drop={drop} midpoint=({mx:.2f}, {my:.2f})\")\n\nscene.add_robot(\"robot_1\", \"HD-500\", x=round(mx, 1), y=round(my, 1))\nprint(\"placed robot_1\", scene.get(\"robot_1\")[\"x\"], scene.get(\"robot_1\")[\"y\"])\n",
+  "note": "Naive first pass: robot base at the midpoint between pick and drop."
+ },
+ {
+  "seq": 9,
+  "t": 26.3,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "Executing layout program in sandbox (timeout 10 s)..."
+ },
+ {
+  "seq": 10,
+  "t": 27.2,
+  "type": "sandbox",
+  "iter": 1,
+  "ok": true,
+  "error": null,
+  "stdout": "pick=(7.2, 8.6) drop=(10.5, 6.6) midpoint=(8.85, 7.60)\nplaced robot_1 8.8 7.6\n",
+  "scene": {
+   "name": "sorting_cell",
+   "title": "Line A sorting cell retrofit",
+   "goal": "Insert a heavy-duty robotic arm between conveyor line A and sorting bin B.",
+   "floor": {
+    "w": 16,
+    "d": 10
+   },
+   "objects": [
+    {
+     "id": "walkway_main",
+     "kind": "walkway",
+     "x": 8.0,
+     "y": 0.75,
+     "w": 16.0,
+     "d": 1.5,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P1",
+     "kind": "pillar",
+     "x": 3.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P2",
+     "kind": "pillar",
+     "x": 9.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P3",
+     "kind": "pillar",
+     "x": 15.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P4",
+     "kind": "pillar",
+     "x": 3.0,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P5",
+     "kind": "pillar",
+     "x": 9.3,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P6",
+     "kind": "pillar",
+     "x": 15.0,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "conveyor_A",
+     "kind": "conveyor",
+     "x": 4.0,
+     "y": 8.6,
+     "w": 7.0,
+     "d": 0.8,
+     "h": 0.9,
+     "rot": 0,
+     "fixed": true,
+     "points": {
+      "pick": [
+       3.2,
+       0.0
+      ]
+     },
+     "note": "flows +x; parts arrive at the pick point at the east end"
+    },
+    {
+     "id": "sensor_S",
+     "kind": "sensor",
+     "x": 10.4,
+     "y": 6.6,
+     "w": 0.2,
+     "d": 0.2,
+     "h": 0.1,
+     "z": 2.8,
+     "rot": 0,
+     "fixed": true,
+     "points": {
+      "target": [
+       0.0,
+       0.0
+      ]
+     },
+     "note": "overhead fill-level / drop-off sensor on a fixed gantry"
+    },
+    {
+     "id": "bin_B",
+     "kind": "bin",
+     "x": 10.5,
+     "y": 6.6,
+     "w": 1.2,
+     "d": 1.0,
+     "h": 1.1,
+     "rot": 0,
+     "fixed": false,
+     "points": {
+      "drop": [
+       0.0,
+       0.0
+      ]
+     },
+     "note": "sorting bin; movable"
+    },
+    {
+     "id": "robot_1",
+     "kind": "robot",
+     "model": "HD-500",
+     "x": 8.8,
+     "y": 7.6,
+     "rot": 0.0,
+     "w": 1.1,
+     "d": 1.1,
+     "h": 2.6,
+     "reach": 3.1,
+     "min_reach": 0.7,
+     "payload_kg": 500,
+     "fixed": false
+    }
+   ]
+  },
+  "points": {
+   "conveyor_A.pick": [
+    7.2,
+    8.6
+   ],
+   "bin_B.drop": [
+    10.5,
+    6.6
+   ],
+   "sensor_S.target": [
+    10.4,
+    6.6
+   ]
+  }
+ },
+ {
+  "seq": 11,
+  "t": 27.3,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "OK. robot_1 at (8.80, 7.60)."
+ },
+ {
+  "seq": 12,
+  "t": 27.6,
+  "type": "verify",
+  "iter": 1,
+  "report": {
+   "checks": [
+    {
+     "type": "exists",
+     "params": {
+      "id": "robot_1",
+      "kind": "robot"
+     },
+     "why": "The goal adds a robot; a layout without it has silently dropped the task.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "no_collision",
+     "params": {},
+     "why": "mandatory: physical collisions are never acceptable",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "pillar_P5",
+        "robot_1"
+       ],
+       "magnitude": 0.35,
+       "detail": "pillar_P5 footprint collides with robot_1 (0.16 m2 overlap, 0.35 m penetration)",
+       "fix": "translate robot_1 by (dx=-0.40, dy=+0.00) or translate robot_1 by (dx=+0.00, dy=+0.50)"
+      }
+     ]
+    },
+    {
+     "type": "in_bounds",
+     "params": {},
+     "why": "mandatory: the layout must fit the floor",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "fixed_unchanged",
+     "params": {},
+     "why": "mandatory: structural elements are immovable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "reach",
+     "params": {
+      "robot": "robot_1",
+      "point": "conveyor_A.pick",
+      "margin": 0.9
+     },
+     "why": "The arm must reach parts at the conveyor's east end with a 10% reach reserve.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "reach",
+     "params": {
+      "robot": "robot_1",
+      "point": "bin_B.drop",
+      "margin": 0.9
+     },
+     "why": "The arm must reach the bin drop point with a 10% reach reserve.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "swing_clear",
+     "params": {
+      "robot": "robot_1",
+      "from": "conveyor_A.pick",
+      "to": "bin_B.drop",
+      "against_kinds": [
+       "pillar"
+      ],
+      "arm_width": 0.4
+     },
+     "why": "Carrying a heavy part from pick to place must not sweep through a structural column in at least one direction.",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "robot_1",
+        "pillar_P5"
+       ],
+       "magnitude": 0.5,
+       "detail": "arm sweep conveyor_A.pick -> bin_B.drop (radius 2.17 m, 148 deg -> -30 deg) hits pillar_P5 going CCW and pillar_P5 going CW",
+       "fix": "relocate robot_1 so that no full-height obstacle lies inside the swept sector in at least one direction; obstacles: pillar_P5 at (9.3, 7.2)"
+      }
+     ]
+    },
+    {
+     "type": "min_clearance",
+     "params": {
+      "subject": "robot_1",
+      "against_kinds": [
+       "pillar",
+       "conveyor",
+       "bin"
+      ],
+      "distance": 0.4
+     },
+     "why": "0.4 m around the base for maintenance access and cable routing.",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "robot_1",
+        "pillar_P5"
+       ],
+       "magnitude": 0.4,
+       "detail": "robot_1 is 0.00 m from pillar_P5; needs >= 0.40 m",
+       "fix": "translate robot_1 by (dx=-0.77, dy=+0.00)"
+      }
+     ]
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "walkway_main",
+      "include_envelopes": true
+     },
+     "why": "People walk on walkway_main; no footprint or reach envelope may enter it (ISO 10218-2).",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "aligned",
+     "params": {
+      "a": "bin_B.drop",
+      "b": "sensor_S.target",
+      "tolerance": 0.05
+     },
+     "why": "The overhead fill-level sensor must look straight into the bin, or drops are not counted.",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "bin_B",
+        "sensor_S"
+       ],
+       "magnitude": 0.1,
+       "detail": "bin_B.drop is 0.100 m from sensor_S.target (tolerance 0.050 m): items will miss",
+       "fix": "translate bin_B by (dx=-0.10, dy=+0.00)"
+      }
+     ]
+    }
+   ],
+   "passed": 6,
+   "total": 10,
+   "all_pass": false,
+   "penalty": 5.35
+  },
+  "geometry": {
+   "robots": [
+    {
+     "id": "robot_1",
+     "x": 8.8,
+     "y": 7.6,
+     "reach": 3.1,
+     "min_reach": 0.7,
+     "pick": [
+      7.2,
+      8.6
+     ],
+     "place": [
+      10.5,
+      6.6
+     ],
+     "sweep": {
+      "a0": 147.99,
+      "a1": -30.47,
+      "dir": null,
+      "radius": 2.172,
+      "hits": {
+       "ccw": [
+        "pillar_P5"
+       ],
+       "cw": [
+        "pillar_P5"
+       ]
+      }
+     }
+    }
+   ]
+  }
+ },
+ {
+  "seq": 13,
+  "t": 27.65,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "6/10 checks pass, penalty 5.35."
+ },
+ {
+  "seq": 14,
+  "t": 27.7,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL no_collision: pillar_P5 footprint collides with robot_1 (0.16 m2 overlap, 0.35 m penetration)"
+ },
+ {
+  "seq": 15,
+  "t": 27.75,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL swing_clear: arm sweep conveyor_A.pick -> bin_B.drop (radius 2.17 m, 148 deg -> -30 deg) hits pillar_P5 going CCW and pilla"
+ },
+ {
+  "seq": 16,
+  "t": 27.8,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL min_clearance: robot_1 is 0.00 m from pillar_P5; needs >= 0.40 m"
+ },
+ {
+  "seq": 17,
+  "t": 27.85,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL aligned: bin_B.drop is 0.100 m from sensor_S.target (tolerance 0.050 m): items will miss"
+ },
+ {
+  "seq": 18,
+  "t": 28.15,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Rendering top and isometric views for the inspector..."
+ },
+ {
+  "seq": 19,
+  "t": 35.65,
+  "type": "vision",
+  "iter": 1,
+  "verdict": "fail",
+  "issues": [
+   {
+    "severity": "high",
+    "objects": [
+     "robot_1",
+     "pillar_P5"
+    ],
+    "description": "Top view: robot_1 base plate overlaps pillar P5's footprint."
+   },
+   {
+    "severity": "medium",
+    "objects": [
+     "bin_B",
+     "sensor_S"
+    ],
+    "description": "Sensor beam lands near the bin's east rim rather than its center."
+   }
+  ],
+  "adjudication": [
+   {
+    "claim": "robot_1 overlaps pillar_P5",
+    "measured": "0.35 m penetration",
+    "ruling": "confirmed"
+   },
+   {
+    "claim": "bin_B off-center under sensor_S",
+    "measured": "0.100 m offset (tol 0.050)",
+    "ruling": "confirmed"
+   }
+  ]
+ },
+ {
+  "seq": 20,
+  "t": 35.7,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Claim 'robot_1 overlaps pillar_P5' -> confirmed (0.35 m penetration)."
+ },
+ {
+  "seq": 21,
+  "t": 35.75,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Claim 'bin_B off-center under sensor_S' -> confirmed (0.100 m offset (tol 0.050))."
+ },
+ {
+  "seq": 22,
+  "t": 38.95,
+  "type": "decision",
+  "iter": 1,
+  "action": "continue",
+  "reason": "4 defects. The pillar_P5 collision also breaks swing and clearance; bin_B is 0.10 m off the sensor. Apply the verifier's fix vectors."
+ },
+ {
+  "seq": 23,
+  "t": 39.0,
+  "type": "log",
+  "agent": "supervisor",
+  "msg": "CONTINUE: 4 defects. The pillar_P5 collision also breaks swing and clearance; bin_B is 0.10 m off the sensor. Apply the verifier's"
+ },
+ {
+  "seq": 24,
+  "t": 39.6,
+  "type": "iteration_start",
+  "iter": 2
+ },
+ {
+  "seq": 25,
+  "t": 40.4,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Re-planning from 4 violations with fix vectors."
+ },
+ {
+  "seq": 26,
+  "t": 41.2,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Moving robot_1 south-west; shifting bin_B 0.10 m west."
+ },
+ {
+  "seq": 27,
+  "t": 52.7,
+  "type": "layout",
+  "iter": 2,
+  "code": "# iteration 2: apply verifier fixes\n# no_collision: move robot_1 away from pillar_P5 (south-west)\n# aligned: translate bin_B by (dx=-0.10, dy=+0.00) to sit under sensor_S\nscene.add_robot(\"robot_1\", \"HD-500\", x=8.8, y=7.6)\nscene.translate(\"robot_1\", dx=-0.6, dy=-1.6)\nscene.move(\"bin_B\", x=10.4, y=6.6)\n\nr = scene.get(\"robot_1\")\nfor ref in (\"conveyor_A.pick\", \"bin_B.drop\"):\n    px, py = scene.point(ref)\n    print(ref, \"dist\", round(((px - r[\"x\"])**2 + (py - r[\"y\"])**2) ** 0.5, 2))\n",
+  "note": "Applied fix vectors: robot_1 moved 1.7 m south-west of pillar_P5; bin_B shifted 0.10 m west under the sensor."
+ },
+ {
+  "seq": 28,
+  "t": 52.9,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "Executing layout program in sandbox (timeout 10 s)..."
+ },
+ {
+  "seq": 29,
+  "t": 53.8,
+  "type": "sandbox",
+  "iter": 2,
+  "ok": true,
+  "error": null,
+  "stdout": "conveyor_A.pick dist 2.79\nbin_B.drop dist 2.28\n",
+  "scene": {
+   "name": "sorting_cell",
+   "title": "Line A sorting cell retrofit",
+   "goal": "Insert a heavy-duty robotic arm between conveyor line A and sorting bin B.",
+   "floor": {
+    "w": 16,
+    "d": 10
+   },
+   "objects": [
+    {
+     "id": "walkway_main",
+     "kind": "walkway",
+     "x": 8.0,
+     "y": 0.75,
+     "w": 16.0,
+     "d": 1.5,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P1",
+     "kind": "pillar",
+     "x": 3.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P2",
+     "kind": "pillar",
+     "x": 9.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P3",
+     "kind": "pillar",
+     "x": 15.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P4",
+     "kind": "pillar",
+     "x": 3.0,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P5",
+     "kind": "pillar",
+     "x": 9.3,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P6",
+     "kind": "pillar",
+     "x": 15.0,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "conveyor_A",
+     "kind": "conveyor",
+     "x": 4.0,
+     "y": 8.6,
+     "w": 7.0,
+     "d": 0.8,
+     "h": 0.9,
+     "rot": 0,
+     "fixed": true,
+     "points": {
+      "pick": [
+       3.2,
+       0.0
+      ]
+     },
+     "note": "flows +x; parts arrive at the pick point at the east end"
+    },
+    {
+     "id": "sensor_S",
+     "kind": "sensor",
+     "x": 10.4,
+     "y": 6.6,
+     "w": 0.2,
+     "d": 0.2,
+     "h": 0.1,
+     "z": 2.8,
+     "rot": 0,
+     "fixed": true,
+     "points": {
+      "target": [
+       0.0,
+       0.0
+      ]
+     },
+     "note": "overhead fill-level / drop-off sensor on a fixed gantry"
+    },
+    {
+     "id": "bin_B",
+     "kind": "bin",
+     "x": 10.4,
+     "y": 6.6,
+     "w": 1.2,
+     "d": 1.0,
+     "h": 1.1,
+     "rot": 0,
+     "fixed": false,
+     "points": {
+      "drop": [
+       0.0,
+       0.0
+      ]
+     },
+     "note": "sorting bin; movable"
+    },
+    {
+     "id": "robot_1",
+     "kind": "robot",
+     "model": "HD-500",
+     "x": 8.2,
+     "y": 6.0,
+     "rot": 0.0,
+     "w": 1.1,
+     "d": 1.1,
+     "h": 2.6,
+     "reach": 3.1,
+     "min_reach": 0.7,
+     "payload_kg": 500,
+     "fixed": false
+    }
+   ]
+  },
+  "points": {
+   "conveyor_A.pick": [
+    7.2,
+    8.6
+   ],
+   "bin_B.drop": [
+    10.4,
+    6.6
+   ],
+   "sensor_S.target": [
+    10.4,
+    6.6
+   ]
+  }
+ },
+ {
+  "seq": 30,
+  "t": 53.9,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "OK. robot_1 at (8.20, 6.00); bin_B at (10.40, 6.60)."
+ },
+ {
+  "seq": 31,
+  "t": 54.2,
+  "type": "verify",
+  "iter": 2,
+  "report": {
+   "checks": [
+    {
+     "type": "exists",
+     "params": {
+      "id": "robot_1",
+      "kind": "robot"
+     },
+     "why": "The goal adds a robot; a layout without it has silently dropped the task.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "no_collision",
+     "params": {},
+     "why": "mandatory: physical collisions are never acceptable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "in_bounds",
+     "params": {},
+     "why": "mandatory: the layout must fit the floor",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "fixed_unchanged",
+     "params": {},
+     "why": "mandatory: structural elements are immovable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "reach",
+     "params": {
+      "robot": "robot_1",
+      "point": "conveyor_A.pick",
+      "margin": 0.9
+     },
+     "why": "The arm must reach parts at the conveyor's east end with a 10% reach reserve.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "reach",
+     "params": {
+      "robot": "robot_1",
+      "point": "bin_B.drop",
+      "margin": 0.9
+     },
+     "why": "The arm must reach the bin drop point with a 10% reach reserve.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "swing_clear",
+     "params": {
+      "robot": "robot_1",
+      "from": "conveyor_A.pick",
+      "to": "bin_B.drop",
+      "against_kinds": [
+       "pillar"
+      ],
+      "arm_width": 0.4
+     },
+     "why": "Carrying a heavy part from pick to place must not sweep through a structural column in at least one direction.",
+     "passed": false,
+     "violations": [
+      {
+       "objects": [
+        "robot_1",
+        "pillar_P2",
+        "pillar_P5"
+       ],
+       "magnitude": 1.0,
+       "detail": "arm sweep conveyor_A.pick -> bin_B.drop (radius 2.99 m, 111 deg -> 15 deg) hits pillar_P2 going CCW and pillar_P5 going CW",
+       "fix": "relocate robot_1 so that no full-height obstacle lies inside the swept sector in at least one direction; obstacles: pillar_P2 at (9.0, 4.5); pillar_P5 at (9.3, 7.2)"
+      }
+     ]
+    },
+    {
+     "type": "min_clearance",
+     "params": {
+      "subject": "robot_1",
+      "against_kinds": [
+       "pillar",
+       "conveyor",
+       "bin"
+      ],
+      "distance": 0.4
+     },
+     "why": "0.4 m around the base for maintenance access and cable routing.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "walkway_main",
+      "include_envelopes": true
+     },
+     "why": "People walk on walkway_main; no footprint or reach envelope may enter it (ISO 10218-2).",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "aligned",
+     "params": {
+      "a": "bin_B.drop",
+      "b": "sensor_S.target",
+      "tolerance": 0.05
+     },
+     "why": "The overhead fill-level sensor must look straight into the bin, or drops are not counted.",
+     "passed": true,
+     "violations": []
+    }
+   ],
+   "passed": 9,
+   "total": 10,
+   "all_pass": false,
+   "penalty": 2.0
+  },
+  "geometry": {
+   "robots": [
+    {
+     "id": "robot_1",
+     "x": 8.2,
+     "y": 6.0,
+     "reach": 3.1,
+     "min_reach": 0.7,
+     "pick": [
+      7.2,
+      8.6
+     ],
+     "place": [
+      10.4,
+      6.6
+     ],
+     "sweep": {
+      "a0": 111.04,
+      "a1": 15.26,
+      "dir": null,
+      "radius": 2.986,
+      "hits": {
+       "ccw": [
+        "pillar_P2"
+       ],
+       "cw": [
+        "pillar_P5"
+       ]
+      }
+     }
+    }
+   ]
+  }
+ },
+ {
+  "seq": 32,
+  "t": 54.25,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "9/10 checks pass, penalty 2.0."
+ },
+ {
+  "seq": 33,
+  "t": 54.3,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "FAIL swing_clear: arm sweep conveyor_A.pick -> bin_B.drop (radius 2.99 m, 111 deg -> 15 deg) hits pillar_P2 going CCW and pillar"
+ },
+ {
+  "seq": 34,
+  "t": 54.6,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Rendering top and isometric views for the inspector..."
+ },
+ {
+  "seq": 35,
+  "t": 62.1,
+  "type": "vision",
+  "iter": 2,
+  "verdict": "fail",
+  "issues": [
+   {
+    "severity": "low",
+    "objects": [
+     "bin_B",
+     "pillar_P5"
+    ],
+    "description": "bin_B looks tight against pillar P5."
+   }
+  ],
+  "adjudication": [
+   {
+    "claim": "bin_B too close to pillar_P5",
+    "measured": "0.20 m gap; no clearance rule covers bin_B",
+    "ruling": "rejected"
+   }
+  ]
+ },
+ {
+  "seq": 36,
+  "t": 62.15,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Claim 'bin_B too close to pillar_P5' -> rejected (0.20 m gap; no clearance rule covers bin_B)."
+ },
+ {
+  "seq": 37,
+  "t": 65.35,
+  "type": "decision",
+  "iter": 2,
+  "action": "continue",
+  "reason": "1 defect left: both sweeps are blocked (pillar_P2 going CCW, pillar_P5 going CW). robot_1 sits between two pillars; move it north of P5."
+ },
+ {
+  "seq": 38,
+  "t": 65.4,
+  "type": "log",
+  "agent": "supervisor",
+  "msg": "CONTINUE: 1 defect left: both sweeps are blocked (pillar_P2 going CCW, pillar_P5 going CW). robot_1 sits between two pillars; move"
+ },
+ {
+  "seq": 39,
+  "t": 66.0,
+  "type": "iteration_start",
+  "iter": 3
+ },
+ {
+  "seq": 40,
+  "t": 66.8,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Swing blocked both ways from (8.2, 6.0). Searching north of pillar_P5."
+ },
+ {
+  "seq": 41,
+  "t": 67.6,
+  "type": "log",
+  "agent": "layout",
+  "msg": "Candidate (9.5, 8.9): CW sweep over open floor."
+ },
+ {
+  "seq": 42,
+  "t": 80.1,
+  "type": "layout",
+  "iter": 3,
+  "code": "# iteration 3: get out from between the pillars\n# Both sweeps were blocked: P2 to the south (CCW), P5 to the east (CW).\n# Move north of P5, next to the conveyor end, so the clockwise sweep\n# passes over open floor along the north wall.\nscene.add_robot(\"robot_1\", \"HD-500\", x=9.5, y=8.9)\nscene.move(\"bin_B\", x=10.4, y=6.6)   # keep the sensor alignment fix\n\nr = scene.get(\"robot_1\")\nfor ref in (\"conveyor_A.pick\", \"bin_B.drop\"):\n    px, py = scene.point(ref)\n    d = ((px - r[\"x\"])**2 + (py - r[\"y\"])**2) ** 0.5\n    print(f\"{ref:18s} {d:.2f} m  (usable {0.9 * r['reach']:.2f} m)\")\n",
+  "note": "Relocated robot_1 north of pillar_P5 beside the conveyor end; the clockwise sweep now runs over open floor."
+ },
+ {
+  "seq": 43,
+  "t": 80.3,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "Executing layout program in sandbox (timeout 10 s)..."
+ },
+ {
+  "seq": 44,
+  "t": 81.2,
+  "type": "sandbox",
+  "iter": 3,
+  "ok": true,
+  "error": null,
+  "stdout": "conveyor_A.pick    2.32 m  (usable 2.79 m)\nbin_B.drop         2.47 m  (usable 2.79 m)\n",
+  "scene": {
+   "name": "sorting_cell",
+   "title": "Line A sorting cell retrofit",
+   "goal": "Insert a heavy-duty robotic arm between conveyor line A and sorting bin B.",
+   "floor": {
+    "w": 16,
+    "d": 10
+   },
+   "objects": [
+    {
+     "id": "walkway_main",
+     "kind": "walkway",
+     "x": 8.0,
+     "y": 0.75,
+     "w": 16.0,
+     "d": 1.5,
+     "h": 0.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P1",
+     "kind": "pillar",
+     "x": 3.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P2",
+     "kind": "pillar",
+     "x": 9.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P3",
+     "kind": "pillar",
+     "x": 15.0,
+     "y": 4.5,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P4",
+     "kind": "pillar",
+     "x": 3.0,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P5",
+     "kind": "pillar",
+     "x": 9.3,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "pillar_P6",
+     "kind": "pillar",
+     "x": 15.0,
+     "y": 7.2,
+     "w": 0.6,
+     "d": 0.6,
+     "h": 6.0,
+     "rot": 0,
+     "fixed": true
+    },
+    {
+     "id": "conveyor_A",
+     "kind": "conveyor",
+     "x": 4.0,
+     "y": 8.6,
+     "w": 7.0,
+     "d": 0.8,
+     "h": 0.9,
+     "rot": 0,
+     "fixed": true,
+     "points": {
+      "pick": [
+       3.2,
+       0.0
+      ]
+     },
+     "note": "flows +x; parts arrive at the pick point at the east end"
+    },
+    {
+     "id": "sensor_S",
+     "kind": "sensor",
+     "x": 10.4,
+     "y": 6.6,
+     "w": 0.2,
+     "d": 0.2,
+     "h": 0.1,
+     "z": 2.8,
+     "rot": 0,
+     "fixed": true,
+     "points": {
+      "target": [
+       0.0,
+       0.0
+      ]
+     },
+     "note": "overhead fill-level / drop-off sensor on a fixed gantry"
+    },
+    {
+     "id": "bin_B",
+     "kind": "bin",
+     "x": 10.4,
+     "y": 6.6,
+     "w": 1.2,
+     "d": 1.0,
+     "h": 1.1,
+     "rot": 0,
+     "fixed": false,
+     "points": {
+      "drop": [
+       0.0,
+       0.0
+      ]
+     },
+     "note": "sorting bin; movable"
+    },
+    {
+     "id": "robot_1",
+     "kind": "robot",
+     "model": "HD-500",
+     "x": 9.5,
+     "y": 8.9,
+     "rot": 0.0,
+     "w": 1.1,
+     "d": 1.1,
+     "h": 2.6,
+     "reach": 3.1,
+     "min_reach": 0.7,
+     "payload_kg": 500,
+     "fixed": false
+    }
+   ]
+  },
+  "points": {
+   "conveyor_A.pick": [
+    7.2,
+    8.6
+   ],
+   "bin_B.drop": [
+    10.4,
+    6.6
+   ],
+   "sensor_S.target": [
+    10.4,
+    6.6
+   ]
+  }
+ },
+ {
+  "seq": 45,
+  "t": 81.3,
+  "type": "log",
+  "agent": "sandbox",
+  "msg": "OK. robot_1 at (9.50, 8.90); bin_B at (10.40, 6.60)."
+ },
+ {
+  "seq": 46,
+  "t": 81.6,
+  "type": "verify",
+  "iter": 3,
+  "report": {
+   "checks": [
+    {
+     "type": "exists",
+     "params": {
+      "id": "robot_1",
+      "kind": "robot"
+     },
+     "why": "The goal adds a robot; a layout without it has silently dropped the task.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "no_collision",
+     "params": {},
+     "why": "mandatory: physical collisions are never acceptable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "in_bounds",
+     "params": {},
+     "why": "mandatory: the layout must fit the floor",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "fixed_unchanged",
+     "params": {},
+     "why": "mandatory: structural elements are immovable",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "reach",
+     "params": {
+      "robot": "robot_1",
+      "point": "conveyor_A.pick",
+      "margin": 0.9
+     },
+     "why": "The arm must reach parts at the conveyor's east end with a 10% reach reserve.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "reach",
+     "params": {
+      "robot": "robot_1",
+      "point": "bin_B.drop",
+      "margin": 0.9
+     },
+     "why": "The arm must reach the bin drop point with a 10% reach reserve.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "swing_clear",
+     "params": {
+      "robot": "robot_1",
+      "from": "conveyor_A.pick",
+      "to": "bin_B.drop",
+      "against_kinds": [
+       "pillar"
+      ],
+      "arm_width": 0.4
+     },
+     "why": "Carrying a heavy part from pick to place must not sweep through a structural column in at least one direction.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "min_clearance",
+     "params": {
+      "subject": "robot_1",
+      "against_kinds": [
+       "pillar",
+       "conveyor",
+       "bin"
+      ],
+      "distance": 0.4
+     },
+     "why": "0.4 m around the base for maintenance access and cable routing.",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "zone_clear",
+     "params": {
+      "zone": "walkway_main",
+      "include_envelopes": true
+     },
+     "why": "People walk on walkway_main; no footprint or reach envelope may enter it (ISO 10218-2).",
+     "passed": true,
+     "violations": []
+    },
+    {
+     "type": "aligned",
+     "params": {
+      "a": "bin_B.drop",
+      "b": "sensor_S.target",
+      "tolerance": 0.05
+     },
+     "why": "The overhead fill-level sensor must look straight into the bin, or drops are not counted.",
+     "passed": true,
+     "violations": []
+    }
+   ],
+   "passed": 10,
+   "total": 10,
+   "all_pass": true,
+   "penalty": 0
+  },
+  "geometry": {
+   "robots": [
+    {
+     "id": "robot_1",
+     "x": 9.5,
+     "y": 8.9,
+     "reach": 3.1,
+     "min_reach": 0.7,
+     "pick": [
+      7.2,
+      8.6
+     ],
+     "place": [
+      10.4,
+      6.6
+     ],
+     "sweep": {
+      "a0": -172.57,
+      "a1": -68.63,
+      "dir": "cw",
+      "radius": 2.67,
+      "hits": {
+       "ccw": [
+        "pillar_P5"
+       ],
+       "cw": []
+      }
+     }
+    }
+   ]
+  }
+ },
+ {
+  "seq": 47,
+  "t": 81.65,
+  "type": "log",
+  "agent": "verifier",
+  "msg": "10/10 checks pass, penalty 0."
+ },
+ {
+  "seq": 48,
+  "t": 81.95,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Rendering top and isometric views for the inspector..."
+ },
+ {
+  "seq": 49,
+  "t": 89.45,
+  "type": "vision",
+  "iter": 3,
+  "verdict": "pass",
+  "issues": [],
+  "adjudication": []
+ },
+ {
+  "seq": 50,
+  "t": 89.5,
+  "type": "log",
+  "agent": "vision",
+  "msg": "Inspector: no visible defects."
+ },
+ {
+  "seq": 51,
+  "t": 92.7,
+  "type": "decision",
+  "iter": 3,
+  "action": "done",
+  "reason": "10/10 checks pass and the inspector agrees. Clear sweep direction: clockwise."
+ },
+ {
+  "seq": 52,
+  "t": 92.75,
+  "type": "log",
+  "agent": "supervisor",
+  "msg": "DONE: 10/10 checks pass and the inspector agrees. Clear sweep direction: clockwise."
+ },
+ {
+  "seq": 53,
+  "t": 93.15,
+  "type": "done",
+  "status": "verified",
+  "iterations": 3,
+  "usage": {
+   "calls": 11,
+   "prompt_tokens": 48210,
+   "completion_tokens": 9634,
+   "cost_usd": 0.0376
+  },
+  "summary": "robot_1 (HD-500) placed at (9.50, 8.90); bin_B shifted 0.10 m west under sensor_S. 10/10 checks pass and the vision inspector agrees.",
+  "usd_path": "runs/demo/scene.usda"
+ }
+]

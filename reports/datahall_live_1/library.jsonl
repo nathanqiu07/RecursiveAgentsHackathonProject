@@ -1,0 +1,18 @@
+{"key": "6051c6a2c51af904", "paper_id": "9499733c-8b10-44d1-9a00-3bfa1aaa16c3", "title": "[datahall] g0 v0: playbook_add Layout: Run capacity_calc tool to verify that the proposed layout respects busway row power budget...", "kind": "mutation", "generation": 0}
+{"key": "6051c6a2c51af904", "paper_id": "9499733c-8b10-44d1-9a00-3bfa1aaa16c3", "verdict": "inconclusive", "verdict_via": "report"}
+{"key": "7870d45abaae74b3", "paper_id": "c4ca145a-3f95-4a09-a3ad-ebd83e8a1b6c", "title": "[datahall] g0 v0: tool_set capacity_calc: True", "kind": "mutation", "generation": 0}
+{"key": "7870d45abaae74b3", "paper_id": "c4ca145a-3f95-4a09-a3ad-ebd83e8a1b6c", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "2b98a042d40f6acf", "paper_id": "9a26b105-fa4b-4b3f-bca3-cee822aafbd3", "title": "[datahall] g0 v0: prompt_edit Planner: You are the power and cooling Planner for a 2N AI data hall. Before any rack is placed, bu...", "kind": "mutation", "generation": 0}
+{"key": "2b98a042d40f6acf", "paper_id": "9a26b105-fa4b-4b3f-bca3-cee822aafbd3", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "f962e60950d6a052", "paper_id": "0aed02e0-9b4f-44e9-a6cc-ff57a7beae68", "title": "[datahall] g1 v0: config_set tools.capacity_calc.enabled: True", "kind": "mutation", "generation": 1}
+{"key": "f962e60950d6a052", "paper_id": "0aed02e0-9b4f-44e9-a6cc-ff57a7beae68", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "e5945fcd8bdba9f4", "paper_id": "4542aea9-fb67-49dd-b79e-1dd96aa441ea", "title": "[datahall] g1 v0: playbook_add Layout: Validate CDU capacity and hose reach: for each CDU, count assigned liquid racks; if count ...", "kind": "mutation", "generation": 1}
+{"key": "e5945fcd8bdba9f4", "paper_id": "4542aea9-fb67-49dd-b79e-1dd96aa441ea", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "e2d8369867845979", "paper_id": "c9f564aa-f97f-4c75-9437-a292eae9f7aa", "title": "[datahall] g1 v0: prompt_edit Planner: When budgeting racks per busway row, enforce 2N dual\u2011feed power redundancy: allocate no mo...", "kind": "mutation", "generation": 1}
+{"key": "e2d8369867845979", "paper_id": "c9f564aa-f97f-4c75-9437-a292eae9f7aa", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "b5ee26f638e16931", "paper_id": "6b69ea65-a355-4c76-b40c-8fc43221c2dd", "title": "[datahall] g2 v0: playbook_add Layout: For each liquid-cooled rack, query the nearest_examples tool for candidate positions where...", "kind": "mutation", "generation": 2}
+{"key": "b5ee26f638e16931", "paper_id": "6b69ea65-a355-4c76-b40c-8fc43221c2dd", "verdict": "inconclusive", "verdict_via": "report"}
+{"key": "0c96a6be7dbc8f18", "paper_id": "d07285f8-1b4f-452f-8b2d-27016be3e11a", "title": "[datahall] g2 v0: config_set tools.capacity_calc.enabled: True", "kind": "mutation", "generation": 2}
+{"key": "0c96a6be7dbc8f18", "paper_id": "d07285f8-1b4f-452f-8b2d-27016be3e11a", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "ff61822f91268ac7", "paper_id": "b8e38651-0e8f-41f6-99da-2ca9671bfa52", "title": "[datahall] g2 v0: playbook_add Planner: Use the capacity_calc tool to determine the maximum number of racks each busway row and ea...", "kind": "mutation", "generation": 2}
+{"key": "ff61822f91268ac7", "paper_id": "b8e38651-0e8f-41f6-99da-2ca9671bfa52", "verdict": "not_verified", "verdict_via": "report"}

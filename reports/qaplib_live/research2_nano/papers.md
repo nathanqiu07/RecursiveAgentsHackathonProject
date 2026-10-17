@@ -1,0 +1,8 @@
+| Generation | Mutation type | Claim | Measured | Verdict |
+|---|---|---|---|---|
+| 0 | playbook_add | gain +0.020, cost -0.1% (Implementing a constraint check (as described in [2]) reduces failed runs and improves mean score by ~2% while keeping cost roughly 10% cheaper by avoiding wast) | gain +0.028, cost +49.1% | accepted, effect smaller than claimed |
+| 0 | config_set | gain +0.015, cost -0.1% (Increasing max_tokens to 8000 (within the 256‑32768 range) gives the model more space for reasoning and constraint checks ([3]), boosting dev score by ~1.5% and) | gain -0.098, cost +9.6% | not reproduced |
+| 0 | config_set | gain +0.018, cost -0.1% (Lowering temperature to 0.1 makes outputs more deterministic, improving correctness on verification tasks ([1]) and raising dev score by ~1.8% while reducing co) | gain -0.419, cost +4.4% | not reproduced |
+| 1 | playbook_add | gain +0.028, cost -0.1% (Based on v1 recent change [1] which reported a dev gain of +0.028 and a cost reduction of at least 15% when adding verification, supported by QAPLIB literature ) | gain -0.005, cost -9.1% | not reproduced |
+| 1 | config_set | gain +0.015, cost -0.1% (Reducing max_tokens from 6000 to 4000 cuts token cost while preserving solution quality as shown in QAP literature [3] where concise outputs maintain correctnes) | gain -0.468, cost -2.0% | not reproduced |
+| 1 | config_set | gain +0.012, cost -0.1% (Lowering temperature to 0.2 reduces stochastic variation, improving consistency of verified solutions; literature [1] indicates lower temperature yields more de) | gain -0.035, cost +6.7% | not reproduced |

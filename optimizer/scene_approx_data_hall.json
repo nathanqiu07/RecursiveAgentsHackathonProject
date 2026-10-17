@@ -1,0 +1,46 @@
+{
+  "name": "Hall B (approximate reconstruction)",
+  "units": {"length": "m", "power": "kW", "mass": "kg"},
+  "floor": {"width": 24.0, "depth": 16.0, "slab_rating_kg_m2": 2400},
+  "rack_catalog": {
+    "GB200-NVL72": {"w": 0.6, "d": 1.2, "kw": 132, "kg": 1360}
+  },
+  "busways": [
+    {"id": "BW_A", "y": 3.4, "x0": 2.0, "x1": 22.0, "rating_kw": 800, "derate": 0.8, "tap_reach": 0.8},
+    {"id": "BW_B", "y": 6.2, "x0": 2.0, "x1": 22.0, "rating_kw": 800, "derate": 0.8, "tap_reach": 0.8},
+    {"id": "BW_C", "y": 9.8, "x0": 2.0, "x1": 22.0, "rating_kw": 800, "derate": 0.8, "tap_reach": 0.8},
+    {"id": "BW_D", "y": 12.6, "x0": 2.0, "x1": 22.0, "rating_kw": 800, "derate": 0.8, "tap_reach": 0.8}
+  ],
+  "cdus": [
+    {"id": "CDU_1", "port_x": 3.0, "port_y": 14.8, "capacity_kw": 800, "hose_m": 14.0},
+    {"id": "CDU_2", "port_x": 9.0, "port_y": 14.8, "capacity_kw": 800, "hose_m": 14.0},
+    {"id": "CDU_3", "port_x": 15.0, "port_y": 14.8, "capacity_kw": 800, "hose_m": 14.0},
+    {"id": "CDU_4", "port_x": 21.0, "port_y": 14.8, "capacity_kw": 800, "hose_m": 14.0}
+  ],
+  "columns": [
+    {"id": "col_C1", "x": 8.0, "y": 6.2, "w": 0.6, "d": 0.6},
+    {"id": "col_C2", "x": 16.0, "y": 6.2, "w": 0.6, "d": 0.6},
+    {"id": "col_C3", "x": 8.0, "y": 12.6, "w": 0.6, "d": 0.6},
+    {"id": "col_C4", "x": 16.0, "y": 12.6, "w": 0.6, "d": 0.6}
+  ],
+  "zones": [
+    {"id": "vault_slab", "kind": "slab_keepout", "x0": 18.0, "y0": 8.4, "x1": 24.0, "y1": 14.0, "rating_kg_m2": 1200},
+    {"id": "nec_PNL_1", "kind": "nec_110_26", "x0": 20.5, "y0": 2.4, "x1": 24.0, "y1": 4.4},
+    {"id": "egress_W", "kind": "egress", "x0": 0.0, "y0": 0.0, "x1": 1.2, "y1": 16.0},
+    {"id": "egress_S", "kind": "egress", "x0": 0.0, "y0": 0.0, "x1": 24.0, "y1": 1.2}
+  ],
+  "rules": {"aisle_min_m": 1.2, "row_pitch_m": 0.6, "cooling_redundancy": "N+1"},
+  "goal": {"text": "Deploy 2 MW of GB200 NVL72 racks in Hall B with N+1 cooling", "rack": "GB200-NVL72", "target_kw": 2000},
+  "assumptions": [
+    {"field": "cdus[*].port_x", "value": [3.0, 9.0, 15.0, 21.0], "why": "spec gives CDUs on north wall at y=14.8 but no x; spread evenly"},
+    {"field": "columns[col_C3,col_C4].x", "value": [8.0, 16.0], "why": "spec places them on BW_D only; mirrored from col_C1/C2"},
+    {"field": "columns[*].w,d", "value": [0.6, 0.6], "why": "column size not given"},
+    {"field": "zones[vault_slab].y0,y1", "value": [8.4, 14.0], "why": "spec says 'under BW_C/BW_D'; extent chosen to cover both rows with reach"},
+    {"field": "zones[nec_PNL_1]", "value": [20.5, 2.4, 24.0, 4.4], "why": "spec says it touches east end of BW_A; NEC depth ~1 m either side of the busway line"},
+    {"field": "zones[egress_W,egress_S]", "value": "1.2 m wide strips along west and south walls", "why": "corridor geometry not given"},
+    {"field": "floor.slab_rating_kg_m2", "value": 2400, "why": "general slab rating not given; only the vault's 1,200 kg/m2"},
+    {"field": "rules.aisle_min_m semantics", "value": "any two racks whose x-extents overlap need >= 1.2 m clear in y", "why": "rack front/back orientation not modelled, so back-to-back abutting rows are not allowed"},
+    {"field": "row straightness", "value": "all racks on one busway share one y", "why": "spec says racks in a row abut at 0.6 m pitch"},
+    {"field": "busway feed span", "value": "rack centre x within [x0, x1]", "why": "tap points assumed available along the full busway length"}
+  ]
+}

@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 657652, "solution": {"instance": "dc-large-6252", "permutation": [0, 27, 15, 29, 30, 31, 12, 26, 10, 14, 19, 2, 18, 9, 17, 5, 25, 22, 23, 13, 24, 21, 11, 7, 4, 16, 1, 28, 6, 3, 8, 20]}, "task_id": "qaplib-dc-large-6252", "config": "v1 g1 train", "version": 1, "split": "train", "score": 0.5971608084518865, "passed": false}

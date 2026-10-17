@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 940996, "solution": {"instance": "rou20", "permutation": [3, 0, 17, 9, 14, 12, 6, 10, 19, 4, 11, 8, 5, 2, 7, 1, 15, 16, 13, 18]}, "task_id": "qaplib-rou20", "config": "v0 + final brain", "version": 0, "split": "heldout", "score": 0.7710149671199452, "passed": false}

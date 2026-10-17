@@ -1,0 +1,109 @@
+{
+  "title": "Hall B max IT load (2N power, N+1 cooling)",
+  "prompt": "Fit out data hall \"data_hall_2n\" with AI racks: maximize deployed IT load (kW) under 2N power and N+1 cooling.\n\nHALL (units: metres, kW; x/y are object centres; w is the x size, d the y size at rot 0; floor spans x 0..24, y 0..16):\n{\"name\":\"data_hall_2n\",\"floor\":{\"w\":24,\"d\":16},\"air_cooling_kw\":150,\"aisle_min_m\":1.2,\"objects\":[{\"id\":\"egress_W\",\"kind\":\"walkway\",\"x\":0.7,\"y\":8.0,\"w\":1.4,\"d\":16.0,\"rot\":0},{\"id\":\"egress_S\",\"kind\":\"walkway\",\"x\":12.0,\"y\":0.7,\"w\":24.0,\"d\":1.4,\"rot\":0},{\"id\":\"col_C1\",\"kind\":\"pillar\",\"x\":8.0,\"y\":6.2,\"w\":0.6,\"d\":0.6,\"rot\":0},{\"id\":\"col_C2\",\"kind\":\"pillar\",\"x\":16.0,\"y\":6.2,\"w\":0.6,\"d\":0.6,\"rot\":0},{\"id\":\"col_C3\",\"kind\":\"pillar\",\"x\":8.0,\"y\":12.6,\"w\":0.6,\"d\":0.6,\"rot\":0},{\"id\":\"col_C4\",\"kind\":\"pillar\",\"x\":16.0,\"y\":12.6,\"w\":0.6,\"d\":0.6,\"rot\":0},{\"id\":\"CDU_1\",\"kind\":\"cdu\",\"x\":4.0,\"y\":15.2,\"w\":1.2,\"d\":0.8,\"rot\":0,\"capacity_kw\":800,\"hose_m\":14.0,\"port_xy\":[4.0,14.8]},{\"id\":\"CDU_2\",\"kind\":\"cdu\",\"x\":9.5,\"y\":15.2,\"w\":1.2,\"d\":0.8,\"rot\":0,\"capacity_kw\":800,\"hose_m\":14.0,\"port_xy\":[9.5,14.8]},{\"id\":\"CDU_3\",\"kind\":\"cdu\",\"x\":15.0,\"y\":15.2,\"w\":1.2,\"d\":0.8,\"rot\":0,\"capacity_kw\":800,\"hose_m\":14.0,\"port_xy\":[15.0,14.8]},{\"id\":\"CDU_4\",\"kind\":\"cdu\",\"x\":20.5,\"y\":15.2,\"w\":1.2,\"d\":0.8,\"rot\":0,\"capacity_kw\":800,\"hose_m\":14.0,\"port_xy\":[20.5,14.8]},{\"id\":\"BW_A1\",\"kind\":\"busway\",\"x\":12.0,\"y\":3.15,\"w\":20.0,\"d\":0.25,\"rot\":0,\"capacity_kw\":800,\"derate\":0.8,\"tap_m\":0.8,\"feed\":\"A\",\"row\":\"A\",\"x_range\":[2.0,22.0]},{\"id\":\"BW_A2\",\"kind\":\"busway\",\"x\":12.0,\"y\":3.65,\"w\":20.0,\"d\":0.25,\"rot\":0,\"capacity_kw\":800,\"derate\":0.8,\"tap_m\":0.8,\"feed\":\"B\",\"row\":\"A\",\"x_range\":[2.0,22.0]},{\"id\":\"BW_B1\",\"kind\":\"busway\",\"x\":12.0,\"y\":5.95,\"w\":20.0,\"d\":0.25,\"rot\":0,\"capacity_kw\":800,\"derate\":0.8,\"tap_m\":0.8,\"feed\":\"A\",\"row\":\"B\",\"x_range\":[2.0,22.0]},{\"id\":\"BW_B2\",\"kind\":\"busway\",\"x\":12.0,\"y\":6.45,\"w\":20.0,\"d\":0.25,\"rot\":0,\"capacity_kw\":800,\"derate\":0.8,\"tap_m\":0.8,\"feed\":\"B\",\"row\":\"B\",\"x_range\":[2.0,22.0]},{\"id\":\"BW_C1\",\"kind\":\"busway\",\"x\":12.0,\"y\":9.55,\"w\":20.0,\"d\":0.25,\"rot\":0,\"capacity_kw\":800,\"derate\":0.8,\"tap_m\":0.8,\"feed\":\"A\",\"row\":\"C\",\"x_range\":[2.0,22.0]},{\"id\":\"BW_C2\",\"kind\":\"busway\",\"x\":12.0,\"y\":10.05,\"w\":20.0,\"d\":0.25,\"rot\":0,\"capacity_kw\":800,\"derate\":0.8,\"tap_m\":0.8,\"feed\":\"B\",\"row\":\"C\",\"x_range\":[2.0,22.0]},{\"id\":\"BW_D1\",\"kind\":\"busway\",\"x\":12.0,\"y\":12.35,\"w\":20.0,\"d\":0.25,\"rot\":0,\"capacity_kw\":800,\"derate\":0.8,\"tap_m\":0.8,\"feed\":\"A\",\"row\":\"D\",\"x_range\":[2.0,22.0]},{\"id\":\"BW_D2\",\"kind\":\"busway\",\"x\":12.0,\"y\":12.85,\"w\":20.0,\"d\":0.25,\"rot\":0,\"capacity_kw\":800,\"derate\":0.8,\"tap_m\":0.8,\"feed\":\"B\",\"row\":\"D\",\"x_range\":[2.0,22.0]},{\"id\":\"PNL_1\",\"kind\":\"panel\",\"x\":23.6,\"y\":3.5,\"w\":0.6,\"d\":1.6,\"rot\":0},{\"id\":\"nec_PNL_1\",\"kind\":\"keepout\",\"x\":22.65,\"y\":3.5,\"w\":1.3,\"d\":2.2,\"rot\":0,\"reason\":\"NEC 110.26 working space in front of PNL_1 (keep clear)\"},{\"id\":\"slab_vault\",\"kind\":\"keepout\",\"x\":21.0,\"y\":10.95,\"w\":6.0,\"d\":6.9,\"rot\":0,\"reason\":\"Slab over cable vault: 1,200 kg/m2 max (GB200 NVL72 rack ~1,890 kg/m2)\"}]}\n\nRACK CATALOG (footprint 0.6 m in x by 1.2 m in y at rot 0; at rot 90/270 the footprint swaps to 1.2 x 0.6):\n{\"GB200-NVL72\":{\"kw\":132,\"cooling\":\"liquid\",\"w\":0.6,\"d\":1.2},\"GB300-NVL72\":{\"kw\":142,\"cooling\":\"liquid\",\"w\":0.6,\"d\":1.2},\"HGX-B200\":{\"kw\":15,\"cooling\":\"air\",\"w\":0.6,\"d\":1.2}}\n\nHARD RULES (any violation makes the score 0):\n1. No collision: rack footprints must not overlap each other or any pillar, panel or CDU.\n2. In bounds: every rack footprint lies inside the floor.\n3. Zones clear: rack footprints must not overlap walkways (egress) or keepouts.\n4. Aisles: between rows of racks that face each other across an aisle, the clear gap is >= aisle_min_m (1.2 m). Racks within a row abut (gap 0).\n5. Cooling type: liquid racks (GB200-NVL72, GB300-NVL72) must name a CDU in \"cdu\"; air racks (HGX-B200) must have \"cdu\": null.\n6. CDU capacity: the sum of kW of racks assigned to a CDU <= its capacity_kw.\n7. Hose: Manhattan distance from rack centre to the CDU's port (port_xy) <= that CDU's hose_m.\n8. Dual feed: feed_a and feed_b are two different busway ids, and the rack centre is within tap_m of each busway's footprint. Each row has an A/B pair: BW_<row>1 (feed A) at row_y-0.25 and BW_<row>2 (feed B) at row_y+0.25.\n9. 2N power: for every busway, the sum of kW of all racks that use it as either feed <= capacity_kw * derate (either feed alone must carry the full rack load).\n10. Air capacity: the total kW of air racks <= air_cooling_kw (150 kW).\n11. Hot/cold aisle: racks that abut in a row face the same way; rows that face each other across an aisle must have opposite fronts (front-to-front cold aisle or back-to-back hot aisle).\n\nORIENTATION: rot is in degrees, one of 0, 90, 180, 270. The rack's front (cold-air intake) direction is (-sin(rot), cos(rot)): rot 0 faces +y, rot 180 faces -y, rot 90 faces -x, rot 270 faces +x. A common pattern: alternate rows rot 0 / rot 180 so neighbouring rows face front-to-front, then back-to-back.\n\nSUBMISSION FORMAT (JSON, no other keys):\n{\"racks\": [{\"id\": \"R1\", \"model\": \"GB200-NVL72\", \"x\": 3.0, \"y\": 4.2, \"rot\": 0, \"cdu\": \"CDU_1\", \"feed_a\": \"BW_A1\", \"feed_b\": \"BW_A2\"}, ...]}\nRack kW comes from the catalog by model; any extra key (for example \"kw\") is rejected.\n\nSCORING (0..100, higher is better; 0 if any hard rule fails):\nscore = 70 * density + 20 * resilience + 10 * hose\n- density = min(1, deployed IT kW / upper_bound_kw), where upper_bound_kw = min(sum over busways of capacity_kw*derate / 2, sum of CDU capacity_kw + air_cooling_kw) = 2560 kW for this hall. N+1 cooling is not a hard rule; it is rewarded through resilience.\n- resilience = fraction of CDUs whose single failure is survivable: every liquid rack on the failed CDU can be re-homed onto the surviving CDUs' spare capacity (capacity_kw minus assigned load) within those CDUs' hose reach. A CDU with no racks counts as survivable.\n- hose = 1 - (sum of Manhattan hose runs of liquid racks) / (sum of hose_m of their assigned CDUs); 1 if there are no liquid racks.\nThe verifier returns the score plus feedback listing every violated rule with the offending rack ids.\n",
+  "submission_instructions": "Submit one JSON object {\"racks\": [...]} exactly as described in the prompt (no other top-level keys, no extra rack keys). Each rack: id (unique, letters/digits/_/-), model from the catalog, x and y (rack centre, metres), rot in {0,90,180,270}, cdu (a CDU id for liquid racks, null for air racks), feed_a and feed_b (two different busway ids, normally the A/B pair of the rack's row). At most 300 racks. Any hard-rule violation scores 0; read the feedback to see which racks broke which rule.",
+  "submission_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Hall layout submission",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "racks"
+    ],
+    "properties": {
+      "racks": {
+        "type": "array",
+        "maxItems": 300,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "model",
+            "x",
+            "y",
+            "rot",
+            "cdu",
+            "feed_a",
+            "feed_b"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,32}$"
+            },
+            "model": {
+              "enum": [
+                "GB200-NVL72",
+                "GB300-NVL72",
+                "HGX-B200"
+              ]
+            },
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 24
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 16
+            },
+            "rot": {
+              "enum": [
+                0,
+                90,
+                180,
+                270
+              ]
+            },
+            "cdu": {
+              "enum": [
+                "CDU_1",
+                "CDU_2",
+                "CDU_3",
+                "CDU_4",
+                null
+              ]
+            },
+            "feed_a": {
+              "enum": [
+                "BW_A1",
+                "BW_A2",
+                "BW_B1",
+                "BW_B2",
+                "BW_C1",
+                "BW_C2",
+                "BW_D1",
+                "BW_D2"
+              ]
+            },
+            "feed_b": {
+              "enum": [
+                "BW_A1",
+                "BW_A2",
+                "BW_B1",
+                "BW_B2",
+                "BW_C1",
+                "BW_C2",
+                "BW_D1",
+                "BW_D2"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "score_name": "Hall score",
+  "score_direction": "higher",
+  "score_min": 0,
+  "score_max": 100,
+  "verifier": {
+    "url": "http://127.0.0.1:9000/evaluations",
+    "method": "POST",
+    "mode": "synchronous",
+    "score_path": "score",
+    "feedback_path": "feedback"
+  }
+}

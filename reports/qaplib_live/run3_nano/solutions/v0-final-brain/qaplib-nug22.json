@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 3808, "solution": {"instance": "nug22", "permutation": [14, 13, 11, 5, 12, 21, 0, 17, 2, 1, 4, 16, 19, 3, 15, 9, 10, 6, 7, 18, 8, 20]}, "task_id": "qaplib-nug22", "config": "v0 + final brain", "version": 0, "split": "heldout", "score": 0.944327731092437, "passed": false, "filled_after_run": true}

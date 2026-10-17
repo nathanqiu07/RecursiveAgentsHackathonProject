@@ -1,0 +1,132 @@
+{
+  "racks": [
+    {
+      "id": "R01",
+      "type": "GB200-NVL72",
+      "x": 2.6,
+      "y": 4.2,
+      "busway": "BW_A",
+      "cdu": "CDU_1"
+    },
+    {
+      "id": "R02",
+      "type": "GB200-NVL72",
+      "x": 3.2,
+      "y": 4.2,
+      "busway": "BW_A",
+      "cdu": "CDU_1"
+    },
+    {
+      "id": "R03",
+      "type": "GB200-NVL72",
+      "x": 9.2,
+      "y": 4.2,
+      "busway": "BW_A",
+      "cdu": "CDU_2"
+    },
+    {
+      "id": "R04",
+      "type": "GB200-NVL72",
+      "x": 15.2,
+      "y": 4.2,
+      "busway": "BW_A",
+      "cdu": "CDU_3"
+    },
+    {
+      "id": "R05",
+      "type": "GB200-NVL72",
+      "x": 3.2,
+      "y": 7.0,
+      "busway": "BW_B",
+      "cdu": "CDU_1"
+    },
+    {
+      "id": "R06",
+      "type": "GB200-NVL72",
+      "x": 9.2,
+      "y": 7.0,
+      "busway": "BW_B",
+      "cdu": "CDU_2"
+    },
+    {
+      "id": "R07",
+      "type": "GB200-NVL72",
+      "x": 15.2,
+      "y": 7.0,
+      "busway": "BW_B",
+      "cdu": "CDU_3"
+    },
+    {
+      "id": "R08",
+      "type": "GB200-NVL72",
+      "x": 21.2,
+      "y": 7.0,
+      "busway": "BW_B",
+      "cdu": "CDU_4"
+    },
+    {
+      "id": "R09",
+      "type": "GB200-NVL72",
+      "x": 3.2,
+      "y": 10.6,
+      "busway": "BW_C",
+      "cdu": "CDU_1"
+    },
+    {
+      "id": "R10",
+      "type": "GB200-NVL72",
+      "x": 8.6,
+      "y": 10.6,
+      "busway": "BW_C",
+      "cdu": "CDU_2"
+    },
+    {
+      "id": "R11",
+      "type": "GB200-NVL72",
+      "x": 9.2,
+      "y": 10.6,
+      "busway": "BW_C",
+      "cdu": "CDU_2"
+    },
+    {
+      "id": "R12",
+      "type": "GB200-NVL72",
+      "x": 15.2,
+      "y": 10.6,
+      "busway": "BW_C",
+      "cdu": "CDU_3"
+    },
+    {
+      "id": "R13",
+      "type": "GB200-NVL72",
+      "x": 2.6,
+      "y": 13.4,
+      "busway": "BW_D",
+      "cdu": "CDU_1"
+    },
+    {
+      "id": "R14",
+      "type": "GB200-NVL72",
+      "x": 3.2,
+      "y": 13.4,
+      "busway": "BW_D",
+      "cdu": "CDU_1"
+    },
+    {
+      "id": "R15",
+      "type": "GB200-NVL72",
+      "x": 9.2,
+      "y": 13.4,
+      "busway": "BW_D",
+      "cdu": "CDU_2"
+    },
+    {
+      "id": "R16",
+      "type": "GB200-NVL72",
+      "x": 15.2,
+      "y": 13.4,
+      "busway": "BW_D",
+      "cdu": "CDU_3"
+    }
+  ]
+}

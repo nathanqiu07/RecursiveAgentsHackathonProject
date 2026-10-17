@@ -1,0 +1,8 @@
+| Generation | Mutation type | Claim | Measured | Verdict |
+|---|---|---|---|---|
+| 0 | config_set | gain +0.015, cost -18.0% (Enabling thinking for solver adds reasoning that can catch budget mis‑configurations early, improving dev score by ~1.5% and cutting cost per task by ~18% as fe) | gain +0.092, cost +176.5% | accepted, effect smaller than claimed |
+| 1 | config_set | gain +0.015, cost -0.2% (Reducing max_tokens from 6000 to 4000 cuts token cost and may improve speed, while still allowing enough tokens for full QAP program output; expected dev gain f) | gain +0.033, cost -5.1% | reproduced |
+| 1 | config_set | gain +0.012, cost -0.1% (Lower temperature reduces stochastic variation and may improve consistency of heuristic generation; modest dev gain expected with slight cost reduction [2]) | gain -0.372, cost +10.2% | not reproduced |
+| 1 | config_set | gain +0.008, cost -0.3% (Running only one attempt cuts cost per task by ~33% while keeping dev gain minimal as the best verified attempt is already selected; reduces wasted compute [3]) | gain -0.015, cost -66.1% | not reproduced |
+| 2 | config_set | gain +0.025, cost -0.1% (Doubling max_tokens to 8000 allows full reasoning traces without truncation, improving solution quality by ~2.5% and reducing cost per task by ~12% as fewer ret) | gain +0.075, cost +19.9% | accepted, effect smaller than claimed |
+| 2 | playbook_add | gain +0.018, cost -0.1% (Adds early abort logic for runtime errors to prevent wasting the full 10s budget on invalid programs; based on Tabu Search literature [1] that early termination) | gain +0.044, cost +11.5% | accepted, effect smaller than claimed |

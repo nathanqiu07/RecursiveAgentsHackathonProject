@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 120626, "solution": {"instance": "scr20", "permutation": [15, 1, 14, 5, 0, 6, 2, 3, 12, 17, 11, 13, 19, 18, 16, 10, 8, 4, 9, 7]}, "task_id": "qaplib-scr20", "config": "v0 + final brain", "version": 0, "split": "heldout", "score": 0.9121582411752027, "passed": false}

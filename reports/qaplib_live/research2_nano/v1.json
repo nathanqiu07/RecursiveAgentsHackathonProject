@@ -1,0 +1,33 @@
+{
+ "changelog": [
+  "v0: one solver role writes a QAP heuristic program; the best verified attempt scores",
+  "knob note: config time_limit_s is the wall-clock budget each program gets (argv[2], env QAP_TIME_LIMIT_S; 10 s now), bounded to [0.1, 10] s, the top being the 2-swap baseline's budget; failure tags read 'gap X% (2-swap Y%) in used/budget s'",
+  "v1: playbook_add {\"role\": \"solver\", \"step\": \"Add a verification step that checks the permutation satisfies the QAP constraints before printing; if not, re-run the heuristic within the remaining time budget.\"} - [dev gain +0.028]"
+ ],
+ "config": {
+  "attempts": 2,
+  "default_model": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B",
+  "max_tokens": 6000,
+  "models": {
+   "solver": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+  },
+  "roles_enabled": [
+   "solver"
+  ],
+  "temperature": 0.4,
+  "thinking": {
+   "solver": false
+  },
+  "time_limit_s": 10.0
+ },
+ "parent": 0,
+ "playbooks": {
+  "solver": [
+   "Add a verification step that checks the permutation satisfies the QAP constraints before printing; if not, re-run the heuristic within the remaining time budget."
+  ]
+ },
+ "prompts": {
+  "solver": "You write heuristic optimization programs for the Quadratic Assignment Problem. Your program is executed and its answer is scored by an exact verifier; only the verified cost counts. Correctness first (always print a valid permutation before the time limit), then solution quality."
+ },
+ "version": 1
+}

@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 7768, "solution": {"instance": "had20", "permutation": [19, 5, 17, 6, 13, 2, 16, 15, 18, 7, 10, 3, 8, 11, 0, 1, 14, 9, 4, 12]}, "task_id": "qaplib-had20", "config": "v0 g1 dev", "version": 0, "split": "dev", "score": 0.891091658084449, "passed": false}

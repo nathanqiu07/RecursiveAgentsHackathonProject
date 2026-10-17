@@ -42,3 +42,9 @@ sites/
 *.bin
 
 *.tsbuildinfo
+
+# Shared benchmark solver logs and generated run outputs.
+gurobi.log
+*.log
+runs/
+.venv-kb/

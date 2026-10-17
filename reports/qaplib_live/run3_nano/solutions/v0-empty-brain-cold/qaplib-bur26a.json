@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 5801101, "solution": {"instance": "bur26a", "permutation": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]}, "task_id": "qaplib-bur26a", "config": "v0 + empty brain (cold)", "version": 0, "split": "heldout", "score": 0.935455183421216, "passed": false, "filled_after_run": true}
