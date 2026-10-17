@@ -10,6 +10,7 @@ Every number here comes from a live run on Crusoe Managed Inference (Nemotron-3 
 | Data hall layout, live run 2 | 0.688 | v0 + final brain 0.688 | +0.000 (+0.0%) | done | $0.0433 (128 calls) |
 | Data hall layout, live run 2d | 0.688 | v0 + final brain 0.688 | +0.000 (+0.0%) | done | $0.0794 (109 calls) |
 | Data hall layout, live run 3 | 0.688 | v0 + final brain 0.688 | +0.000 (+0.0%) | done | $0.0385 (129 calls) |
+| Data hall layout, live run 5 | 0.688 | v1 + final brain 0.728 | +0.040 (+5.8%) | done | $0.0468 (152 calls) |
 | QAPLIB (quadratic assignment) | n/a | n/a | n/a | blocked: crashed: RateLimitError, HTTP 429, max_requests_limit; 1 candidate scored before the crash; last write 15:09 PDT | n/a (crashed before usage.json) |
 | QAPLIB, live run with research | 0.9593 | v2 + final brain 0.9662 | +0.0069 (+0.7%) | done | $0.0163 (89 calls) |
 | GPU rack placement (data-center QAP), live run 1 | 0.5042 | v1 + final brain 0.6394 | +0.1352 (+26.8%) | done | $0.0168 (96 calls) |
@@ -25,6 +26,7 @@ Every number here comes from a live run on Crusoe Managed Inference (Nemotron-3 
 | Model settings: Nano vs Super, reasoning on/off (4 train halls) | n/a (settings sweep, no v0 arm) | B32 (Nano 30B, reasoning on, max 32k tokens) 0.7216 | n/a | done | $0.2473 (127 calls) |
 
 QAPLIB and rack placement: a 10 s 2-swap search scores 0.995 / 0.967 on the same tasks.
+Note, Data hall layout, live run 5: The Reviewer switched on a verifier-guided search tool (polish); the gate kept it at +3.30 dev. Held-out 0.688 → 0.728 on 6 unseen halls. Greedy + polish with no LLM scores the same, so the gain is the tool's; the team chose it.
 Note, GPU rack placement (data-center QAP), live run with research: v0 cold saved a solution for 5 of the 6 held-out halls. The missing hall is scored as invalid (score 0), so 0.4773 is the mean over all 6 with that hall at 0 (the 5 saved halls average 0.5728).
 Note, QAPLIB, live run with research on the fixed runner: v0 cold found no valid permutation on tai15a in either attempt, so it scores 0 there. Without tai15a, v0 cold averages 0.8089 on the other 5 and v1 0.7410 (-0.068): no gain on QAPLIB.
 Note, GPU rack placement (data-center QAP), research, 4 generations: v0 cold found no valid placement on dc-large-10035 in either attempt (score 0). Without that hall, v0 cold averages 0.5154 on the other 5 and v3 0.9138 (+0.398); v3 is higher on all 6 halls.
@@ -165,6 +167,40 @@ Dev mean of the parent by generation: gen 0 0.692.
 | 0 | config_set | capacity_calc = {"enabled": true} | dev gain +0.025, cost -0.2%: Accurate capacity calculations will eliminate cdu_capacity violatio... | +0.0009 | rejected | gain +0.001 < 0.02; cost +167% misses the -15% cut |
 
 Sources: `runs/datahall-live-3/reports/before_after.json`, `runs/datahall-live-3/reports/vs_greedy.md`, `runs/datahall-live-3/reports/usage.json`, `runs/datahall-live-3/versions/ledger.jsonl`, `runs/datahall-live-3.log`.
+
+## Data hall layout, live run 5
+
+- Verifier: DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible.
+- Baseline: v0 cold (v0 + empty brain (cold)), held-out mean 0.688 (source: held-out table).
+- Status: done; final report and live usage written.
+- Live evidence: usage.json: 152 paid calls, $0.0468.
+- Totals: 152 calls, 558,505 tokens (445,706 prompt + 112,799 completion, 0 cached), $0.0468, 0 errors, wall 589.7 s.
+- By model: NVIDIA-Nemotron-3-Nano-30B-A3B 151 calls $0.0446; NVIDIA-Nemotron-3-Super-120B-A12B 1 calls $0.0022.
+
+### Held-out
+
+| Config | n | Mean score | Pass rate | Tokens | Cost (USD) | vs v0 cold |
+|---|---|---|---|---|---|---|
+| v0 + empty brain (cold) | 6 | 0.688 | 100% | 97,457 | $0.0087 | baseline |
+| v0 + final brain | 6 | 0.688 | 100% | 99,439 | $0.0085 | +0.000 (+0.0%) |
+| v1 + final brain | 6 | 0.728 | 100% | 95,055 | $0.0075 | +0.040 (+5.8%) |
+
+Note: The Reviewer switched on a verifier-guided search tool (polish); the gate kept it at +3.30 dev. Held-out 0.688 → 0.728 on 6 unseen halls. Greedy + polish with no LLM scores the same, so the gain is the tool's; the team chose it.
+
+Dev mean of the parent by generation: gen 0 0.692.
+
+### Generations (each candidate is gated on the dev set)
+
+4 candidates, 1 accepted; claim vs measured verdicts: 2 not reproduced, 1 reproduced.
+
+| Gen | Mutation | Change | Claim | Measured dev gain | Decision | Why |
+|---|---|---|---|---|---|---|
+| 0 | None | {} | none recorded (ledger predates claims) | n/a | rejected | None |
+| 0 | config_set | polish = true | dev gain +0.050, cost -10.0%: Polish improves feasibility and score via cheap verifier-guided mov... | +0.0330 | accepted (score) | accepted |
+| 0 | config_set | polish_checks = 800 | dev gain +0.020, cost -15.0%: Fewer polish checks reduce verifier tool usage and cost, with minim... | +0.0009 | rejected | gain +0.001 < 0.02; cost -14% misses the -15% cut |
+| 0 | config_set | temperature = 0.0 | dev gain +0.030, cost -5.0%: Deterministic outputs reduce wasted exploration in layout generatio... | +0.0000 | rejected | gain +0.000 < 0.02; cost -3% misses the -15% cut |
+
+Sources: `runs/datahall-live-5/reports/before_after.json`, `runs/datahall-live-5/reports/vs_greedy.md`, `runs/datahall-live-5/reports/usage.json`, `runs/datahall-live-5/versions/ledger.jsonl`, `runs/datahall-live-5.log`.
 
 ## QAPLIB (quadratic assignment)
 
@@ -574,6 +610,6 @@ Sources: `runs/alebench-one/logs/ahc039-train0-v0.json`, `runs/alebench-one/usag
 
 ## Not counted
 
-These run directories are not results: `runs/alebench-live-2` (no paid usage.json: offline, scripted or a service log); `runs/alebench-offline` (no paid usage.json: offline, scripted or a service log); `runs/dashboard` (no paid usage.json: offline, scripted or a service log); `runs/datahall-20261017-143109` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-4` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-5` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-6` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1-attempt0` (no paid usage.json: offline, scripted or a service log); `runs/kernelbench-mps-1` (not a named live run); `runs/localhost` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-2` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-4` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-5` (no paid usage.json: offline, scripted or a service log).
+These run directories are not results: `runs/alebench-live-2` (no paid usage.json: offline, scripted or a service log); `runs/alebench-offline` (no paid usage.json: offline, scripted or a service log); `runs/dashboard` (no paid usage.json: offline, scripted or a service log); `runs/datahall-20261017-143109` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-4` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-6` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1-attempt0` (no paid usage.json: offline, scripted or a service log); `runs/kernelbench-mps-1` (not a named live run); `runs/localhost` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-2` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-4` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-5` (no paid usage.json: offline, scripted or a service log).
 
-Generated 2026-10-17 16:51:14 PDT. Regenerate with `.venv/bin/python scripts/collect_results.py` (rewrites reports/RESULTS.md and reports/results.json).
+Generated 2026-10-17 16:53:06 PDT. Regenerate with `.venv/bin/python scripts/collect_results.py` (rewrites reports/RESULTS.md and reports/results.json).

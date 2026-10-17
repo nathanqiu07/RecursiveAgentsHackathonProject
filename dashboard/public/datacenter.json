@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-17 16:54:51 PDT",
+ "generated_at": "2026-10-17 16:58:52 PDT",
  "command": ".venv/bin/python scripts/build_datacenter_view.py",
  "pitch": "Every layer of an AI data center as a verifiable optimization problem.",
  "layers": [
@@ -16,7 +16,7 @@
    },
    "note": "Gain comes from a verifier-guided search tool the Reviewer switched on; greedy + polish with no LLM scores the same 0.728.",
    "best": {
-    "run": "datahall-live-5",
+    "run": "datahall-live-6",
     "label": "v1 + final brain",
     "score": 0.7275,
     "baseline": 0.6879,
@@ -26,7 +26,7 @@
     "v0_invalid": 0
    },
    "status": "done",
-   "summary": "From v0 0.688 to 0.728 (+0.040) on 6 unseen halls. datahall-live-6 is running: 4 candidate changes scored on dev so far, 1 accepted.",
+   "summary": "From v0 0.688 to 0.728 (+0.040) on 6 unseen halls.",
    "runs": [
     {
      "id": "datahall-live-1",
@@ -455,19 +455,44 @@
     },
     {
      "id": "datahall-live-6",
-     "status": "running",
-     "status_detail": "6 candidates scored on dev, generation 1; started 16:46 PDT, last write 16:53 PDT",
+     "status": "done",
+     "status_detail": "final report and live usage written",
      "baseline": {
       "name": "v0 cold",
-      "score": null
+      "score": 0.6879
      },
      "vs_v0": {
-      "v0": null,
-      "final": null,
-      "final_label": null,
-      "delta": null
+      "v0": 0.6879,
+      "final": 0.7275,
+      "final_label": "v1 + final brain",
+      "delta": 0.0396
      },
-     "heldout": [],
+     "heldout": [
+      {
+       "label": "v0 + empty brain (cold)",
+       "kind": "cold",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.007117
+      },
+      {
+       "label": "v0 + final brain",
+       "kind": "brain",
+       "score": 0.6879,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.01176
+      },
+      {
+       "label": "v1 + final brain",
+       "kind": "final",
+       "score": 0.7275,
+       "pass_rate": 1.0,
+       "n": 6,
+       "cost_usd": 0.007243
+      }
+     ],
      "dev": [
       {
        "gen": 0,
@@ -512,10 +537,10 @@
        "change": "polish_checks = 1000"
       }
      ],
-     "cost_usd": null,
-     "calls": null,
-     "last_update": "16:53 PDT",
-     "n_heldout": null
+     "cost_usd": 0.062727,
+     "calls": 202,
+     "last_update": "16:58 PDT",
+     "n_heldout": 6
     }
    ],
    "settings": []
@@ -2434,18 +2459,26 @@
    "layer": "hall",
    "layer_name": "Hall layout",
    "benchmark": "DoneTwin data hall",
-   "status": "running",
+   "status": "done",
    "started": "2026-10-17 16:46",
-   "ended": null,
+   "ended": "2026-10-17 16:58",
    "solver": "Nano",
    "reviewer": "Super",
    "research": true,
    "generations": 2,
    "candidates": 4,
    "accepted": 1,
-   "heldout": null,
-   "cost_usd": null,
-   "calls": null,
+   "heldout": {
+    "metric": "held-out mean",
+    "final": 0.7275,
+    "v0": 0.6879,
+    "delta": 0.0396,
+    "final_label": "v1 + final brain",
+    "lower_is_better": false,
+    "v0_invalid": 0
+   },
+   "cost_usd": 0.062727,
+   "calls": 202,
    "climb": {
     "metric": "dev score",
     "baseline": 0.6916,
@@ -2584,7 +2617,23 @@
       "end": 0.7247
      }
     ],
-    "heldout": []
+    "heldout": [
+     {
+      "kind": "cold",
+      "label": "v0 + empty brain (cold)",
+      "score": 0.6879
+     },
+     {
+      "kind": "brain",
+      "label": "v0 + final brain",
+      "score": 0.6879
+     },
+     {
+      "kind": "final",
+      "label": "v1 + final brain",
+      "score": 0.7275
+     }
+    ]
    }
   },
   {

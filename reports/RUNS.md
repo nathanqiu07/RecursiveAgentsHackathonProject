@@ -1,6 +1,6 @@
 # Runs by layer
 
-Live Crusoe runs only, built by `.venv/bin/python scripts/build_datacenter_view.py` at 2026-10-17 16:51:50 PDT. Offline runs and runs with a $0 usage.json are left out. Status: done = final usage line written; running = process alive or log written in the last 3 min; crashed = Traceback without usage; stopped = none of these.
+Live Crusoe runs only, built by `.venv/bin/python scripts/build_datacenter_view.py` at 2026-10-17 16:58:52 PDT. Offline runs and runs with a $0 usage.json are left out. Status: done = final usage line written; running = process alive or log written in the last 3 min; crashed = Traceback without usage; stopped = none of these.
 
 ## Hall layout
 
@@ -12,7 +12,7 @@ Live Crusoe runs only, built by `.venv/bin/python scripts/build_datacenter_view.
 | datahall-live-3 | DoneTwin data hall | done | 2026-10-17 15:54 | 2026-10-17 16:04 | Nano | Nano | on | 1 | 3 | 0 | 0.688 | 0.688 | +0.000 | 0.0385 | 129 |
 | datahall-live-4 | DoneTwin data hall | stopped | 2026-10-17 16:25 | 2026-10-17 16:40 | Nano | Nano | on | 1 | 1 | 1 | n/a | n/a | n/a | n/a | n/a |
 | datahall-live-5 | DoneTwin data hall | done | 2026-10-17 16:41 | 2026-10-17 16:51 | Nano | Super | on | 1 | 3 | 1 | 0.688 | 0.728 | +0.040 | 0.0468 | 152 |
-| datahall-live-6 | DoneTwin data hall | running | 2026-10-17 16:46 | n/a | Nano | Super | on | 1 | 3 | 1 | n/a | n/a | n/a | n/a | n/a |
+| datahall-live-6 | DoneTwin data hall | done | 2026-10-17 16:46 | 2026-10-17 16:58 | Nano | Super | on | 2 | 4 | 1 | 0.688 | 0.728 | +0.040 | 0.0627 | 202 |
 
 ## Equipment placement
 

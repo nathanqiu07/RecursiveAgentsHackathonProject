@@ -51,6 +51,11 @@ CASE_STUDIES: list[dict[str, Any]] = [
          log="runs/datahall-live-2d.log", **DATAHALL),
     dict(id="datahall-live-3", name="Data hall layout, live run 3", dirs=["runs/datahall-live-3"],
          aliases=["reports/datahall_live_3"], log="runs/datahall-live-3.log", **DATAHALL),
+    dict(id="datahall-live-5", name="Data hall layout, live run 5", dirs=["runs/datahall-live-5"],
+         aliases=["reports/datahall_live_5"], log="runs/datahall-live-5.log",
+         note="The Reviewer switched on a verifier-guided search tool (polish); the gate kept it at +3.30 dev. "
+              "Held-out 0.688 → 0.728 on 6 unseen halls. Greedy + polish with no LLM scores the same, so the gain "
+              "is the tool's; the team chose it.", **DATAHALL),
     dict(id="qaplib-evolve-1", name="QAPLIB (quadratic assignment)", dirs=["runs/qaplib-evolve-1"],
          log="runs/qaplib-evolve-1.log", **QAPLIB),
     dict(id="qaplib-research-1", name="QAPLIB, live run with research", dirs=["reports/qaplib_live/research1_nano"],

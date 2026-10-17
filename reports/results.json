@@ -1,6 +1,6 @@
 {
  "schema_version": 1,
- "generated_at": "2026-10-17 16:51:14 PDT",
+ "generated_at": "2026-10-17 16:53:06 PDT",
  "command": ".venv/bin/python scripts/collect_results.py",
  "case_studies": [
   {
@@ -861,6 +861,252 @@
    ],
    "notes": [
     "'v0 + final brain' appears twice in the final report: no candidate passed the gate, so the final version is v0 and its arm repeats 'v0 + final brain'; shown once."
+   ]
+  },
+  {
+   "id": "datahall-live-5",
+   "name": "Data hall layout, live run 5",
+   "verifier": "DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible",
+   "digits": 3,
+   "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.6879,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "greedy layout (no LLM)",
+    "score": 0.728,
+    "source": "final held-out table"
+   },
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 152 paid calls, $0.0468",
+   "started_at": "16:41 PDT",
+   "last_update": "16:51 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6879,
+     "pass_rate": 1.0,
+     "tokens": 97457,
+     "cost_usd": 0.008659,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0401,
+      "pct": -5.508
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6879,
+     "pass_rate": 1.0,
+     "tokens": 99439,
+     "cost_usd": 0.008473,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0401,
+      "pct": -5.508
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v1 + final brain",
+     "version": 1,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.7275,
+     "pass_rate": 1.0,
+     "tokens": 95055,
+     "cost_usd": 0.007473,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0005,
+      "pct": -0.069
+     },
+     "vs_v0_cold": {
+      "abs": 0.0396,
+      "pct": 5.757
+     }
+    },
+    {
+     "config": "greedy + polish (no LLM)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.728,
+     "pass_rate": 1.0,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.0401,
+      "pct": 5.829
+     }
+    },
+    {
+     "config": "greedy baseline (no LLM)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.688,
+     "pass_rate": 1.0,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.04,
+      "pct": -5.495
+     },
+     "vs_v0_cold": {
+      "abs": 0.0001,
+      "pct": 0.015
+     }
+    }
+   ],
+   "final": {
+    "config": "v1 + final brain",
+    "score": 0.7275,
+    "gain": 0.0396,
+    "gain_pct": 5.757,
+    "vs_reference": {
+     "abs": -0.0005,
+     "pct": -0.069
+    }
+   },
+   "cost_headline": null,
+   "rating": null,
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 1,
+     "train_mean": 0.6838,
+     "dev_mean": 0.6916,
+     "accepted": "config_set"
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "polish = true",
+     "claim": "dev gain +0.050, cost -10.0%: Polish improves feasibility and score via cheap verifier-guided mov...",
+     "measured_gain": 0.033,
+     "measured_cost_change_pct": -16.18,
+     "dev_n": 4,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "polish_checks = 800",
+     "claim": "dev gain +0.020, cost -15.0%: Fewer polish checks reduce verifier tool usage and cost, with minim...",
+     "measured_gain": 0.0009,
+     "measured_cost_change_pct": -14.14,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.001 < 0.02; cost -14% misses the -15% cut",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "temperature = 0.0",
+     "claim": "dev gain +0.030, cost -5.0%: Deterministic outputs reduce wasted exploration in layout generatio...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": -2.5,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.000 < 0.02; cost -3% misses the -15% cut",
+     "verdict": "not reproduced"
+    }
+   ],
+   "papers": {
+    "total": 4,
+    "accepted": 1,
+    "verdicts": {
+     "reproduced": 1,
+     "not reproduced": 2
+    }
+   },
+   "totals": {
+    "calls": 152,
+    "errors": 0,
+    "prompt_tokens": 445706,
+    "completion_tokens": 112799,
+    "cached_tokens": 0,
+    "tokens": 558505,
+    "cost_usd": 0.046833,
+    "wall_s": 589.7,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+      "calls": 151,
+      "cost_usd": 0.044586
+     },
+     "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B": {
+      "calls": 1,
+      "cost_usd": 0.002247
+     }
+    }
+   },
+   "sources": [
+    "runs/datahall-live-5/reports/before_after.json",
+    "runs/datahall-live-5/reports/vs_greedy.md",
+    "runs/datahall-live-5/reports/usage.json",
+    "runs/datahall-live-5/versions/ledger.jsonl",
+    "runs/datahall-live-5.log"
+   ],
+   "notes": [
+    "The Reviewer switched on a verifier-guided search tool (polish); the gate kept it at +3.30 dev. Held-out 0.688 \u2192 0.728 on 6 unseen halls. Greedy + polish with no LLM scores the same, so the gain is the tool's; the team chose it."
    ]
   },
   {
@@ -3642,10 +3888,6 @@
   },
   {
    "run": "runs/datahall-live-4",
-   "reason": "no paid usage.json: offline, scripted or a service log"
-  },
-  {
-   "run": "runs/datahall-live-5",
    "reason": "no paid usage.json: offline, scripted or a service log"
   },
   {
