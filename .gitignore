@@ -26,3 +26,7 @@ sites/
 /ResourceManager/
 /Resources/
 /verification api/
+
+# Solver logs
+gurobi.log
+*.log
