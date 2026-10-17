@@ -221,8 +221,9 @@ class Reviewer:
               "tokens), and " + json.dumps(KNOB_RANGES) + " as inclusive ranges (max_tokens is per call and "
               "reasoning counts against it; with thinking on, replies under ~16000-32000 tokens are often cut off, "
               "failure 'truncated'). Each config_set changes one key and each mutation is tested alone. "
-              "Put fields at the top level of each mutation (no nested 'fields' object, no dotted keys), e.g. "
-              '{"type": "config_set", "key": "thinking", "value": {"Planner": false}, "rationale": ..., "claim": ...}. '
+              "Put fields at the top level of each mutation, with no nested 'fields' object and no dotted keys: "
+              '{"type": "config_set", "key": <knob name>, "value": <new value>, ...}, where a map knob (models, '
+              "thinking) takes the whole {role: value} map. A config_set that leaves the config unchanged is wasted. "
               "playbook_add steps and brain texts longer than " + str(MAX_TEXT) + " characters are dropped as invalid. "
               "Model ids with USD per 1M input/output tokens: "
               + json.dumps({m: PRICES[m] for m in MODEL_IDS}) + ".")
@@ -259,8 +260,10 @@ class Reviewer:
         return json.dumps(summary, indent=1)
 
     def propose(self, version: TeamVersion, results: list[RunResult], brain: SharedBrain,
-                role_usage: dict[str, dict] | None = None) -> list[dict]:
+                role_usage: dict[str, dict] | None = None, notes: str = "") -> list[dict]:
         prompt = self.build_prompt(version, results, brain, role_usage)
+        if notes:  # optional research step (team/research.py): untrusted reference text, appended after the data
+            prompt += "\n\n" + notes
         reply = self.llm.chat(self.model, [{"role": "system", "content": self.system},
                                            {"role": "user", "content": prompt}],
                               temperature=0.3, json_mode=True, role="reviewer")
@@ -372,8 +375,11 @@ class Evolver:
     def __init__(self, run_team: RunTeam, llm: LLM, reviewer_model: str, brain: SharedBrain,
                  versions_dir: str | Path, max_workers: int = 4, seed: int = 0,
                  initial: TeamVersion | None = None, gate: Gate | None = None,
-                 reports_dir: str | Path | None = None, max_disputes: int = 2, library: Any = None):
+                 reports_dir: str | Path | None = None, max_disputes: int = 2, library: Any = None,
+                 research: Any = None):
         self.run_team, self.llm, self.brain, self.seed = run_team, llm, brain, seed
+        # Optional: failure tags -> (notes_text, sources[, query]), called once per generation before the Reviewer.
+        self.research = research
         self.max_disputes = max_disputes
         self.versions_dir = Path(versions_dir)
         self.versions_dir.mkdir(parents=True, exist_ok=True)
@@ -451,6 +457,20 @@ class Evolver:
         ledger = getattr(self.llm, "ledger", None)
         return ledger.summary()["by_role"] if ledger is not None else None
 
+    def _research_notes(self, g: int, train: list[RunResult]) -> tuple[str, list[str]]:
+        """Notes for the Reviewer and their source urls; ("", []) when research is off or fails."""
+        if self.research is None:
+            return "", []
+        tags = [f for f, _ in Counter(f for r in train for f in r.failures if not f.startswith("infra:")).most_common(3)]
+        try:
+            notes, sources, *rest = self.research(tags)
+        except Exception as e:  # noqa: BLE001 — research is advisory; the generation goes on without it
+            log.warning("generation %d: research failed (%s); no notes this generation", g, type(e).__name__)
+            notes, sources, rest = "", [], []
+        urls = [s["url"] if isinstance(s, dict) else str(s) for s in sources or []]
+        self._log({"generation": g, "research_query": rest[0] if rest else None, "sources": urls})
+        return notes or "", urls
+
     def _batch(self, version: TeamVersion, brain: SharedBrain, tasks: list[Task], tag: str | None = None) -> list[RunResult]:
         with ThreadPoolExecutor(self.max_workers) as pool:
             return list(pool.map(lambda t: self._one(version, brain, t, f"{tag}-{t.id}" if tag else None), tasks))
@@ -493,8 +513,9 @@ class Evolver:
             role_usage = per_task_usage(usage_before, self._usage_by_role(), len(train))
             pruned = self.brain.prune()
             disputes = self._settle_disputes(g, parent, dev_tasks)
+            notes, sources = self._research_notes(g, train)
             try:
-                mutations = self.reviewer.propose(parent, train, self.brain, role_usage)
+                mutations = self.reviewer.propose(parent, train, self.brain, role_usage, notes=notes)
             except Exception as e:  # noqa: BLE001 — a failed reviewer call skips this generation's mutations
                 error = f"{type(e).__name__}: {' '.join(str(e).split())[:300]}"
                 log.warning("generation %d: reviewer call failed (%s); no mutations this generation", g, error)
@@ -507,7 +528,7 @@ class Evolver:
             claims = self.library.publish_claims(g, parent.version, mutations, {
                 "n_dev": len(dev_tasks), "n_train": len(train), "seed": self.seed, "reviewer_model": self.reviewer.model,
                 "train_mean": mean(r.score for r in train) if train else None,
-                "min_gain": self.gate.min_gain, "min_cost_cut": self.gate.min_cost_cut})
+                "min_gain": self.gate.min_gain, "min_cost_cut": self.gate.min_cost_cut, "sources": sources})
             parent_dev = self._batch(parent, self.brain, dev_tasks)
             self._save_solutions(f"v{parent.version} g{g} dev", parent, dev_tasks, parent_dev)
             best = None

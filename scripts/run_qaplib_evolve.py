@@ -37,6 +37,7 @@ from team.crusoe import SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.evolve import Evolver, Gate, TeamVersion  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
 from team.sa_library import add_library_args, configure_from_args  # noqa: E402
+from team.research import add_research_args, research_from_args  # noqa: E402
 from team.types import LLM, RunResult, Task  # noqa: E402
 
 CANDIDATES_PER_GEN = 3  # Reviewer max_mutations
@@ -308,14 +309,16 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--solver-model", default=SUPER)
     ap.add_argument("--reviewer-model", default=SUPER)
     add_library_args(ap)
+    add_research_args(ap)
     return ap
 
 
 def make_evolver(llm: LLM, args: argparse.Namespace, out: Path, v0: TeamVersion,
                  recorder: Recorder | None = None) -> Evolver:
+    label = "qaplib_dc" if getattr(args, "instances", None) == "dc" else "qaplib"
     return Evolver(recorder or Recorder(), llm, args.reviewer_model, SharedBrain(out / "brain"), out / "versions",
                    max_workers=args.workers, seed=args.seed, initial=v0, gate=Gate(min_gain=args.min_gain),
-                   reports_dir=out / "reports")
+                   reports_dir=out / "reports", research=research_from_args(args, label))
 
 
 def final_rows(evolver: Evolver, recorder: Recorder, heldout: list[Task]) -> list[dict[str, Any]]:

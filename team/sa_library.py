@@ -100,6 +100,12 @@ def claim_submission(benchmark: str, generation: int, parent_version: int, mutat
         "candidate on the identical dev tasks, and compare paired mean scores, passed counts and mean cost per task "
         "(team/evolve.py Gate.decide).",
     ])
+    # SA's PaperSubmission has no references field (extra="forbid"; source_paper_ids are Library UUIDs),
+    # so web sources the Reviewer read (team/research.py) go in the body as a numbered list.
+    sources = [str(s) for s in ctx.get("sources") or []]
+    if sources:
+        text += "\n\nSources. The Reviewer read these web search results before proposing; [n] in the rationale " \
+                "cites one. " + " ".join(f"[{i}] {u}" for i, u in enumerate(sources, 1))
     contract = {"contract": "evolve-gate/v1", "benchmark": benchmark, "generation": generation,
                 "parent_version": parent_version, "mutation": change, "claim": claim,
                 "acceptance": {"min_gain": min_gain, "min_cost_cut": min_cut, "no_lost_passes": True},

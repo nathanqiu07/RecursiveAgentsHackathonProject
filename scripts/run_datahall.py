@@ -27,6 +27,7 @@ from team.datahall import SPLIT_SIZES, datahall_run_team, datahall_v0, load_task
 from team.evolve import Evolver, Gate, TeamVersion, markdown_table  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
 from team.sa_library import add_library_args, configure_from_args  # noqa: E402
+from team.research import add_research_args, research_from_args  # noqa: E402
 from team.types import LLM, Task  # noqa: E402
 
 CANDIDATES_PER_GEN = 3  # Reviewer max_mutations
@@ -145,11 +146,12 @@ def run_one(llm: LLM, task: Task, v0: TeamVersion) -> None:
 
 
 def evolve(llm: LLM, reviewer_model: str, out: Path, generations: int, seed: int, workers: int,
-           v0: TeamVersion, splits: tuple[list[Task], list[Task], list[Task]], min_gain: float = 0.05) -> None:
+           v0: TeamVersion, splits: tuple[list[Task], list[Task], list[Task]], min_gain: float = 0.05,
+           research: Any = None) -> None:
     train, dev, heldout = splits
     evolver = Evolver(datahall_run_team, llm, reviewer_model, SharedBrain(out / "brain"), out / "versions",
                       max_workers=workers, seed=seed, initial=v0, reports_dir=out / "reports",
-                      gate=Gate(min_gain=min_gain))
+                      gate=Gate(min_gain=min_gain), research=research)
     evolver.reviewer.system += DATAHALL_REVIEWER_NOTE
     t0 = time.perf_counter()
     final = evolver.run(generations, train, dev, heldout)
@@ -193,6 +195,7 @@ def main() -> int:
     ap.add_argument("--timeout-s", type=float, default=600.0,
                     help="per-request timeout; reasoning-on Layout calls run 100-340 s, so 120 s silently kills them")
     add_library_args(ap)
+    add_research_args(ap)
     args = ap.parse_args()
     configure_from_args(args, "datahall")
 
@@ -229,7 +232,8 @@ def main() -> int:
           f"dev {mean(t.payload['greedy_score'] for t in dev):.2f}, "
           f"held-out {mean(t.payload['greedy_score'] for t in heldout):.2f} (of 100)", flush=True)
     out = args.out or Path("runs") / f"datahall-{time.strftime('%Y%m%d-%H%M%S')}"
-    evolve(llm, args.reviewer_model, out, args.generations, args.seed, args.workers, v0, splits, args.min_gain)
+    evolve(llm, args.reviewer_model, out, args.generations, args.seed, args.workers, v0, splits, args.min_gain,
+           research=research_from_args(args, "datahall"))
     if args.live:
         usage = llm.ledger.summary()
         (out / "reports" / "usage.json").write_text(json.dumps(usage, indent=1))
