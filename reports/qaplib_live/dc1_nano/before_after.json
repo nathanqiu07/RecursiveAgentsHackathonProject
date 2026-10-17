@@ -1,0 +1,93 @@
+{
+ "rows": [
+  {
+   "config": "v0 + empty brain (cold)",
+   "version": 0,
+   "n": 6,
+   "mean_score": 0.5042,
+   "pass_rate": 0.0,
+   "mean_iterations": 2.0,
+   "calls_per_task": 2.0,
+   "tokens_per_task": 2649.8,
+   "cost_per_task_usd": 0.00029927,
+   "cost_per_point_usd": 0.00059356,
+   "tokens": 15899,
+   "cost_usd": 0.001796,
+   "infra_failures": 0
+  },
+  {
+   "config": "v0 + final brain",
+   "version": 0,
+   "n": 6,
+   "mean_score": 0.5865,
+   "pass_rate": 0.0,
+   "mean_iterations": 2.0,
+   "calls_per_task": 2.0,
+   "tokens_per_task": 4597.7,
+   "cost_per_task_usd": 0.00037428,
+   "cost_per_point_usd": 0.00063821,
+   "tokens": 27586,
+   "cost_usd": 0.002246,
+   "infra_failures": 0
+  },
+  {
+   "config": "v1 + final brain",
+   "version": 1,
+   "n": 6,
+   "mean_score": 0.6394,
+   "pass_rate": 0.0,
+   "mean_iterations": 2.0,
+   "calls_per_task": 2.0,
+   "tokens_per_task": 4542.7,
+   "cost_per_task_usd": 0.00037296,
+   "cost_per_point_usd": 0.00058329,
+   "tokens": 27256,
+   "cost_usd": 0.002238,
+   "infra_failures": 0
+  }
+ ],
+ "history": [
+  {
+   "generation": 0,
+   "parent": 0,
+   "version": 0,
+   "train_mean": 0.5731,
+   "dev_mean": 0.8041,
+   "mutations": 3,
+   "accepted": null,
+   "accepted_reason": null,
+   "pruned": 0,
+   "disputes_settled": 0,
+   "brain": {
+    "version": 5,
+    "active": 12,
+    "disputed": 0,
+    "retired": 0,
+    "total_chars": 1052,
+    "avg_helps": 0.0,
+    "avg_hurts": 0.0
+   }
+  },
+  {
+   "generation": 1,
+   "parent": 0,
+   "version": 1,
+   "train_mean": 0.6409,
+   "dev_mean": 0.7151,
+   "mutations": 2,
+   "accepted": "config_set",
+   "accepted_reason": "accepted",
+   "pruned": 0,
+   "disputes_settled": 0,
+   "brain": {
+    "version": 14,
+    "active": 24,
+    "disputed": 0,
+    "retired": 0,
+    "total_chars": 1896,
+    "avg_helps": 1.125,
+    "avg_hurts": 1.0
+   }
+  }
+ ]
+}

@@ -1,0 +1,28 @@
+{
+ "changelog": [
+  "v0: one solver role writes a QAP heuristic program; the best verified attempt scores",
+  "v1: config_set {\"key\": \"temperature\", \"value\": 0.1} - [dev gain +0.093]"
+ ],
+ "config": {
+  "attempts": 2,
+  "default_model": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B",
+  "max_tokens": 6000,
+  "models": {
+   "solver": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+  },
+  "roles_enabled": [
+   "solver"
+  ],
+  "temperature": 0.1,
+  "thinking": {
+   "solver": false
+  },
+  "time_limit_s": 10.0
+ },
+ "parent": 0,
+ "playbooks": {},
+ "prompts": {
+  "solver": "You write heuristic optimization programs for the Quadratic Assignment Problem. Your program is executed and its answer is scored by an exact verifier; only the verified cost counts. Correctness first (always print a valid permutation before the time limit), then solution quality."
+ },
+ "version": 1
+}

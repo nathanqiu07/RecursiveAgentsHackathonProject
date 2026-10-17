@@ -1,0 +1,56 @@
+{
+ "label": "v0 + empty brain (cold)",
+ "version": 0,
+ "filled": [
+  "bur26a",
+  "chr15c",
+  "chr25a",
+  "lipa50a",
+  "lipa90a",
+  "nug22",
+  "nug30",
+  "sko64",
+  "tai100a",
+  "tai15a",
+  "tai20a",
+  "tai35b",
+  "wil100"
+ ],
+ "failed": [],
+ "usage": {
+  "total": {
+   "calls": 26,
+   "errors": 0,
+   "retries": 1,
+   "prompt_tokens": 22414,
+   "completion_tokens": 14720,
+   "cached_tokens": 0,
+   "cost_usd": 0.004065,
+   "latency_s": 140.321
+  },
+  "by_role": {
+   "solver": {
+    "calls": 26,
+    "errors": 0,
+    "retries": 1,
+    "prompt_tokens": 22414,
+    "completion_tokens": 14720,
+    "cached_tokens": 0,
+    "cost_usd": 0.004065,
+    "latency_s": 140.321
+   }
+  },
+  "by_model": {
+   "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+    "calls": 26,
+    "errors": 0,
+    "retries": 1,
+    "prompt_tokens": 22414,
+    "completion_tokens": 14720,
+    "cached_tokens": 0,
+    "cost_usd": 0.004065,
+    "latency_s": 140.321
+   }
+  }
+ }
+}

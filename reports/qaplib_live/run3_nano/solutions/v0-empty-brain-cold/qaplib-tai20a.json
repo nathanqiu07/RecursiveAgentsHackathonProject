@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 872896, "solution": {"instance": "tai20a", "permutation": [1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]}, "task_id": "qaplib-tai20a", "config": "v0 + empty brain (cold)", "version": 0, "split": "heldout", "score": 0.8059173143192316, "passed": false, "filled_after_run": true}

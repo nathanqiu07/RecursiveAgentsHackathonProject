@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 8130, "solution": {"instance": "chr22a", "permutation": [0, 3, 16, 7, 5, 2, 12, 13, 20, 18, 15, 6, 1, 11, 14, 10, 4, 19, 17, 9, 21, 8]}, "task_id": "qaplib-chr22a", "config": "v1 g1 dev", "version": 1, "split": "dev", "score": 0.7571955719557195, "passed": false}

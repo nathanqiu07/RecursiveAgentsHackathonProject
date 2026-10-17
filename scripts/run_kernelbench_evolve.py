@@ -6,7 +6,11 @@ Usage (repo venv):
   KB_REMOTE=ubuntu@<gpu-ip> .venv/bin/python scripts/run_kernelbench_evolve.py --live [--generations 2] [--out DIR]
 Score per problem = speedup over torch eager if correct (capped at 10), else 0; pass (fast_1) = correct and faster.
 Offline numbers come from a fake evaluator and prove plumbing only; never report them.
-Exit codes: 0 done, 2 no Crusoe API key configured, 3 no GPU (set KB_REMOTE=user@host or run on a CUDA machine).
+  KB_DEVICE=mps .venv/bin/python scripts/run_kernelbench_evolve.py --live --out runs/kernelbench-mps-1
+      Apple GPU via PyTorch MPS, NOT CUDA (Crusoe GPU quota was zero): evaluator runs in .venv-kb, baseline is
+      PyTorch eager on MPS; Library papers go under benchmark "kernelbench-mps", never the CUDA one.
+Exit codes: 0 done, 2 no Crusoe API key configured, 3 no GPU (set KB_REMOTE=user@host, run on a CUDA machine,
+or KB_DEVICE=mps with .venv-kb).
 """
 from __future__ import annotations
 
@@ -30,10 +34,12 @@ from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.evolve import Evolver, Gate, TeamVersion  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
+from team.research import add_research_args, research_from_args  # noqa: E402
 from team.sa_library import add_library_args, configure_from_args  # noqa: E402
 from team.types import LLM, RunResult, Task  # noqa: E402
 
 CANDIDATES_PER_GEN = 3  # Reviewer max_mutations
+MPS_RESEARCH_DOMAIN = "PyTorch MPS Apple GPU Metal kernel optimization"  # search domain on KB_DEVICE=mps
 _PROBLEM = re.compile(r"PROBLEM (\S+):")
 # Offline only: the speedup the fake evaluator reports for a plain / a vectorized kernel per problem.
 OFFLINE_BASE = {"kb_matmul_square": 0.6, "kb_matmul_tb": 0.55, "kb_sum_dim": 1.1, "kb_softmax": 1.3, "kb_rmsnorm": 1.2,
@@ -159,7 +165,9 @@ def final_report(evolver: Evolver, heldout: list[Task], out: Path) -> list[dict[
         rows = [kb_row(label, v, evolver._batch(v, b, heldout)) for label, v, b in arms]
     reports = out / "reports"
     reports.mkdir(parents=True, exist_ok=True)
-    (reports / "before_after.json").write_text(json.dumps({"rows": rows, "history": evolver.history}, indent=1))
+    device = remote.MPS_LABEL if remote.device_kind() == "mps" else "cuda"
+    (reports / "before_after.json").write_text(json.dumps({"device": device, "rows": rows, "history": evolver.history},
+                                                          indent=1))
     (reports / "before_after.md").write_text(kb_table(rows))
     return rows
 
@@ -178,11 +186,12 @@ def run_one(llm: LLM, task: Task, v0: TeamVersion, run_team: Any) -> None:
 
 
 def evolve(llm: LLM, run_team: Any, reviewer_model: str, out: Path, generations: int, seed: int, workers: int,
-           v0: TeamVersion, splits: tuple[list[Task], list[Task], list[Task]], min_gain: float) -> None:
+           v0: TeamVersion, splits: tuple[list[Task], list[Task], list[Task]], min_gain: float,
+           research: Any = None) -> None:
     train, dev, heldout = splits
     evolver = Evolver(run_team, llm, reviewer_model, SharedBrain(out / "brain"), out / "versions",
                       max_workers=workers, seed=seed, initial=v0, gate=Gate(min_gain=min_gain),
-                      reports_dir=out / "reports")
+                      reports_dir=out / "reports", research=research)
     t0 = time.perf_counter()
     final = evolver.run(generations, train, dev, heldout)
     for h in evolver.history:
@@ -213,8 +222,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--kernel-model", default=SUPER)
     ap.add_argument("--reviewer-model", default=SUPER)
     add_library_args(ap)
+    add_research_args(ap)
     args = ap.parse_args(argv)
-    configure_from_args(args, "kernelbench")
+    mps = remote.device_kind() == "mps"
+    configure_from_args(args, "kernelbench-mps" if mps else "kernelbench")
 
     v0 = kb_v0()
     v0.config.update(attempts=args.attempts, max_tokens=args.max_tokens, default_model=args.kernel_model,
@@ -227,8 +238,8 @@ def main(argv: list[str] | None = None) -> int:
         gpu = remote.gpu_mode()
         if gpu is None:
             print("No GPU evaluator: set KB_REMOTE=user@host (a CUDA VM prepared with "
-                  "benchmarks/kernelbench_mini/setup_gpu_vm.sh) or run on a machine where torch.cuda.is_available().",
-                  file=sys.stderr)
+                  "benchmarks/kernelbench_mini/setup_gpu_vm.sh), run on a machine where torch.cuda.is_available(), "
+                  f"or KB_DEVICE=mps with a torch venv at {remote.kb_python()}.", file=sys.stderr)
             return 3
         try:
             llm = CrusoeLLM()
@@ -236,7 +247,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"No Crusoe API key configured: {exc}", file=sys.stderr)
             return 2
         run_team = make_run_team(None)
-        print(f"GPU evaluator: {gpu}" + (f" ({remote.os.environ['KB_REMOTE']})" if gpu == "remote" else ""), flush=True)
+        print(f"GPU evaluator: {gpu}" + (f" ({remote.os.environ['KB_REMOTE']})" if gpu == "remote" else "")
+              + (f" ({remote.MPS_LABEL}; baseline = PyTorch eager on MPS)" if gpu == "mps" else ""), flush=True)
+    research = research_from_args(args, MPS_RESEARCH_DOMAIN if mps else "kernelbench")
     train, dev, heldout = load_tasks()
     if args.one:
         run_one(llm, train[0], v0, run_team)
@@ -247,9 +260,9 @@ def main(argv: list[str] | None = None) -> int:
     est = estimate_calls(v0, len(train), len(dev), len(heldout), args.generations)
     print(f"Estimated: ~{est['runs']} team runs -> up to {est['kernel_max']} kernel calls ({args.kernel_model}) and "
           f"{est['evals_max']} GPU evaluations, + {est['reviewer']} reviewer calls ({args.reviewer_model})", flush=True)
-    out = args.out or Path("runs") / f"kernelbench-{time.strftime('%Y%m%d-%H%M%S')}"
+    out = args.out or Path("runs") / f"kernelbench-{'mps-' if mps else ''}{time.strftime('%Y%m%d-%H%M%S')}"
     evolve(llm, run_team, args.reviewer_model, out, args.generations, args.seed, args.workers, v0,
-           (train, dev, heldout), args.min_gain)
+           (train, dev, heldout), args.min_gain, research)
     if args.live:
         usage = llm.ledger.summary()
         (out / "reports" / "usage.json").write_text(json.dumps(usage, indent=1))

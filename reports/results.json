@@ -1,6 +1,6 @@
 {
  "schema_version": 1,
- "generated_at": "2026-10-17 16:24:21 PDT",
+ "generated_at": "2026-10-17 16:28:27 PDT",
  "command": ".venv/bin/python scripts/collect_results.py",
  "case_studies": [
   {
@@ -1824,10 +1824,10 @@
     "source": "1.0 by definition of the score"
    },
    "status": "running",
-   "status_detail": "4 candidates scored on dev, generation 0; started 16:21 PDT, last write 16:23 PDT",
+   "status_detail": "5 candidates scored on dev, generation 1; started 16:21 PDT, last write 16:26 PDT",
    "live_evidence": "named live run",
    "started_at": "16:21 PDT",
-   "last_update": "16:23 PDT",
+   "last_update": "16:26 PDT",
    "heldout": [],
    "final": null,
    "cost_headline": null,
@@ -1889,10 +1889,24 @@
      "accepted_by": null,
      "reason": "invalid: claim must be {\"dev_gain\": <number>, \"cost_change_pct\": <number>, \"why\": <str>}, got None",
      "verdict": null
+    },
+    {
+     "gen": 1,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
     }
    ],
    "papers": {
-    "total": 4,
+    "total": 5,
     "accepted": 0,
     "verdicts": {}
    },
@@ -2361,6 +2375,10 @@
   },
   {
    "run": "runs/qaplib-dc-research-2",
+   "reason": "not a named live run"
+  },
+  {
+   "run": "runs/qaplib-dc-research-3",
    "reason": "no paid usage.json: offline, scripted or a service log"
   },
   {

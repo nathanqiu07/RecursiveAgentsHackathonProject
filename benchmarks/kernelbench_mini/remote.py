@@ -10,6 +10,10 @@ with a scrubbed environment by default (a kernel that faults poisons its CUDA co
 read API keys), or in-process with KB_INPROCESS=1. Otherwise `{"error": "no_gpu"}`; nothing raises.
 The ssh/scp children get a minimal environment, so no API key can travel to the host (ssh SendEnv only
 forwards variables that exist). One evaluation at a time per process: parallel timing on one GPU is noise.
+
+  KB_DEVICE=mps             (no KB_REMOTE) Apple GPU via PyTorch MPS, NOT CUDA: evaluate.py runs in a separate torch
+                            venv (KB_PYTHON, default <repo>/.venv-kb/bin/python) as a child with a timeout and a
+                            scrubbed environment (no API keys). Used because Crusoe GPU quota was zero.
 """
 from __future__ import annotations
 
@@ -27,6 +31,9 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 PROBLEMS = HERE / "problems"
+DEFAULT_KB_PYTHON = HERE.parents[1] / ".venv-kb" / "bin" / "python"
+MPS_TIMEOUT_S = 300
+MPS_LABEL = "Apple GPU (MPS), not CUDA; Crusoe GPU quota was zero"
 SHIP_FILES = ("evaluate.py", "static_checks.py", "kb_static_checker.py")
 _EVAL_LOCK = threading.Lock()
 _SYNCED: set[str] = set()
@@ -45,11 +52,44 @@ def local_cuda() -> bool:
     return bool(torch.cuda.is_available())
 
 
+def device_kind() -> str:
+    """"cuda" (default) or "mps", from KB_DEVICE."""
+    return "mps" if os.environ.get("KB_DEVICE", "").strip().lower() == "mps" else "cuda"
+
+
+def kb_python() -> Path:
+    return Path(os.environ.get("KB_PYTHON") or DEFAULT_KB_PYTHON)
+
+
 def gpu_mode() -> str | None:
-    """"remote", "local" or None."""
+    """"remote", "local", "mps" or None."""
     if os.environ.get("KB_REMOTE"):
         return "remote"
+    if device_kind() == "mps":
+        return "mps" if kb_python().exists() else None
     return "local" if local_cuda() else None
+
+
+def mps_env() -> dict[str, str]:
+    """The evaluator child's whole environment: no API keys, nothing the candidate could read."""
+    env = {k: os.environ[k] for k in ("HOME", "TMPDIR") if k in os.environ}
+    env.update(PATH="/usr/bin:/bin", KB_DEVICE="mps", PYTHONNOUSERSITE="1")
+    return env
+
+
+def evaluate_mps(problem: str, candidate_src: str, trials: int = 50, timeout: float = MPS_TIMEOUT_S) -> dict[str, Any]:
+    with tempfile.TemporaryDirectory(prefix="kbmini_") as tmp:
+        cand = Path(tmp) / "cand.py"
+        cand.write_text(candidate_src)
+        try:
+            run = subprocess.run([str(kb_python()), str(HERE / "evaluate.py"), "--device", "mps",
+                                  "--problem", str(problem_path(problem)), "--candidate", str(cand),
+                                  "--trials", str(int(trials))],
+                                 env=mps_env(), cwd=tmp, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return {"error": "eval_failed", "detail": f"MPS evaluation timed out after {timeout:g}s"}
+    out = _last_json(run.stdout)
+    return out if out is not None else {"error": "eval_failed", "detail": (run.stderr or run.stdout).strip()[-800:]}
 
 
 def problem_path(problem: str) -> Path:
@@ -144,11 +184,14 @@ def evaluate_candidate(problem: str, candidate_src: str, trials: int = 50) -> di
     """Score one candidate; returns evaluate.py's JSON, or {"error": ...}. Serialized per process."""
     mode = gpu_mode()
     if mode is None:
-        return {"error": "no_gpu", "detail": "set KB_REMOTE=user@host or run on a CUDA machine"}
+        return {"error": "no_gpu", "detail": "set KB_REMOTE=user@host, run on a CUDA machine, or KB_DEVICE=mps "
+                                             "with a torch venv at KB_PYTHON (default .venv-kb)"}
     with _EVAL_LOCK:
         try:
             if mode == "remote":
                 return evaluate_remote(os.environ["KB_REMOTE"], problem, candidate_src, trials)
+            if mode == "mps":
+                return evaluate_mps(problem, candidate_src, trials)
             return evaluate_local(problem, candidate_src, trials)
         except (OSError, RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
             return {"error": "remote_failed" if mode == "remote" else "eval_failed",

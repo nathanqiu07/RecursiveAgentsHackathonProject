@@ -59,6 +59,40 @@ The evaluator rejects, by rule name:
 
 Reply with one line `TECHNIQUE: <short name of your approach>`, then the full file in a single ```python block."""
 
+# KB_DEVICE=mps: Apple GPU via PyTorch MPS (no CUDA host; Crusoe GPU quota was zero). Same task, same evaluator rules
+# for hacks; the allowed tools are PyTorch ops and Metal kernels. No hint about what to fuse or rewrite.
+MPS_KERNEL_PROMPT = (
+    "You are a GPU performance engineer. Target: Apple GPU via PyTorch MPS; CUDA is unavailable. You replace a "
+    "PyTorch reference Model with ModelNew, written with PyTorch ops or Metal kernels via torch.mps.compile_shader. "
+    "An independent evaluator checks exact fp32 correctness on signed random inputs and times both on the Apple GPU "
+    "against PyTorch eager on MPS; only its measurement counts. Correct first, then fast."
+)
+
+MPS_TASK_TEMPLATE = """PROBLEM {pid}: {text}
+
+Target: Apple GPU via PyTorch MPS (device "mps"); CUDA is unavailable, so load_inline / CUDA kernels cannot build.
+Reference (the evaluator imports Model, get_inputs and get_init_inputs from this file; its speed on MPS is the baseline):
+```python
+{ref_src}
+```
+
+Write ONE complete Python file defining `class ModelNew(nn.Module)` with the same __init__ arguments and forward
+signature as Model, returning the same outputs (same dtype and shape, fp32 within atol=rtol=1e-4).
+Contract:
+- Write ModelNew using PyTorch ops or Metal kernels via torch.mps.compile_shader. API: `lib =
+  torch.mps.compile_shader(msl_source)` takes one string of Metal Shading Language; each `kernel void name(...)` in it
+  is then called as `lib.name(*tensors_and_scalars, threads=<grid size>, group_size=<threads per group>)` (both
+  optional; threads defaults to the first tensor's numel). Inputs arrive on "mps"; return outputs on "mps".
+- Inputs are drawn from SIGNED distributions (torch.randn at scales 0.01 to 1), not torch.rand. Do not modify inputs.
+- Parameters (e.g. conv weights) must come from the same nn layer constructed in __init__ with the same arguments,
+  so seeded initialization matches.
+- Keep fp32 end to end. Every call must compute from its inputs; no caching between calls.
+- A forward that issues exactly the reference's own torch ops is rejected (reference_copy): it is the baseline.
+The evaluator rejects, by rule name:
+{rules}
+
+Reply with one line `TECHNIQUE: <short name of your approach>`, then the full file in a single ```python block."""
+
 FEEDBACK_TEMPLATE = """Attempt {k} evaluator result: {outcome}
 Incumbent (best so far): {incumbent}
 {incumbent_code}Write an improved complete file (same contract). Fix any rejection or error first, then make it faster.
@@ -109,8 +143,18 @@ def describe(ev: dict[str, Any]) -> str:
     return head + ("\n" + reasons[:1500] if reasons else "")
 
 
+def default_prompt() -> str:
+    return MPS_KERNEL_PROMPT if remote.device_kind() == "mps" else DEFAULT_KERNEL_PROMPT
+
+
+def task_text(task: Task) -> str:
+    device = remote.device_kind()
+    template = MPS_TASK_TEMPLATE if device == "mps" else TASK_TEMPLATE
+    return template.format(pid=task.id, text=task.text, ref_src=task.payload["ref_src"], rules=rules_summary(device))
+
+
 def system_prompt(version: Any, brain_text: str) -> str:
-    parts = [getattr(version, "prompts", {}).get(ROLE) or DEFAULT_KERNEL_PROMPT]
+    parts = [getattr(version, "prompts", {}).get(ROLE) or default_prompt()]
     rules = getattr(version, "playbooks", {}).get(ROLE) or []
     if rules:
         parts.append("Playbook rules:\n" + "\n".join(f"{i}. {r}" for i, r in enumerate(rules, 1)))
@@ -146,8 +190,7 @@ def _run_team(version: Any, brain: Any, task: Task, llm: Any, evaluator: Evaluat
     result = RunResult(task_id=task.id, version=getattr(version, "version", 0), score=0.0, passed=False,
                        brain_ids_read=list(brain_ids))
     messages = [{"role": "system", "content": system_prompt(version, brain_text)},
-                {"role": "user", "content": TASK_TEMPLATE.format(pid=task.id, text=task.text, ref_src=p["ref_src"],
-                                                                 rules=rules_summary())}]
+                {"role": "user", "content": task_text(task)}]
     best: dict[str, Any] | None = None
     history, categories, proposals = [], [], []
     for k in range(1, attempts + 1):
@@ -210,6 +253,14 @@ run_team = make_run_team()
 def kb_v0() -> Any:
     """The starting team: one kernel role, Nemotron Super, reasoning off, 3 attempts."""
     from team.evolve import TeamVersion
+    if remote.device_kind() == "mps":  # the Reviewer reads config and changelog, so both name the device
+        return TeamVersion(version=0, parent=None, prompts={ROLE: MPS_KERNEL_PROMPT}, playbooks={ROLE: []},
+                           config={"roles_enabled": [ROLE], "models": {ROLE: SUPER}, "thinking": {ROLE: False},
+                                   "default_model": SUPER, "max_tokens": 8000, "attempts": 3, "temperature": 0.3,
+                                   "tool_catalog": [], "device": remote.MPS_LABEL},
+                           changelog=["v0: one kernel role on the Apple GPU (PyTorch MPS, not CUDA): PyTorch ops or "
+                                      "torch.mps.compile_shader Metal kernels, evaluator feedback between attempts, "
+                                      "keep the best; speedup is vs PyTorch eager on MPS"])
     return TeamVersion(version=0, parent=None, prompts={ROLE: DEFAULT_KERNEL_PROMPT}, playbooks={ROLE: []},
                        config={"roles_enabled": [ROLE], "models": {ROLE: SUPER}, "thinking": {ROLE: False},
                                "default_model": SUPER, "max_tokens": 8000, "attempts": 3, "temperature": 0.3,

@@ -1,0 +1,46 @@
+{
+ "total": {
+  "calls": 89,
+  "errors": 0,
+  "retries": 9,
+  "prompt_tokens": 125049,
+  "completion_tokens": 72912,
+  "cached_tokens": 0,
+  "cost_usd": 0.020835,
+  "latency_s": 629.045
+ },
+ "by_role": {
+  "reviewer": {
+   "calls": 2,
+   "errors": 0,
+   "retries": 0,
+   "prompt_tokens": 4695,
+   "completion_tokens": 705,
+   "cached_tokens": 0,
+   "cost_usd": 0.000376,
+   "latency_s": 9.006
+  },
+  "solver": {
+   "calls": 87,
+   "errors": 0,
+   "retries": 9,
+   "prompt_tokens": 120354,
+   "completion_tokens": 72207,
+   "cached_tokens": 0,
+   "cost_usd": 0.020459,
+   "latency_s": 620.039
+  }
+ },
+ "by_model": {
+  "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+   "calls": 89,
+   "errors": 0,
+   "retries": 9,
+   "prompt_tokens": 125049,
+   "completion_tokens": 72912,
+   "cached_tokens": 0,
+   "cost_usd": 0.020835,
+   "latency_s": 629.045
+  }
+ }
+}

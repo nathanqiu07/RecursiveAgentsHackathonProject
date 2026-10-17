@@ -23,6 +23,11 @@ Rules (all reject):
   vendor_library    cuBLAS / cuDNN / cuTENSOR instead of a hand-written kernel
   introspection     frame/gc/inspect/exec tricks that could read the evaluator's reference output
   forbidden_import  subprocess, ctypes, sockets, pickle, importlib, threading, multiprocessing
+
+device="mps" (Apple GPU via PyTorch MPS, where load_inline CUDA cannot build): PyTorch ops and Metal kernels
+via torch.mps.compile_shader are the allowed tools, so the CUDA-only rules (reference_op on torch compute ops
+and Tensor methods, functional_call, aten_op_in_cpp, vendor_library, kb_cuda_impl, kb_torch_computation_ops)
+are off. Every hack rule stays on, and the evaluator adds a runtime reference_copy reject.
 """
 from __future__ import annotations
 
@@ -53,6 +58,30 @@ sort topk kthvalue median mode cdist triu tril diag diagonal matrix_power
 """.split())
 TORCH_SUBMODULES = frozenset({"linalg", "special", "fft", "ops", "_C", "_ops", "jit", "compile", "_dynamo", "_inductor",
                               "_refs", "_prims", "_decomp"})
+# On MPS, PyTorch ops are allowed, but these still hide work from the runtime audit or compile behind it.
+MPS_BANNED_SUBMODULES = frozenset({"ops", "_C", "_ops", "jit", "compile", "_dynamo", "_inductor", "_refs", "_prims",
+                                   "_decomp"})
+MPS_OFF_RULES = frozenset({"functional_call", "aten_op_in_cpp", "vendor_library", "kb_cuda_impl",
+                           "kb_torch_computation_ops"})
+MPS_RULES = """Rules (all reject):
+  syntax_error      the file does not parse
+  no_modelnew       no `class ModelNew`
+  reference_model   uses the reference `Model` class (subclass, instance or call)
+  reference_op      torch.ops/aten/_C, torch.compile/jit/_dynamo/_inductor called outside ModelNew.__init__
+  reference_copy    (runtime) forward issues exactly the reference's sequence of torch ops: no optimization
+  try_except        any try/except (or contextlib.suppress): the classic silent fallback
+  cuda_stream       side streams
+  timer_patch       assigning to time.*, torch.mps/cuda synchronize, Event, elapsed_time and friends
+  monkey_patch      assigning to any other torch/numpy/builtins attribute
+  global_cache      empty module-level containers or ones written at call time, class-level
+                    containers, global/nonlocal, lru_cache
+  instance_cache    ModelNew stores or mutates state on self outside __init__ (output caching): assigning
+                    self.x, in-place ops or out= on self tensors, self tensors handed to a Metal kernel
+  low_precision     fp16/bf16 types or conversions in an fp32 problem
+  introspection     frame/gc/inspect/exec tricks that could read the evaluator's reference output
+  forbidden_import  subprocess, ctypes, sockets, pickle, importlib, threading, multiprocessing
+  input_mutated     (runtime) an input changed in place
+  output caching    (runtime) a final correctness check on a fresh seed after timing"""
 NN_CONTAINERS = frozenset({"Module", "Parameter", "ParameterList", "ParameterDict", "ModuleList", "ModuleDict", "init",
                            "parameter"})
 MUTABLE_FACTORIES = frozenset({"dict", "list", "set", "defaultdict", "OrderedDict", "Counter", "deque",
@@ -82,6 +111,7 @@ LOW_PRECISION = re.compile(r"\b(__half2?|half2|__nv_bfloat16\w*|__nv_half\w*|__f
                            r"torch::kHalf|torch::kFloat16|torch::kBFloat16|c10::Half|c10::BFloat16|"
                            r"precision::tf32|__float_to_tf32|cvt\.rna\.tf32|float16|bfloat16)\b|"
                            r"\.half\s*\(|allow_tf32|set_float32_matmul_precision|allow_fp16_reduced|allow_bf16_reduced")
+METAL_LOW_PRECISION = re.compile(r"\b(?:half|bfloat)[234]?\b")  # Metal shader types, matched in string constants
 
 
 def _chain(node: ast.AST) -> list[str]:
@@ -117,16 +147,33 @@ def _is_empty_container(v: ast.AST | None) -> bool:
     return isinstance(v, ast.Call) and not v.args and (_chain(v.func)[-1:] or [""])[0] in MUTABLE_FACTORIES
 
 
+TENSOR_METHODS = frozenset({"clone", "to", "empty_like", "zeros_like", "ones_like", "new_empty", "new_zeros",
+                            "new_ones", "contiguous", "detach", "Parameter", "mps", "float"})
+
+
+def _is_tensor_call(v: ast.AST | None) -> bool:
+    """A call that yields a tensor a kernel could write: torch.<factory>(...), nn.Parameter, .clone(), .to() ..."""
+    if not isinstance(v, ast.Call):
+        return False
+    c = _chain(v.func)
+    if c[:1] == ["torch"] and len(c) >= 2 and c[1] not in ("nn", "mps"):
+        return True
+    last = c[-1] if c else (v.func.attr if isinstance(v.func, ast.Attribute) else "")
+    return last in TENSOR_METHODS
+
+
 def _is_loader_call(v: ast.AST | None) -> bool:
-    return isinstance(v, ast.Call) and (_chain(v.func)[-1:] or [""])[0] in ("load_inline", "load")
+    return isinstance(v, ast.Call) and (_chain(v.func)[-1:] or [""])[0] in ("load_inline", "load", "compile_shader")
 
 
 class _Visitor(ast.NodeVisitor):
-    def __init__(self) -> None:
+    def __init__(self, device: str = "cuda") -> None:
+        self.device = device
         self.hits: list[dict] = []
         self.ext_names: set[str] = set()  # names bound to a compiled extension (calls on them are the kernel)
         self.ext_attrs: set[str] = set()  # self.<attr> bound to a compiled extension
         self.layer_attrs: set[str] = set()  # self.<attr> bound to an nn compute layer in __init__
+        self.buffer_attrs: set[str] = set()  # self.<attr> bound to a tensor (torch factory, Parameter, buffer) in __init__
         self.module_containers: set[str] = set()  # module-level mutable containers (caches if mutated)
         self.scope: list[str] = []  # "module", "class:<name>", "func:<name>"
 
@@ -238,6 +285,8 @@ class _Visitor(ast.NodeVisitor):
                 vc = _chain(value.func) if isinstance(value, ast.Call) else []
                 if len(vc) >= 2 and vc[-2] == "nn" and vc[-1] not in NN_CONTAINERS:
                     self.layer_attrs.add(chain[1])
+                if _is_tensor_call(value):
+                    self.buffer_attrs.add(chain[1])
             elif self.in_modelnew_method():
                 self.hit("instance_cache", node, f"ModelNew writes self.{chain[1]} outside __init__")
 
@@ -255,7 +304,8 @@ class _Visitor(ast.NodeVisitor):
 
     # --- expressions --------------------------------------------------------------------
     def visit_BinOp(self, node: ast.BinOp) -> None:
-        if isinstance(node.op, ast.MatMult) and self.in_function() and not self.in_modelnew_init():
+        if isinstance(node.op, ast.MatMult) and self.in_function() and not self.in_modelnew_init() \
+                and self.device != "mps":
             self.hit("reference_op", node, "`@` is torch.matmul")
         self.generic_visit(node)
 
@@ -279,6 +329,9 @@ class _Visitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         chain = _chain(node.func)
+        if chain == ["self", "register_buffer"] and node.args and isinstance(node.args[0], ast.Constant) \
+                and isinstance(node.args[0].value, str):
+            self.buffer_attrs.add(node.args[0].value)
         if "functional" in chain or (len(chain) == 2 and chain[0] == "F"):
             self.hit("functional_call", node, f"calls {'.'.join(chain)}")
         elif chain[-1:] == ["setattr"] or chain[-1:] == ["delattr"]:
@@ -294,6 +347,11 @@ class _Visitor(ast.NodeVisitor):
     def _check_compute_call(self, node: ast.Call, chain: list[str]) -> None:
         if len(chain) == 2 and chain[0] in self.module_containers and chain[1] in MUTATORS:
             self.hit("global_cache", node, f"mutates module-level `{chain[0]}` at call time")
+            return
+        if self.device == "mps":  # PyTorch ops are the allowed tool on MPS; only work-hiding torch paths are banned
+            if chain[:1] == ["torch"] and len(chain) >= 2 and chain[1] in MPS_BANNED_SUBMODULES:
+                self.hit("reference_op", node, f"calls {'.'.join(chain)}")
+            self._check_mps_state(node, chain)
             return
         if chain[:1] == ["torch"] and len(chain) >= 2:
             if chain[1] in TORCH_SUBMODULES or chain[-1] in COMPUTE_OPS:
@@ -322,23 +380,43 @@ class _Visitor(ast.NodeVisitor):
                 self.hit("reference_op", node, f"calls Tensor.{node.func.attr}")
 
 
+    def _check_mps_state(self, node: ast.Call, chain: list[str]) -> None:
+        """With torch ops allowed, a content-keyed cache needs persistent state: block writes to self in forward."""
+        if not self.in_modelnew_method() or self.in_modelnew_init():
+            return
+        if len(chain) >= 3 and chain[0] == "self" and chain[1] not in self.ext_attrs \
+                and (chain[-1] in MUTATORS or (chain[-1].endswith("_") and not chain[-1].startswith("_"))):
+            self.hit("instance_cache", node, f"mutates {'.'.join(chain[:-1])} in place via .{chain[-1]}()")
+        for kw in node.keywords:
+            if kw.arg == "out" and _chain(kw.value)[:1] == ["self"]:
+                self.hit("instance_cache", node, f"writes out= into {'.'.join(_chain(kw.value))}")
+        is_kernel = (len(chain) == 2 and chain[0] in self.ext_names) or \
+                    (len(chain) == 3 and chain[0] == "self" and chain[1] in self.ext_attrs)
+        if is_kernel:
+            for a in list(node.args) + [k.value for k in node.keywords]:
+                ac = _chain(a)
+                if len(ac) == 2 and ac[0] == "self" and ac[1] in self.buffer_attrs:
+                    self.hit("instance_cache", node, f"hands ModelNew state self.{ac[1]} to a kernel that can write it")
+
+
 def _string_constants(tree: ast.AST) -> str:
     return "\n".join(n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str))
 
 
-def check(src: str, precision: str = "fp32") -> list[dict]:
+def check(src: str, precision: str = "fp32", device: str = "cuda") -> list[dict]:
     try:
         tree = ast.parse(src)
     except SyntaxError as exc:
         return [{"rule": "syntax_error", "detail": f"line {exc.lineno}: {exc.msg}"}]
     if not any(isinstance(n, ast.ClassDef) and n.name == "ModelNew" for n in ast.walk(tree)):
         return [{"rule": "no_modelnew", "detail": "define `class ModelNew(nn.Module)`"}]
-    v = _Visitor()
+    v = _Visitor(device)
     # Two passes: the first learns which names are compiled extensions and nn layers.
     v.visit(tree)
     ext_names, ext_attrs, layer_attrs, containers = v.ext_names, v.ext_attrs, v.layer_attrs, v.module_containers
-    v = _Visitor()
-    v.ext_names, v.ext_attrs, v.layer_attrs = ext_names, ext_attrs, layer_attrs
+    buffer_attrs = v.buffer_attrs
+    v = _Visitor(device)
+    v.ext_names, v.ext_attrs, v.layer_attrs, v.buffer_attrs = ext_names, ext_attrs, layer_attrs, buffer_attrs
     v.module_containers = containers
     v.visit(tree)
     hits = v.hits
@@ -354,12 +432,17 @@ def check(src: str, precision: str = "fp32") -> list[dict]:
         m = LOW_PRECISION.search(src)
         if m:
             hits.append({"rule": "low_precision", "detail": f"fp32 problem, found {m.group(0)!r}"})
+        m = METAL_LOW_PRECISION.search(strings) if device == "mps" else None
+        if m:
+            hits.append({"rule": "low_precision", "detail": f"fp32 problem, Metal source uses {m.group(0)!r}"})
     kb_checks = list(kb.STRICT_CHECKS) + ["cuda_impl", "stream_injection", "torch_computation_ops", "precision_downgrade"]
     for name in kb_checks:
         fn = kb.CHECK_FUNCTIONS[name]
         bad, msg = fn(src, precision) if name in kb.PRECISION_DEPENDENT_CHECKS else fn(src)
         if bad:
             hits.append({"rule": f"kb_{name}", "detail": msg})
+    if device == "mps":
+        hits = [h for h in hits if h["rule"] not in MPS_OFF_RULES]
     seen, out = set(), []
     for h in hits:  # one entry per (rule, detail), first occurrence order
         key = (h["rule"], h["detail"])
@@ -369,9 +452,12 @@ def check(src: str, precision: str = "fp32") -> list[dict]:
     return out
 
 
-def rules_summary() -> str:
+def rules_summary(device: str = "cuda") -> str:
     """The rule list as the kernel role sees it in its prompt."""
+    if device == "mps":
+        return MPS_RULES
     doc = __doc__ or ""
+    doc = doc[:doc.index("device=\"mps\"")] if "device=\"mps\"" in doc else doc
     return doc[doc.index("Rules (all reject):"):].strip()
 
 

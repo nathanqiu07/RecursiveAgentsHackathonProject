@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 17432, "solution": {"instance": "ste36a", "permutation": [34, 24, 22, 25, 16, 5, 14, 20, 21, 0, 11, 10, 9, 1, 17, 4, 35, 7, 32, 29, 2, 23, 12, 8, 31, 6, 3, 15, 13, 30, 18, 33, 19, 28, 26, 27]}, "task_id": "qaplib-ste36a", "config": "v1 g1 train", "version": 1, "split": "train", "score": 0.5464662689307022, "passed": false}

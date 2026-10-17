@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 5816, "solution": {"instance": "chr25a", "permutation": [2, 19, 1, 5, 13, 9, 6, 4, 3, 10, 18, 17, 24, 15, 23, 8, 12, 0, 20, 7, 21, 16, 11, 22, 14]}, "task_id": "qaplib-chr25a", "config": "v0 + final brain", "version": 0, "split": "heldout", "score": 0.6526822558459422, "passed": false, "filled_after_run": true}

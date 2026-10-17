@@ -38,3 +38,4 @@ gurobi.log
 runs/
 
 *.tsbuildinfo
+.venv-kb/

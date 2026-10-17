@@ -42,7 +42,26 @@ DATAHALL_REVIEWER_NOTE = (
     "not from re-laying out rows. Super is currently throttled by Crusoe (HTTP 429 on every call); do not assign it "
     "to a role. Data-hall config_set knobs: polish (true or false, default false): run a verifier-guided local search "
     "over single-rack moves after the team's layout; polish_checks (int in [0, 1500], default 1500): the most "
-    "verifier calls that search may use.")
+    "verifier calls that search may use. polish needs no LLM call (about 7 s per hall) and keeps a polished layout "
+    "only if it stays feasible and scores higher. config_set keys must be existing config keys; others are dropped.")
+
+
+def drop_unknown_config_keys(reviewer: Any) -> None:
+    """A config_set on a key the team never reads (e.g. dotted 'thinking.Layout') is a no-op that costs a full dev
+    batch; drop it as invalid, like the Reviewer's own checks do, so the ledger and Library record why."""
+    propose = reviewer.propose
+
+    def checked(version: TeamVersion, *args: Any, **kwargs: Any) -> list[dict]:
+        kept = []
+        for m in propose(version, *args, **kwargs):
+            if m.get("type") == "config_set" and m.get("key") not in version.config:
+                reviewer.dropped.append({"mutation": m, "reason": f"unknown config key {m.get('key')!r}; "
+                                                                  f"known keys: {sorted(version.config)}"})
+            else:
+                kept.append(m)
+        return kept
+
+    reviewer.propose = checked
 _HALL_NAME = re.compile(r"HALL (\S+):")
 
 
@@ -167,6 +186,7 @@ def evolve(llm: LLM, reviewer_model: str, out: Path, generations: int, seed: int
                       max_workers=workers, seed=seed, initial=v0, reports_dir=out / "reports",
                       gate=Gate(min_gain=min_gain), research=research)
     evolver.reviewer.system += DATAHALL_REVIEWER_NOTE
+    drop_unknown_config_keys(evolver.reviewer)
     t0 = time.perf_counter()
     final = evolver.run(generations, train, dev, heldout)
     for h in evolver.history:
@@ -208,6 +228,8 @@ def main() -> int:
                     help="Reviewer call budget (client default 2048); a reasoning model can spend it all thinking")
     ap.add_argument("--reviewer-thinking", choices=("on", "off"), default=None,
                     help="force the Reviewer's reasoning switch; default sends nothing (server default)")
+    ap.add_argument("--thinking", nargs="+", default=[], metavar="ROLE",
+                    help="roles that start (v0) with reasoning on, e.g. --thinking Layout; needs a large --max-tokens")
     ap.add_argument("--timeout-s", type=float, default=600.0,
                     help="per-request timeout; reasoning-on Layout calls run 100-340 s, so 120 s silently kills them")
     add_library_args(ap)
@@ -217,6 +239,8 @@ def main() -> int:
 
     v0 = datahall_v0()
     v0.config.update(max_iters=args.max_iters, max_tokens=args.max_tokens, default_model=args.worker_model)
+    if args.thinking:
+        v0.config["thinking"] = {**v0.config.get("thinking", {}), **{role: True for role in args.thinking}}
     if args.offline:
         llm: Any = None
     else:

@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 364720, "solution": {"instance": "tho40", "permutation": [34, 4, 20, 2, 23, 37, 15, 1, 39, 19, 3, 31, 33, 35, 24, 32, 14, 18, 16, 27, 22, 8, 13, 28, 29, 30, 12, 7, 6, 11, 26, 10, 36, 17, 25, 38, 5, 9, 21, 0]}, "task_id": "qaplib-tho40", "config": "v0 g0 train", "version": 0, "split": "train", "score": 0.6594538275937706, "passed": false}

@@ -15,7 +15,7 @@ Every number here comes from a live run on Crusoe Managed Inference (Nemotron-3 
 | GPU rack placement (data-center QAP), live run 1 | 0.5042 | v1 + final brain 0.6394 | +0.1352 (+26.8%) | done | $0.0168 (96 calls) |
 | GPU rack placement (data-center QAP), live run with research | 0.4773 | v2 + final brain 0.8020 | +0.3247 (+68.0%) | done | $0.0208 (89 calls) |
 | ALE-Bench AHC039 (Purse Seine Fishing) | n/a | n/a | n/a | blocked: crashed: RateLimitError, HTTP 429, max_requests_limit; 1 candidate scored before the crash; last write 15:09 PDT | n/a (crashed before usage.json) |
-| KernelBench mini (CUDA kernels) | pending | pending | pending | running: 4 candidates scored on dev, generation 0; started 16:21 PDT, last write 16:23 PDT | pending (usage.json written at run end) |
+| KernelBench mini (CUDA kernels) | pending | pending | pending | running: 5 candidates scored on dev, generation 1; started 16:21 PDT, last write 16:26 PDT | pending (usage.json written at run end) |
 | Inference serving cost (exact-answer data-center ops Q&A) | $0.001092 per correct answer | v1 + final brain (final) $0.000753 per correct answer | 31% less per correct answer (48 held-out questions) | done | $0.2650 (208 calls) |
 | Model settings: Nano vs Super, reasoning on/off (4 train halls) | n/a (settings sweep, no v0 arm) | B32 (Nano 30B, reasoning on, max 32k tokens) 0.7216 | n/a | done | $0.2473 (127 calls) |
 
@@ -308,13 +308,13 @@ Sources: `runs/alebench-live-1/versions/ledger.jsonl`, `runs/alebench-live-1.log
 
 - Verifier: compile, correctness on 5 signed input sets plus a held-back seed, CUDA-event timing; score = speedup over torch eager if correct (cap 10), else 0.
 - Baseline: v0 cold (v0 cold), held-out mean n/a (source: pending: the run's held-out table).
-- Status: running; 4 candidates scored on dev, generation 0; started 16:21 PDT, last write 16:23 PDT.
+- Status: running; 5 candidates scored on dev, generation 1; started 16:21 PDT, last write 16:26 PDT.
 - Live evidence: named live run.
 - Totals: n/a until the run ends (usage.json is written last).
 
 ### Generations (each candidate is gated on the dev set)
 
-4 candidates, 0 accepted.
+5 candidates, 0 accepted.
 
 | Gen | Mutation | Change | Claim | Measured dev gain | Decision | Why |
 |---|---|---|---|---|---|---|
@@ -322,6 +322,7 @@ Sources: `runs/alebench-live-1/versions/ledger.jsonl`, `runs/alebench-live-1.log
 | 0 | prompt_edit | kernel prompt: You are a GPU performance engineer. Target: Apple GPU via PyTorch M... | none recorded (ledger predates claims) | n/a | rejected | invalid: claim must be {"dev_gain": <number>, "cost_change_pct": <number>, "why": <str>}, got None |
 | 0 | config_set | temperature = 0.1 | none recorded (ledger predates claims) | n/a | rejected | invalid: claim must be {"dev_gain": <number>, "cost_change_pct": <number>, "why": <str>}, got None |
 | 0 | config_set | attempts = 3 | none recorded (ledger predates claims) | n/a | rejected | invalid: claim must be {"dev_gain": <number>, "cost_change_pct": <number>, "why": <str>}, got None |
+| 1 | None | {} | none recorded (ledger predates claims) | n/a | rejected | None |
 
 Sources: `runs/kernelbench-mps-1/versions/ledger.jsonl`, `runs/kernelbench-mps-1.log`.
 
@@ -402,6 +403,6 @@ Sources: `runs/alebench-one/logs/ahc039-train0-v0.json`, `runs/alebench-one/usag
 
 ## Not counted
 
-These run directories are not results: `runs/alebench-live-2` (no paid usage.json: offline, scripted or a service log); `runs/alebench-offline` (no paid usage.json: offline, scripted or a service log); `runs/dashboard` (no paid usage.json: offline, scripted or a service log); `runs/datahall-20261017-143109` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-4` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1-attempt0` (no paid usage.json: offline, scripted or a service log); `runs/localhost` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-dc-research-2` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-2` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-3` (not a named live run); `runs/qaplib-evolve-4` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-5` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-research-2` (not a named live run).
+These run directories are not results: `runs/alebench-live-2` (no paid usage.json: offline, scripted or a service log); `runs/alebench-offline` (no paid usage.json: offline, scripted or a service log); `runs/dashboard` (no paid usage.json: offline, scripted or a service log); `runs/datahall-20261017-143109` (no paid usage.json: offline, scripted or a service log); `runs/datahall-live-4` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1` (no paid usage.json: offline, scripted or a service log); `runs/inference-opt-1-attempt0` (no paid usage.json: offline, scripted or a service log); `runs/localhost` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-dc-research-2` (not a named live run); `runs/qaplib-dc-research-3` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-2` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-3` (not a named live run); `runs/qaplib-evolve-4` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-evolve-5` (no paid usage.json: offline, scripted or a service log); `runs/qaplib-research-2` (not a named live run).
 
-Generated 2026-10-17 16:24:21 PDT. Regenerate with `.venv/bin/python scripts/collect_results.py` (rewrites reports/RESULTS.md and reports/results.json).
+Generated 2026-10-17 16:28:27 PDT. Regenerate with `.venv/bin/python scripts/collect_results.py` (rewrites reports/RESULTS.md and reports/results.json).

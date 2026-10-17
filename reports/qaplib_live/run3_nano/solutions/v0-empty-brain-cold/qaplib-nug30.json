@@ -1,0 +1,1 @@
+{"case_study": "qaplib", "verified_cost": 6614, "solution": {"instance": "nug30", "permutation": [25, 22, 12, 5, 16, 11, 8, 10, 9, 17, 0, 23, 24, 7, 6, 21, 14, 4, 28, 18, 15, 2, 1, 20, 27, 3, 29, 26, 13, 19]}, "task_id": "qaplib-nug30", "config": "v0 + empty brain (cold)", "version": 0, "split": "heldout", "score": 0.9259147263380707, "passed": false, "filled_after_run": true}

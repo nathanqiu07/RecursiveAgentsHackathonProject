@@ -12,6 +12,13 @@ inputs) -> one more correctness check on a seed never used for timing, after the
 many times (catches output caching). speedup = ref median / candidate median; above 10x it is flagged
 "suspicious" and capped at 10 in the score. score = capped speedup if correct else 0.
 Stdlib + torch only; static checks are importable without torch so the same rules run on a laptop.
+
+KB_DEVICE=mps (default cuda, whose path is unchanged): Apple GPU via PyTorch MPS, NOT CUDA, for when no CUDA host
+exists (Crusoe GPU quota was zero). Inputs/outputs live on "mps"; static checks run in mps mode (PyTorch ops and
+torch.mps.compile_shader Metal kernels allowed, every hack rule kept); the runtime audit rejects a forward that
+re-issues exactly the reference's torch-op sequence (reference_copy); timing is wall clock with
+torch.mps.synchronize around each call, reference and candidate interleaved (alternating order) after warmup,
+cache flush before each call, median of max(trials, 30). Same tolerances, same post-timing fresh-seed check.
 """
 from __future__ import annotations
 
@@ -39,6 +46,8 @@ ATOL = RTOL = 1e-4
 # differences stay well inside atol=rtol=1e-4 for the K=256 matmuls and the 512-long cumsum.
 CORRECTNESS_SCALES = (1.0, 0.1, 0.5, 0.01, 1.0)
 SPEEDUP_CAP = 10.0
+MPS_MIN_TRIALS = 100  # timing is cheap next to the subprocess start; more trials narrow the noise band
+MPS_TIMING_SETS = 8  # timing rotates distinct input sets, so a single-slot content cache never hits
 TIMING_SEED_OFFSET = 1000
 POSTCHECK_SEED_OFFSET = 7919
 # Tensor-level torch calls a ModelNew.forward may make around its own kernel (allocation, layout, metadata).
@@ -48,6 +57,29 @@ unsqueeze squeeze expand size stride numel dim shape dtype device is_contiguous 
 is_cuda element_size __get__ __len__ __getitem__ __index__ __int__ __bool__ __hash__ __format__ __repr__
 __eq__ __ne__ get_device cuda to float requires_grad_ detach is_floating_point ndimension nelement layout
 """.split())
+
+
+def device_kind() -> str:
+    """"cuda" (default) or "mps", from KB_DEVICE."""
+    return "mps" if os.environ.get("KB_DEVICE", "").strip().lower() == "mps" else "cuda"
+
+
+def sync(device: str = "cuda") -> None:
+    import torch
+    if device == "mps":
+        torch.mps.synchronize()
+    else:
+        torch.cuda.synchronize()
+
+
+def mps_device_name() -> str:
+    import platform
+    import subprocess
+    chip = ""
+    if sys.platform == "darwin" and Path("/usr/sbin/sysctl").exists():  # the runner's scrubbed PATH lacks /usr/sbin
+        run = subprocess.run(["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True)
+        chip = run.stdout.strip()
+    return f"Apple GPU (MPS), not CUDA: {chip or platform.machine()}"
 
 
 def result_template(problem: str) -> dict[str, Any]:
@@ -75,22 +107,22 @@ def load_module(path: Path, name: str) -> Any:
     return mod
 
 
-def signed_like(x: Any, gen: Any, scale: float) -> Any:
+def signed_like(x: Any, gen: Any, scale: float, device: str = "cuda") -> Any:
     """Floating tensors become randn * scale (signed, mixed scales); everything else is kept as drawn."""
     import torch
     if isinstance(x, torch.Tensor) and x.is_floating_point():
-        return (torch.randn(x.shape, generator=gen, dtype=x.dtype) * scale).cuda()
+        return (torch.randn(x.shape, generator=gen, dtype=x.dtype) * scale).to(device)
     if isinstance(x, torch.Tensor):
-        return x.cuda()
+        return x.to(device)
     return x
 
 
-def make_inputs(problem_mod: Any, seed: int, scale: float) -> list[Any]:
+def make_inputs(problem_mod: Any, seed: int, scale: float, device: str = "cuda") -> list[Any]:
     import torch
     torch.manual_seed(seed)  # shapes, non-float inputs and any extra draws in get_inputs are seeded too
     template = problem_mod.get_inputs()
     gen = torch.Generator().manual_seed(seed)
-    return [signed_like(x, gen, scale) for x in template]
+    return [signed_like(x, gen, scale, device) for x in template]
 
 
 def clone_all(xs: list[Any]) -> list[Any]:
@@ -102,7 +134,7 @@ def as_list(out: Any) -> list[Any]:
     return list(out) if isinstance(out, (tuple, list)) else [out]
 
 
-def compare(ref_out: Any, out: Any) -> str | None:
+def compare(ref_out: Any, out: Any, device: str = "cuda") -> str | None:
     """None if equal within tolerance, else a short reason."""
     import torch
     refs, outs = as_list(ref_out), as_list(out)
@@ -115,8 +147,8 @@ def compare(ref_out: Any, out: Any) -> str | None:
             return f"wrong_dtype: output {i} is {o.dtype}, expected {r.dtype}"
         if tuple(o.shape) != tuple(r.shape):
             return f"wrong_shape: output {i} is {tuple(o.shape)}, expected {tuple(r.shape)}"
-        if not o.is_cuda:
-            return f"output {i} is on {o.device}, expected cuda"
+        if o.device.type != device:
+            return f"output {i} is on {o.device}, expected {device}"
         if r.is_floating_point():
             if not torch.isfinite(o).all() and torch.isfinite(r).all():
                 return f"output {i} has NaN/Inf"
@@ -136,7 +168,7 @@ def mutated(before: list[Any], after: list[Any]) -> int | None:
     return None
 
 
-def audit_torch_calls(model: Any, inputs: list[Any]) -> list[str]:
+def audit_torch_calls(model: Any, inputs: list[Any], device: str = "cuda") -> list[str]:
     """Every Python-level torch function/method/operator ModelNew.forward calls, minus allocation and layout.
 
     Catches `A * s`, `x.relu()`, `F.gelu`, `@` and anything the static rules missed. Calls made from C++
@@ -155,8 +187,33 @@ def audit_torch_calls(model: Any, inputs: list[Any]) -> list[str]:
 
     with torch.no_grad(), Audit():
         model(*inputs)
-    torch.cuda.synchronize()
+    sync(device)
     return seen
+
+
+def time_interleaved(ref_model: Any, model: Any, input_sets: list[list[Any]], trials: int, warmup: int,
+                     flush_buf: Any, device: str) -> tuple[list[float], list[float]]:
+    """MPS timing: no device events, so wall clock between synchronizes. Reference and candidate alternate
+    (ABBA order) so load from other processes on this machine hits both arms alike."""
+    import torch
+    ref_ms: list[float] = []
+    cand_ms: list[float] = []
+    with torch.no_grad():
+        for w in range(warmup):
+            ref_model(*input_sets[w % len(input_sets)])
+            model(*input_sets[w % len(input_sets)])
+        sync(device)
+        for i in range(max(trials, MPS_MIN_TRIALS)):
+            inputs = input_sets[i % len(input_sets)]
+            order = ((ref_model, ref_ms), (model, cand_ms)) if i % 2 == 0 else ((model, cand_ms), (ref_model, ref_ms))
+            for m, bucket in order:
+                flush_l2(flush_buf)
+                sync(device)
+                t0 = time.perf_counter()
+                m(*inputs)
+                sync(device)
+                bucket.append((time.perf_counter() - t0) * 1e3)
+    return ref_ms, cand_ms
 
 
 def flush_l2(buf: Any) -> None:
@@ -183,14 +240,17 @@ def time_model(model: Any, inputs: list[Any], trials: int, warmup: int, l2_buf: 
 
 
 def evaluate(problem_path: str | Path, candidate_src: str, trials: int = 50, seed: int = 42,
-             warmup: int = 5) -> dict[str, Any]:
+             warmup: int = 5, device: str | None = None) -> dict[str, Any]:
+    device = device or device_kind()
     problem_path = Path(problem_path)
     res = result_template(problem_path.stem)
-    hits = static_checks.check(candidate_src)
+    hits = static_checks.check(candidate_src, device=device)
     if hits:
         res["reasons"] = [f"static_reject:{h['rule']}: {h['detail']}" for h in hits]
         return finish(res, f"static_reject:{hits[0]['rule']}")
     import torch
+    if device == "mps":
+        return _evaluate_mps(res, problem_path, candidate_src, trials, seed, warmup)
     if not torch.cuda.is_available():
         res["reasons"].append("no CUDA device on this host")
         return finish(res, "no_gpu")
@@ -231,8 +291,45 @@ def evaluate(problem_path: str | Path, candidate_src: str, trials: int = 50, see
             return finish(res, "incorrect")
 
 
+def _evaluate_mps(res: dict[str, Any], problem_path: Path, candidate_src: str, trials: int, seed: int,
+                  warmup: int) -> dict[str, Any]:
+    import torch
+    if not torch.backends.mps.is_available():
+        res["reasons"].append("no MPS device on this host")
+        return finish(res, "no_gpu")
+    res["device"] = mps_device_name()
+    digest = hashlib.sha256(candidate_src.encode()).hexdigest()[:12]
+    problem = load_module(problem_path, f"kbmini_ref_{problem_path.stem}")
+    with tempfile.TemporaryDirectory(prefix="kbmini_cand_") as tmp:
+        cand_path = Path(tmp) / f"cand_{digest}.py"
+        cand_path.write_text(candidate_src)
+        t0 = time.monotonic()
+        try:
+            cand = load_module(cand_path, f"kbmini_cand_{digest}")
+            init = problem.get_init_inputs()
+            torch.manual_seed(seed)
+            ref_model = problem.Model(*init).to("mps").eval()
+            torch.manual_seed(seed)  # same seed, so parameter-holding problems (conv) get the same weights
+            model = cand.ModelNew(*init).to("mps").eval()
+            sync("mps")
+        except Exception as exc:  # compile or construction failure is a scored outcome, not a crash
+            res["reasons"].append(f"compile_error: {type(exc).__name__}: {str(exc)[-1500:]}")
+            res["timings"]["compile_s"] = round(time.monotonic() - t0, 2)
+            return finish(res, "compile_error")
+        res["compiled"] = True
+        res["timings"]["compile_s"] = round(time.monotonic() - t0, 2)
+        try:
+            return _run_checks(res, problem, ref_model, model, trials, seed, warmup, device="mps")
+        except Exception as exc:  # e.g. a Metal dispatch error
+            res["correct"] = False
+            res["reasons"].append(f"runtime_error: {type(exc).__name__}: {str(exc)[-800:]}")
+            return finish(res, "incorrect")
+
+
 def _run_checks(res: dict[str, Any], problem: Any, ref_model: Any, model: Any, trials: int, seed: int,
-                warmup: int) -> dict[str, Any]:
+                warmup: int, device: str = "cuda") -> dict[str, Any]:
+    if device == "mps":
+        return _run_checks_mps(res, problem, ref_model, model, trials, seed, warmup)
     import torch
     audit = audit_torch_calls(model, make_inputs(problem, seed, 1.0))
     if audit:
@@ -276,6 +373,56 @@ def _run_checks(res: dict[str, Any], problem: Any, ref_model: Any, model: Any, t
     return finish(res, None)
 
 
+def _run_checks_mps(res: dict[str, Any], problem: Any, ref_model: Any, model: Any, trials: int, seed: int,
+                    warmup: int) -> dict[str, Any]:
+    import torch
+    dev = "mps"
+    audit_inputs = make_inputs(problem, seed, 1.0, dev)
+    cand_ops = audit_torch_calls(model, audit_inputs, dev)
+    ref_ops = audit_torch_calls(ref_model, audit_inputs, dev)
+    if cand_ops and cand_ops == ref_ops:  # PyTorch ops are allowed on MPS; replaying the reference is not work
+        res["reasons"].append(f"runtime_reject:reference_copy: forward issues the reference's own torch ops "
+                              f"({', '.join(cand_ops[:6])})")
+        return finish(res, "runtime_reject:reference_copy")
+    res["torch_ops"] = cand_ops[:20]
+    with torch.no_grad():
+        for k, scale in enumerate(CORRECTNESS_SCALES):
+            inputs = make_inputs(problem, seed + 1 + k, scale, dev)
+            ref_out = ref_model(*clone_all(inputs))
+            before = clone_all(inputs)
+            out = model(*inputs)
+            sync(dev)
+            bad = mutated(before, inputs)
+            if bad is not None:
+                res["reasons"].append(f"runtime_reject:input_mutated: input {bad} changed in place (set {k}, scale {scale:g})")
+                return finish(res, "runtime_reject:input_mutated")
+            why = compare(ref_out, out, dev)
+            if why:
+                res["reasons"].append(f"incorrect on signed input set {k} (scale {scale:g}): {why}")
+                return finish(res, "incorrect")
+    flush_buf = torch.empty((32, 1024, 1024), dtype=torch.int64, device=dev)  # 256 MB, past the system cache
+    timing_sets = [make_inputs(problem, seed + TIMING_SEED_OFFSET + j, 1.0, dev) for j in range(MPS_TIMING_SETS)]
+    ref_ms, cand_ms = time_interleaved(ref_model, model, timing_sets, trials, warmup, flush_buf, dev)
+    del timing_sets
+    del flush_buf
+    with torch.no_grad():  # a seed the timing loop never saw, after many calls: output caches fail here
+        inputs = make_inputs(problem, seed + POSTCHECK_SEED_OFFSET, 1.0, dev)
+        ref_out = ref_model(*clone_all(inputs))
+        out = model(*inputs)
+        sync(dev)
+        why = compare(ref_out, out, dev)
+    if why:
+        res["reasons"].append(f"incorrect after timing on a fresh seed (output caching?): {why}")
+        return finish(res, "incorrect")
+    res["correct"] = True
+    ref_med, cand_med = median(ref_ms), median(cand_ms)
+    res["speedup"] = round(ref_med / cand_med, 4) if cand_med > 0 else float("inf")
+    res["timings"].update({"ref_ms_median": round(ref_med, 5), "cand_ms_median": round(cand_med, 5),
+                           "trials": len(ref_ms), "clock": "perf_counter+mps.synchronize, interleaved ABBA",
+                           "ref_ms": [round(t, 5) for t in ref_ms], "cand_ms": [round(t, 5) for t in cand_ms]})
+    return finish(res, None)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--problem", required=True, help="path to a problems/*.py file")
@@ -283,9 +430,11 @@ def main() -> int:
     ap.add_argument("--trials", type=int, default=50)
     ap.add_argument("--warmup", type=int, default=5)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--device", choices=("cuda", "mps"), default=None, help="default: KB_DEVICE, else cuda")
     args = ap.parse_args()
     try:
-        res = evaluate(args.problem, Path(args.candidate).read_text(), args.trials, args.seed, args.warmup)
+        res = evaluate(args.problem, Path(args.candidate).read_text(), args.trials, args.seed, args.warmup,
+                       device=args.device)
     except Exception as exc:  # the caller always gets one JSON line
         res = {**result_template(Path(args.problem).stem), "category": "eval_error",
                "reasons": [f"eval_error: {type(exc).__name__}: {exc}"], "traceback": traceback.format_exc()[-2000:]}
