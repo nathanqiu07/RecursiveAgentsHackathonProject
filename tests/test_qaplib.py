@@ -262,5 +262,110 @@ class EvolveCaseStudyTest(unittest.TestCase):
         self.assertTrue(default.gate.decide(parent, small)["accepted"])
 
 
+class DcInstancesTest(unittest.TestCase):
+    """GPU rack placement: data-center QAP instances in QAPLIB's format, scored by the unchanged verifier."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        from benchmarks.qaplib import dc_instances as dc
+
+        cls.dc = dc
+        cls.index, cls.splits = dc.load_index(), dc.load_splits()
+        cls.names = [n for s in ("train", "dev", "heldout") for n in cls.splits[s]]
+
+    def test_generation_is_deterministic_and_matches_the_stored_files(self) -> None:
+        import hashlib
+
+        e = self.index[self.splits["heldout"][0]]
+        first, again = self.dc.build(e["seed"], e["tier"]), self.dc.build(e["seed"], e["tier"])
+        self.assertEqual(first, again)
+        text = self.dc.dat_text(first["n"], first["A"], first["B"])
+        self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), e["sha256"])
+        self.assertEqual(self.dc.choose_seeds(), {k: [tuple(x) for x in v] for k, v in self.splits["seeds"].items()})
+
+    def test_matrices_are_symmetric_non_negative_with_zero_diagonal(self) -> None:
+        lo, hi = self.dc.N_RANGE
+        for name in self.names:
+            n, a, b = parse_dat(self.dc.DC_DIR / f"{name}.dat")
+            self.assertTrue(lo <= n <= hi, name)
+            for m in (a, b):
+                self.assertTrue(all(m[i][j] == m[j][i] and m[i][j] >= 0 for i in range(n) for j in range(n)), name)
+                self.assertTrue(all(m[i][i] == 0 for i in range(n)), name)
+            self.assertTrue(any(v > 0 for row in a for v in row) and any(v > 0 for row in b for v in row))
+
+    def test_verify_scores_a_known_permutation_exactly(self) -> None:
+        name = self.splits["heldout"][0]
+        e, dat = self.index[name], self.dc.DC_DIR / f"{name}.dat"
+        n, a, b = parse_dat(dat)
+        perm = list(range(n))[::-1]
+        by_hand = sum(a[i][j] * b[perm[i]][perm[j]] for i in range(n) for j in range(n))
+        v = verify(name, perm, bks=e["bks"], dat_path=dat)
+        self.assertEqual(v["cost"], by_hand)
+        self.assertAlmostEqual(v["score"], e["bks"] / by_hand)
+        for stored in (e["two_swap"], e["reference"]):  # the stored answers reproduce their stored costs
+            self.assertEqual(verify(name, stored["perm"], bks=e["bks"], dat_path=dat)["cost"], stored["cost"])
+        self.assertEqual(e["bks"], min(e["two_swap"]["cost"], e["reference"]["tabu_cost"]))
+
+    def test_delta_matrix_matches_a_recomputed_swap(self) -> None:
+        import numpy as np
+
+        _, a, b = parse_dat(self.dc.DC_DIR / f"{self.names[0]}.dat")
+        a, b = np.array(a, dtype=np.int64), np.array(b, dtype=np.int64)
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            p = rng.permutation(len(a))
+            r, s = rng.choice(len(a), 2, replace=False)
+            q = p.copy()
+            q[[r, s]] = q[[s, r]]
+            change = int((a * b[q][:, q]).sum() - (a * b[p][:, p]).sum())
+            self.assertEqual(int(self.dc.delta_matrix(a, b[p][:, p])[r, s]), change)
+
+    def test_splits_are_disjoint_by_name_and_seed(self) -> None:
+        from donetwin import halls  # dc_instances put donetwin/ on sys.path
+
+        self.assertEqual([len(self.splits[s]) for s in ("train", "dev", "heldout")], list(self.dc.SPLIT_SIZES))
+        names = [set(self.splits[s]) for s in ("train", "dev", "heldout")]
+        seeds = [{x[0] for x in self.splits["seeds"][s]} for s in ("train", "dev", "heldout")]
+        for group in (names, seeds):
+            self.assertFalse(group[0] & group[1] or group[0] & group[2] or group[1] & group[2])
+        self.assertTrue(seeds[2] <= set(halls.heldout_seeds()))
+        self.assertTrue(all(s < 10000 for s in seeds[0] | seeds[1]))
+        tasks = self.dc.load_tasks("heldout")
+        self.assertEqual({k for t in tasks for k in t.payload}, {"name", "path", "n", "bks"})
+        self.assertTrue(all(t.text.startswith("GPU rack placement in hall ") for t in tasks))
+
+    def test_evolve_script_wires_the_dc_splits_and_baseline(self) -> None:
+        from scripts.run_qaplib_evolve import baseline_row, select_dc_tasks
+
+        self.assertEqual(build_parser().parse_args(["--offline"]).instances, "qaplib")
+        self.assertEqual(build_parser().parse_args(["--offline", "--instances", "dc"]).split, None)
+        train, dev, heldout = select_dc_tasks()
+        self.assertEqual([len(train), len(dev), len(heldout)], list(self.dc.SPLIT_SIZES))
+        self.assertTrue(all(self.dc.is_dc(t.payload["name"]) for t in train + dev + heldout))
+        row = baseline_row(heldout)
+        expected = sum(self.index[t.payload["name"]]["bks"] / self.index[t.payload["name"]]["two_swap"]["cost"]
+                       for t in heldout) / len(heldout)
+        self.assertEqual(row["n"], len(heldout))
+        self.assertAlmostEqual(row["mean_score"], round(expected, 4))
+
+    def test_verifier_dc_route_scores_against_the_reference(self) -> None:
+        from benchmarks.qaplib.verifier_api import Rejected, evaluate_dc
+
+        held = self.splits["heldout"]
+        two = [{"instance": n, "permutation": self.index[n]["two_swap"]["perm"]} for n in held]
+        res = evaluate_dc({"submission": {"solutions": two}, "split": "heldout"})
+        self.assertTrue(res["baseline"]["is_baseline"])
+        self.assertAlmostEqual(res["score"], res["baseline"]["score"])
+        self.assertTrue(res["feedback"].startswith("This is the baseline"))
+        ref = [{"instance": n, "permutation": self.index[n]["reference"]["perm"]} for n in held]
+        self.assertAlmostEqual(evaluate_dc({"submission": {"solutions": ref}, "split": "heldout"})["score"], 1.0)
+        partial = evaluate_dc({"submission": {"solutions": ref[1:]}, "split": "heldout"})
+        self.assertAlmostEqual(partial["score"], (len(held) - 1) / len(held))
+        with self.assertRaises(Rejected):
+            evaluate_dc({"submission": {"solutions": ref}, "split": "test"})
+        with self.assertRaises(Rejected):
+            evaluate_dc({"submission": {"instance": "nug20", "permutation": [0]}})
+
+
 if __name__ == "__main__":
     unittest.main()

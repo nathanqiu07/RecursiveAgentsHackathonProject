@@ -1,0 +1,83 @@
+{
+ "seed": 20261017,
+ "train": [
+  "dc-medium-5403",
+  "dc-large-7825",
+  "dc-medium-1381",
+  "dc-large-6252"
+ ],
+ "dev": [
+  "dc-medium-2689",
+  "dc-large-5285",
+  "dc-medium-6826"
+ ],
+ "heldout": [
+  "dc-medium-10009",
+  "dc-large-10030",
+  "dc-medium-10001",
+  "dc-large-10035",
+  "dc-medium-10011",
+  "dc-large-10033"
+ ],
+ "seeds": {
+  "train": [
+   [
+    5403,
+    "medium"
+   ],
+   [
+    7825,
+    "large"
+   ],
+   [
+    1381,
+    "medium"
+   ],
+   [
+    6252,
+    "large"
+   ]
+  ],
+  "dev": [
+   [
+    2689,
+    "medium"
+   ],
+   [
+    5285,
+    "large"
+   ],
+   [
+    6826,
+    "medium"
+   ]
+  ],
+  "heldout": [
+   [
+    10009,
+    "medium"
+   ],
+   [
+    10030,
+    "large"
+   ],
+   [
+    10001,
+    "medium"
+   ],
+   [
+    10035,
+    "large"
+   ],
+   [
+    10011,
+    "medium"
+   ],
+   [
+    10033,
+    "large"
+   ]
+  ]
+ },
+ "heldout_sha256": "bf5846672dbf331002fb1470bb2d2dfeff15262754ca045d421ea4903846d01d"
+}

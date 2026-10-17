@@ -206,6 +206,102 @@ def evaluate(req: Any) -> dict[str, Any]:
             "feedback": explain(results) + "\n\nDetails:\n" + "\n".join([head] + [line(r) for r in results])}
 
 
+# ---------------------------------------------------------------- GPU rack placement (data-center QAP)
+# POST /dc/evaluations: the /evaluations contract for benchmarks/qaplib/dc_instances (same .dat format, same exact
+# verify()). "bks" is each instance's stored reference cost (best of robust tabu and 2-swap), and the baseline is
+# its stored 2-swap permutation. "split" names a dc split (train, dev, heldout).
+DC_PATH = "/dc/evaluations"
+
+
+def _dc_score_one(name: Any, permutation: Any, index: dict[str, Any]) -> dict[str, Any]:
+    from benchmarks.qaplib.dc_instances import DC_DIR
+
+    if not isinstance(name, str) or name not in index:
+        raise Rejected(f"unknown data-center instance {name!r}")
+    bks = index[name]["bks"]
+    if isinstance(permutation, bool) or not isinstance(permutation, (list, str)) or (
+            isinstance(permutation, list)
+            and not all(isinstance(x, int) and not isinstance(x, bool) for x in permutation)):
+        return {"instance": name, "status": "invalid", "error": "permutation must be a list of integers",
+                "score": 0.0, "cost": None, "bks": bks, "gap_pct": None}
+    v = verify(name, permutation, bks=bks, dat_path=DC_DIR / f"{name}.dat")
+    v.pop("perm", None)
+    return {"instance": name, **v}
+
+
+def _dc_explain(results: list[dict[str, Any]], index: dict[str, Any]) -> str:
+    """Two plain sentences: cost against the reference placements, then against the 2-swap baseline."""
+    n = len(results)
+    ok = [r for r in results if r["status"] == "ok"]
+    if not ok:
+        return (f"No valid placement in {n} hall{'s' if n > 1 else ''}, so it scores 0. Each answer must put every "
+                "rack in a different slot.")
+    gap = sum(r["gap_pct"] for r in ok) / len(ok)
+    where = f"for {ok[0]['instance']}" if n == 1 else f"on average over {len(ok)} halls"
+    size = f"{abs(gap):.2f}%"
+    first = ("Traffic x cable distance matches the reference placement " + where if round(gap, 2) == 0 else
+             f"Traffic x cable distance is {size} {'above' if gap > 0 else 'below'} the reference placement {where}")
+    base = {r["instance"]: index[r["instance"]]["two_swap"]["cost"] for r in results}
+    if all(r["status"] == "ok" and r["cost"] == base[r["instance"]] for r in results):
+        return (f"This is the baseline: 2-swap local search. {first}; a higher score (1.0 = reference, from a "
+                "time-boxed robust tabu search) means less traffic crossing long cables.")
+    wins = sum(1 for r in ok if r["cost"] < base[r["instance"]])
+    losses = sum(1 for r in ok if r["cost"] > base[r["instance"]])
+    bad = n - len(ok)
+    second = f"It beats 2-swap on {wins}, ties {len(ok) - wins - losses}, loses {losses}"
+    if bad:
+        second += f"; {bad} {'is' if bad == 1 else 'are'} missing or invalid and score 0"
+    return f"{first}. {second}."
+
+
+def evaluate_dc(req: Any) -> dict[str, Any]:
+    from benchmarks.qaplib.dc_instances import load_index as dc_index, load_splits as dc_splits
+
+    if not isinstance(req, dict) or not isinstance(req.get("submission"), (dict, str)):
+        raise Rejected("body must be a JSON object with a 'submission' object")
+    sub = req["submission"]
+    if isinstance(sub, str):
+        try:
+            sub = json.loads(sub)
+        except ValueError as exc:
+            raise Rejected(f"submission is not valid JSON: {exc}") from None
+        if not isinstance(sub, dict):
+            raise Rejected("submission must be an object")
+    index = dc_index()
+    sols = sub["solutions"] if "solutions" in sub else [sub]
+    if not isinstance(sols, list) or not sols or not all(isinstance(s, dict) for s in sols):
+        raise Rejected("'solutions' must be a non-empty list of {instance, permutation} objects")
+    by_name: dict[str, Any] = {}
+    for s in sols:
+        if s.get("instance") in by_name:
+            raise Rejected(f"duplicate instance {s.get('instance')!r}")
+        by_name[s.get("instance")] = s.get("permutation")
+    split = req.get("split")
+    if split is not None and split not in ("train", "dev", "heldout"):
+        raise Rejected(f"unknown split {split!r}")
+    names = list(dc_splits()[split]) if split else list(by_name)
+    extra = [n for n in by_name if n not in names]
+    if extra:
+        raise Rejected(f"instances outside split {split!r}: {extra}")
+    results = [_dc_score_one(n, by_name[n], index) if n in by_name else
+               {"instance": n, "status": "missing", "error": "no permutation submitted", "score": 0.0, "cost": None,
+                "bks": index[n]["bks"], "gap_pct": None} for n in names]
+    mean = sum(r["score"] for r in results) / len(results)
+    ok = [r for r in results if r["status"] == "ok"]
+    base = [index[r["instance"]]["bks"] / index[r["instance"]]["two_swap"]["cost"] for r in results]
+    head = (f"mean reference/cost {mean:.6f} over {len(results)} halls"
+            f"{' of split ' + split if split else ''}; {len(ok)} valid")
+    details = [head] + [(f"{r['instance']}: cost {r['cost']} vs reference {r['bks']}, score {r['score']:.6f}, "
+                         f"gap {r['gap_pct']:.3f}%") if r["status"] == "ok" else
+                        f"{r['instance']}: {r['status']} ({r.get('error', '')}), score 0" for r in results]
+    return {"status": "completed", "score": mean, "n": len(results), "valid": len(ok),
+            "cost": results[0]["cost"] if len(results) == 1 else None, "results": results,
+            "baseline": {"name": "2-swap", "score": sum(base) / len(base),
+                         "is_baseline": all(r["status"] == "ok" and r["cost"] == index[r["instance"]]["two_swap"]["cost"]
+                                            for r in results)},
+            "feedback": _dc_explain(results, index) + "\n\nDetails:\n" + "\n".join(details)}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "QaplibVerifier/1.0"
 
@@ -223,7 +319,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"status": "rejected", "error": "not found"})
 
     def do_POST(self) -> None:
-        if self.path.split("?")[0].rstrip("/") != "/evaluations":
+        path = self.path.split("?")[0].rstrip("/")
+        if path not in ("/evaluations", DC_PATH):
             return self._send(404, {"status": "rejected", "error": "not found"})
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -236,7 +333,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError) as exc:
             return self._send(400, {"status": "rejected", "error": f"malformed JSON: {exc}"})
         try:
-            self._send(200, evaluate(req))
+            self._send(200, evaluate_dc(req) if path == DC_PATH else evaluate(req))
         except Rejected as exc:
             self._send(422, {"status": "rejected", "error": str(exc)})
         except Exception as exc:  # a verifier bug must surface as an error, never as a score

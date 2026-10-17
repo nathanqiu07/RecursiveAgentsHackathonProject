@@ -7,7 +7,9 @@ Usage (repo venv):
   .venv/bin/python scripts/run_qaplib_evolve.py --offline            # scripted LLM, proves the loop in seconds
   .venv/bin/python scripts/run_qaplib_evolve.py --live --one         # one train instance with v0, to budget a run
   .venv/bin/python scripts/run_qaplib_evolve.py --live [--generations 2] [--split 6 4 8] [--out DIR]
-Scores are BKS / cost (1.0 = best known), so they sit near 0.99; --min-gain sets the Gate's bar to match.
+  .venv/bin/python scripts/run_qaplib_evolve.py --live --instances dc   # GPU rack placement halls (dc_instances.py)
+`--instances dc` swaps QAPLIB for the data-center QAP instances (default split 4 3 6, all of them); there "BKS" is
+each instance's stored reference cost. Scores are BKS / cost (1.0 = best known), so they sit near 0.99; --min-gain sets the Gate's bar to match.
 Exit codes: 0 done, 2 no Crusoe API key configured.
 """
 from __future__ import annotations
@@ -26,6 +28,7 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from benchmarks.qaplib import dc_instances  # noqa: E402
 from benchmarks.qaplib.fetch import family  # noqa: E402
 from benchmarks.qaplib.load import load_tasks  # noqa: E402
 from benchmarks.qaplib.team_runner import DEFAULT_SOLVER_PROMPT, run_team  # noqa: E402
@@ -126,6 +129,20 @@ def select_tasks(sizes: tuple[int, int, int] = SPLIT_SIZES, seed: int = 0,
     return tuple(out)  # type: ignore[return-value]
 
 
+def select_dc_tasks(sizes: tuple[int, int, int] = dc_instances.SPLIT_SIZES, seed: int = 0,
+                    max_n: int = MAX_N) -> tuple[list[Task], list[Task], list[Task]]:
+    """A seeded subset of each data-center QAP split (all of it at the default sizes); splits are disjoint by seed."""
+    out = []
+    for split, k in zip(("train", "dev", "heldout"), sizes):
+        tasks = [t for t in dc_instances.load_tasks(split) if t.payload["n"] <= max_n]
+        random.Random(f"{seed}-dc-{split}").shuffle(tasks)
+        if len(tasks) < k:
+            print(f"warning: dc {split} has only {len(tasks)} instances with n <= {max_n}; using all of them",
+                  file=sys.stderr)
+        out.append(tasks[:k])
+    return tuple(out)  # type: ignore[return-value]
+
+
 class Recorder:
     """Wraps run_team to keep each run's verified score under the key the Evolver caches evaluations by,
     and the order tasks ran in, so the report can add gap columns and tests can see what ran when."""
@@ -159,10 +176,29 @@ def gap_columns(scores: list[float]) -> dict[str, Any]:
 
 def baseline_row(heldout: list[Task], path: Path = BASELINE_JSON) -> dict[str, Any]:
     """reports/qaplib_baseline.json's 2-swap result on the same held-out instances, in final_report's row shape."""
+    if heldout and all(dc_instances.is_dc(t.payload["name"]) for t in heldout):
+        return dc_baseline_row(heldout)
     data = json.loads(path.read_text())
     rows = [data["instances"][t.payload["name"]]["two_swap"] for t in heldout]
     n = max(1, len(rows))
     return {"config": f"2-swap baseline (no LLM, {data['time_limit_s']:g} s restarts)", "version": None,
+            "n": len(rows), "mean_score": round(sum(r["score"] for r in rows) / n, 4),
+            "pass_rate": round(sum(r["gap_pct"] <= 1.0 for r in rows) / n, 4),
+            "mean_gap_pct": round(sum(r["gap_pct"] for r in rows) / n, 3),
+            "at_bks": sum(r["gap_pct"] <= 0 for r in rows), "invalid": 0,
+            "calls_per_task": 0.0, "tokens_per_task": 0.0, "cost_per_task_usd": 0.0}
+
+
+def dc_baseline_row(heldout: list[Task]) -> dict[str, Any]:
+    """The stored 2-swap result (dc_instances/index.json) on the same data-center held-out instances."""
+    index = dc_instances.load_index()
+    rows = []
+    for t in heldout:
+        e = index[t.payload["name"]]
+        cost = e["two_swap"]["cost"]
+        rows.append({"score": e["bks"] / cost, "gap_pct": (cost - e["bks"]) / e["bks"] * 100})
+    n = max(1, len(rows))
+    return {"config": f"2-swap baseline (no LLM, {dc_instances.TWO_SWAP_TIME_S:g} s restarts)", "version": None,
             "n": len(rows), "mean_score": round(sum(r["score"] for r in rows) / n, 4),
             "pass_rate": round(sum(r["gap_pct"] <= 1.0 for r in rows) / n, 4),
             "mean_gap_pct": round(sum(r["gap_pct"] for r in rows) / n, 3),
@@ -216,6 +252,32 @@ def offline_llm() -> ScriptedLLM:
     return ScriptedLLM(respond)
 
 
+class ReviewerReasoningOff:
+    """Sends reviewer calls with reasoning off and room for the JSON; every other call passes through untouched.
+
+    With reasoning on, Nemotron Nano spent the reviewer's whole default 2048-token budget thinking, so the JSON was
+    cut off and parsed to zero mutations with no dropped record (probe 2026-10-17: 2048/2048 tokens, 0 mutations;
+    reasoning off: 306 tokens, 3 mutations). With reasoning off, Super then left out every claim (run 4, gen 0: 2 of 2
+    mutations dropped as claimless), so the reviewer's user message also restates the claim rule last.
+    """
+
+    CLAIM_RULE = ('\n\nEvery mutation object must include "claim": {"dev_gain": <number>, "cost_change_pct": <number>, '
+                  '"why": <string>}. A mutation without a numeric claim is dropped untested.')
+
+    def __init__(self, llm: Any, max_tokens: int = 4096):
+        self.llm, self.max_tokens = llm, max_tokens
+
+    def chat(self, model: str, messages: list[dict[str, str]], **kwargs: Any) -> Any:
+        if kwargs.get("role") == "reviewer":
+            kwargs.setdefault("thinking", False)
+            kwargs["max_tokens"] = max(int(kwargs.get("max_tokens") or 0), self.max_tokens)
+            messages = [*messages[:-1], {**messages[-1], "content": messages[-1]["content"] + self.CLAIM_RULE}]
+        return self.llm.chat(model, messages, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.llm, name)
+
+
 def estimate_calls(version: TeamVersion, n_train: int, n_dev: int, n_heldout: int, generations: int) -> dict[str, int]:
     """Solver calls per run range from 1 (first attempt reaches BKS) to `attempts`; dispute re-runs are extra."""
     attempts = int(version.config.get("attempts", 3))
@@ -233,7 +295,11 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--out", type=Path, default=None, help="default runs/qaplib-<timestamp>/")
     ap.add_argument("--seed", type=int, default=0, help="picks the instances within each frozen split")
     ap.add_argument("--workers", type=int, default=4, help="Evolver threads; the client still caps CRUSOE_RPM")
-    ap.add_argument("--split", type=int, nargs=3, default=list(SPLIT_SIZES), metavar=("TRAIN", "DEV", "HELDOUT"))
+    ap.add_argument("--instances", choices=("qaplib", "dc"), default="qaplib",
+                    help="qaplib: the 1991 library (default); dc: GPU rack placement in generated data-center halls")
+    ap.add_argument("--split", type=int, nargs=3, default=None, metavar=("TRAIN", "DEV", "HELDOUT"),
+                    help=f"default {' '.join(map(str, SPLIT_SIZES))} (qaplib) or "
+                         f"{' '.join(map(str, dc_instances.SPLIT_SIZES))} (dc, all of them)")
     ap.add_argument("--max-n", type=int, default=MAX_N, help="largest instance size to sample")
     ap.add_argument("--min-gain", type=float, default=0.003, help="Gate: dev mean score gain needed to accept")
     ap.add_argument("--attempts", type=int, default=3, help="v0 programs per instance, each with verifier feedback")
@@ -278,7 +344,8 @@ def evolve(llm: LLM, args: argparse.Namespace, out: Path, v0: TeamVersion,
     base = rows[-1]["mean_score"]
     vs = "\n".join(f"- {r['config']}: {(r['mean_score'] - base) * 100:+.2f} points vs 2-swap" for r in rows[:-1])
     names = ", ".join(t.payload["name"] for t in heldout)
-    print(f"\nHeld-out ({len(heldout)} unseen instances: {names}), score = BKS / cost, pass = gap <= 1%:\n")
+    bks = "reference" if heldout and all(dc_instances.is_dc(t.payload["name"]) for t in heldout) else "BKS"
+    print(f"\nHeld-out ({len(heldout)} unseen instances: {names}), score = {bks} / cost, pass = gap <= 1%:\n")
     print(table)
     print(vs)
     (out / "reports" / "vs_2swap.md").write_text(table + "\n" + vs + "\n")
@@ -310,19 +377,23 @@ def run_one(llm: LLM, task: Task, v0: TeamVersion, out: Path) -> RunResult:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    configure_from_args(args, "qaplib")
+    dc = args.instances == "dc"
+    configure_from_args(args, "qaplib_dc" if dc else "qaplib")
     v0 = qaplib_v0(args.max_tokens, args.attempts, args.time_limit, args.solver_model)
     if args.offline:
         llm: Any = offline_llm()
     else:
         try:
-            llm = CrusoeLLM()
+            llm = ReviewerReasoningOff(CrusoeLLM())
         except MissingKeyError as exc:
             print(f"No Crusoe API key configured: {exc}", file=sys.stderr)
             return 2
-    splits = select_tasks(tuple(args.split), args.seed, args.max_n)
+    if dc:
+        splits = select_dc_tasks(tuple(args.split or dc_instances.SPLIT_SIZES), args.seed, args.max_n)
+    else:
+        splits = select_tasks(tuple(args.split or SPLIT_SIZES), args.seed, args.max_n)
     train, dev, heldout = splits
-    out = args.out or ROOT / "runs" / f"qaplib-{time.strftime('%Y%m%d-%H%M%S')}"
+    out = args.out or ROOT / "runs" / f"qaplib-{'dc-' if dc else ''}{time.strftime('%Y%m%d-%H%M%S')}"
     out.mkdir(parents=True, exist_ok=True)
     if args.one:
         run_one(llm, train[0], v0, out)

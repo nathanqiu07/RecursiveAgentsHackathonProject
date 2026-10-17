@@ -447,6 +447,153 @@ def qaplib_entries() -> list[dict[str, Any]]:
     return entries
 
 
+# ---------------------------------------------------------------- GPU rack placement (data-center QAP)
+# benchmarks/qaplib/dc_instances.py: QAP instances built from generated DoneTwin halls, scored by the QAPLIB verifier's
+# /dc/evaluations route against stored reference costs. The baseline is each instance's stored 2-swap permutation.
+
+def dc_qap_definition() -> dict[str, Any]:
+    from benchmarks.qaplib import dc_instances as dc
+
+    names = dc.load_splits()["heldout"]
+    index = dc.load_index()
+    sol = {"type": "object", "properties": {"instance": {"type": "string", "enum": names},
+                                            "permutation": {"type": "array", "items": {"type": "integer"},
+                                                            "minItems": 1, "maxItems": 64}},
+           "required": ["instance", "permutation"], "additionalProperties": False}
+    halls = ", ".join(f"{n} ({index[n]['n']} racks)" for n in names)
+    return {
+        "title": f"GPU rack placement (data-center QAP): {len(names)} held-out halls, mean reference / cost (vs baseline)",
+        "prompt": (f"Baseline: 2-swap local search (no LLM, {dc.TWO_SWAP_TIME_S:g} s per hall); a higher score means "
+                   "less training traffic crossing long cables, and 1.0 means every placement matches the reference "
+                   "cost.\n\n"
+                   "Place the n GPU racks of one AI training job into the n rack slots of a generated data hall "
+                   "(DoneTwin halls, greedy layout slots) to minimize sum_ij traffic[i][j] x cable_distance[slot(i)]"
+                   "[slot(j)]: a Koopmans-Beckmann QAP in QAPLIB's .dat format (benchmarks/qaplib/dc_instances/). "
+                   "Traffic (GB/s) follows tensor-parallel rack pairs (heavy), pipeline stages (medium) and "
+                   "data-parallel all-reduce rings (light); distance is Manhattan cable-tray decimetres. Held-out "
+                   f"halls: {halls}. These are fresh instances, so no answer has been published. The verifier "
+                   "recomputes every cost exactly; score = mean over the held-out halls of reference / cost, where the "
+                   "reference is the best of a time-boxed robust tabu search and 2-swap (above 1.0 beats it); a "
+                   "missing or invalid permutation scores 0 for that hall."),
+        "submission_instructions": ("Submit {\"solutions\": [{\"instance\": name, \"permutation\": [...]}]} with "
+                                    "one permutation per held-out hall, 0-based (p[i] = slot of rack i; 1-based is "
+                                    "also accepted)."),
+        "submission_schema": {"type": "object", "properties": {"solutions": {"type": "array", "items": sol,
+                                                                              "minItems": len(names),
+                                                                              "maxItems": len(names)}},
+                              "required": ["solutions"], "additionalProperties": False},
+        "score_name": "Mean reference / cost",
+        "score_direction": "higher",
+        "score_min": 0,
+        "verifier": {"url": "http://127.0.0.1:9001/dc/evaluations", "method": "POST", "mode": "synchronous",
+                     "request_template": {"submission": "{{submission.payload}}", "split": "heldout",
+                                          "submission_id": "{{submission.id}}", "benchmark_id": "{{benchmark.id}}"},
+                     "score_path": "score", "feedback_path": "feedback", "timeout_seconds": 300},
+    }
+
+
+def dc_qap_entries() -> list[dict[str, Any]]:
+    from benchmarks.qaplib import dc_instances as dc
+
+    names = dc.load_splits()["heldout"]
+    index = dc.load_index()
+    rand = []
+    for name in names:  # the same seeded random baseline as QAPLIB's
+        perm = list(range(index[name]["n"]))
+        random.Random(0).shuffle(perm)
+        rand.append({"instance": name, "permutation": perm})
+    two = [{"instance": n, "permutation": index[n]["two_swap"]["perm"]} for n in names]
+    entries = [
+        {"title": "random placement (no LLM, seed 0)", "submitted_by": "dc_instances.py", "payload": {"solutions": rand}},
+        {"title": f"2-swap local search (no LLM, {dc.TWO_SWAP_TIME_S:g} s/hall, seed 0)", "submitted_by": "dc_instances.py",
+         "payload": {"solutions": two}, "baseline": True},
+    ]
+    by_config: dict[tuple[str, str], dict[str, list[int]]] = {}
+    for f, d in run_solutions("qaplib"):
+        s = d.get("solution") or {}
+        if s.get("instance") in names:
+            by_config.setdefault((run_name(f), d.get("config", "run")), {})[s["instance"]] = s.get("permutation")
+    for (run, config), perms in sorted(by_config.items()):
+        if len(perms) < len(names):
+            print(f"  {run} {config}: only {len(perms)}/{len(names)} held-out placements saved; not submitted")
+            continue
+        entries.append({"title": f"{config}, {run}", "submitted_by": run,
+                        "payload": {"solutions": [{"instance": n, "permutation": perms[n]} for n in names]}})
+    return entries
+
+
+# ---------------------------------------------------------------- QAPLIB, the live runs' 6 unseen instances
+
+QAP_UNSEEN_RUN = "qaplib-evolve-3"  # the split is read from this run's saved held-out solutions, never typed in
+
+
+def qaplib_unseen_names() -> list[str]:
+    return sorted({d["solution"]["instance"] for f, d in run_solutions("qaplib")
+                   if run_name(f) == QAP_UNSEEN_RUN and d.get("split") == "heldout"
+                   and isinstance((d.get("solution") or {}).get("instance"), str)})
+
+
+def qaplib_unseen_definition() -> dict[str, Any] | None:
+    names = qaplib_unseen_names()
+    if not names:
+        print(f"  runs/{QAP_UNSEEN_RUN} has no saved held-out solutions here; board skipped")
+        return None
+    sol = {"type": "object", "properties": {"instance": {"type": "string", "enum": names},
+                                            "permutation": {"type": "array", "items": {"type": "integer"},
+                                                            "minItems": 1, "maxItems": 256}},
+           "required": ["instance", "permutation"], "additionalProperties": False}
+    return {
+        "title": f"QAPLIB held-out ({len(names)} unseen instances)",
+        "prompt": (f"Baseline: 2-swap local search (no LLM, {QAP_TIME_LIMIT_S:g} s per problem) on the same "
+                   f"{len(names)} problems; a higher score means cheaper assignments, and 1.0 means every answer "
+                   "matches the best known cost.\n\n"
+                   "Quadratic Assignment Problem on exactly the held-out instances the team's live runs were scored "
+                   f"on ({QAP_UNSEEN_RUN} onward): " + ", ".join(names) + ". They come from the frozen held-out split "
+                   "(benchmarks/qaplib/splits.json) and were never used for training or dev. For each instance, "
+                   "assign facility i to location p[i] to minimize sum_ij A[i][j] * B[p[i]][p[j]]; the verifier "
+                   "recomputes every cost exactly from the instance file. Score = mean over these instances of "
+                   "BKS / cost (1.0 = best known solution); an invalid permutation scores 0 for that instance."),
+        "submission_instructions": (f"Submit {{\"solutions\": [{{\"instance\": name, \"permutation\": [...]}}]}} with "
+                                    f"exactly one permutation for each of the {len(names)} instances, 0-based "
+                                    "(p[i] = location of facility i; 1-based is also accepted)."),
+        "submission_schema": {"type": "object", "properties": {"solutions": {"type": "array", "items": sol,
+                                                                              "minItems": len(names),
+                                                                              "maxItems": len(names)}},
+                              "required": ["solutions"], "additionalProperties": False},
+        "score_name": "Mean BKS / cost",
+        "score_direction": "higher",
+        "score_min": 0,
+        # No "split": the mean is over the submitted instances, and the schema plus the verifier's duplicate
+        # check make those exactly the instances above.
+        "verifier": {"url": "http://127.0.0.1:9001/evaluations", "method": "POST", "mode": "synchronous",
+                     "request_template": {"submission": "{{submission.payload}}",
+                                          "submission_id": "{{submission.id}}", "benchmark_id": "{{benchmark.id}}"},
+                     "score_path": "score", "feedback_path": "feedback", "timeout_seconds": 300},
+    }
+
+
+def qaplib_unseen_entries() -> list[dict[str, Any]]:
+    names = qaplib_unseen_names()
+    cached = json.loads(QAP_TWO_SWAP_CACHE.read_text()) if QAP_TWO_SWAP_CACHE.is_file() else {}
+    if not all(n in cached for n in names):
+        qaplib_entries()  # computes and caches the 2-swap baseline for the whole held-out split
+        cached = json.loads(QAP_TWO_SWAP_CACHE.read_text())
+    entries = [{"title": f"2-swap local search (no LLM, {QAP_TIME_LIMIT_S:g} s/instance, seed 0)",
+                "submitted_by": "qaplib baseline.py", "baseline": True,
+                "payload": {"solutions": [{"instance": n, "permutation": cached[n]} for n in names]}}]
+    by_config: dict[tuple[str, str], dict[str, list[int]]] = {}
+    for f, d in run_solutions("qaplib"):
+        s = d.get("solution") or {}
+        if d.get("split") == "heldout" and isinstance(s.get("instance"), str):
+            by_config.setdefault((run_name(f), d.get("config", "run")), {})[s["instance"]] = s.get("permutation")
+    for (run, config), perms in sorted(by_config.items()):
+        if sorted(perms) != names:
+            continue  # another held-out set (the full split, or the data-center instances)
+        entries.append({"title": f"{config}, {run}", "submitted_by": run,
+                        "payload": {"solutions": [{"instance": n, "permutation": perms[n]} for n in names]}})
+    return entries
+
+
 # ---------------------------------------------------------------- ALE-Bench AHC039
 
 def alebench_definition() -> dict[str, Any]:
@@ -637,6 +784,8 @@ BASELINE_LABELS = {  # (name in titles, format of the score delta)
     "datahall": ("greedy", "+.1f"),
     "datahall_heldout": ("greedy", "+.1f"),
     "qaplib": ("2-swap", "+.4f"),
+    "qaplib_unseen6": ("2-swap", "+.4f"),
+    "qaplib_dc": ("2-swap", "+.4f"),
     "alebench": ("greedy", "+,.0f"),
     "kernelbench": ("eager", "+.2f"),
     "inference_opt": ("v0", "+.3f"),
@@ -645,6 +794,8 @@ BASELINE_LABELS = {  # (name in titles, format of the score delta)
 CASE_STUDIES = {
     "datahall": (datahall_definition, datahall_entries, "http://127.0.0.1:9000/health"),
     "qaplib": (qaplib_definition, qaplib_entries, "http://127.0.0.1:9001/health"),
+    "qaplib_unseen6": (qaplib_unseen_definition, qaplib_unseen_entries, "http://127.0.0.1:9001/health"),
+    "qaplib_dc": (dc_qap_definition, dc_qap_entries, "http://127.0.0.1:9001/health"),
     "alebench": (alebench_definition, alebench_entries, "http://127.0.0.1:9002/health"),
     "datahall_heldout": (datahall_heldout_definition, datahall_heldout_entries, "http://127.0.0.1:9003/health"),
     "kernelbench": (kernelbench_definition, kernelbench_entries, "http://127.0.0.1:9005/health"),
@@ -677,6 +828,9 @@ def main() -> None:
     for name in args.only or list(CASE_STUDIES):
         definition_fn, entries_fn, health = CASE_STUDIES[name]
         definition = definition_fn()
+        if definition is None:  # the case study has nothing to define on this machine yet
+            print(f"\n[{name}] skipped")
+            continue
         print(f"\n[{name}] {definition['title']}")
         if not healthy(health):
             print(f"  verifier not reachable at {health}; skipped (start it, then rerun)")

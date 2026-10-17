@@ -51,7 +51,9 @@ function pickBaseline(entries: LeaderboardEntry[]) {
   return entries.filter((entry) => isBaseline(entry.title)).reduce<LeaderboardEntry | null>((latest, entry) =>
     !latest || (entry.completed_at ?? 0) > (latest.completed_at ?? 0) ? entry : latest, null);
 }
-function summarize(entries: LeaderboardEntry[]) {
+// Team rows are titled "<config>, <run>: <delta> [digest]"; a "(cold)" config is the same run before shared notes.
+const runOf = (title: string) => title.replace(/\s*\[[0-9a-f]+\]$/, '').replace(/:[^:]*$/, '').split(', ').slice(1).join(', ');
+function summarize(entries: LeaderboardEntry[], direction: 'higher' | 'lower' = 'higher') {
   const baseline = pickBaseline(entries);
   const best = entries.find((entry) => !isBaseline(entry.title) && !isReference(entry.title)) ?? null;
   const base = baseline && baseline.score !== null ? `${baselineName(baseline.title)} ${brief(baseline.score)}` : '';
@@ -64,6 +66,14 @@ function summarize(entries: LeaderboardEntry[]) {
     text = baseline && baseline.score !== null
       ? `Best team result scores ${brief(best.score)} vs ${base} (${delta(best.score, baseline.score)}).`
       : `Best team result scores ${brief(best.score)}; this board has no baseline entry.`;
+    const better = (a: number, b: number) => direction === 'lower' ? a < b : a > b;
+    const cold = entries.find((entry) => entry !== best && /\bcold\b/i.test(entry.title) && !isBaseline(entry.title)
+      && runOf(entry.title) === runOf(best.title));
+    if (cold && cold.score !== null && baseline && baseline.score !== null && better(best.score, cold.score)) {
+      const where = better(best.score, baseline.score) ? (direction === 'lower' ? 'ahead of' : 'above')
+        : better(baseline.score, best.score) ? (direction === 'lower' ? 'still behind' : 'still below') : 'level with';
+      text = `Shared notes lifted the team from ${brief(cold.score)} to ${brief(best.score)}, ${where} ${baselineName(baseline.title)} at ${brief(baseline.score)}.`;
+    }
     const note = best.feedback?.includes('\n\n') ? lastSentence(feedbackSummary(best.feedback)) : '';
     if (note) text += ` ${note}`;
   }
@@ -309,7 +319,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
     {loading ? <p className="benchmark-loading" role="status">Loading benchmarks…</p>
       : selectedId ? !detail ? <p className="benchmark-loading" role="status">{error ? 'Benchmark could not be loaded.' : 'Loading benchmark…'}</p> : <>
         <section className="benchmark-summary" aria-label="Result summary"><h2>Summary</h2>
-          <p>{summarize(detail.entries).text}</p><p className="benchmark-summary-measures">{measures(detail.benchmark)}</p></section>
+          <p>{summarize(detail.entries, detail.benchmark.score_direction).text}</p><p className="benchmark-summary-measures">{measures(detail.benchmark)}</p></section>
         <div className="benchmark-description">
           <div><h2>Objective</h2><p className="benchmark-prompt">{detail.benchmark.prompt}</p>
             <div className="benchmark-instructions"><h2>Submission requirements</h2><p>{detail.benchmark.submission_instructions}</p>
@@ -360,7 +370,7 @@ export default function Benchmarks({ active }: { active: boolean }) {
         <button className="button button-primary" onClick={() => setCreating(true)}>Create benchmark</button>
       </div> : <div className="nodes-table-container"><table className="benchmark-list" aria-label="Benchmarks"><thead><tr>
         <th scope="col">Benchmark</th><th scope="col">Submissions</th><th scope="col">Baseline</th><th scope="col">Best team result</th><th scope="col">Best verified score</th><th scope="col">Created</th>
-      </tr></thead><tbody>{benchmarks.map((item) => { const summary = summarize(boards[item.id] ?? []); return <tr key={item.id}>
+      </tr></thead><tbody>{benchmarks.map((item) => { const summary = summarize(boards[item.id] ?? [], item.score_direction); return <tr key={item.id}>
         <td><button className="benchmark-name" onClick={() => openBenchmark(item.id)}>{item.title}</button>
           {boards[item.id] && <p className="benchmark-list-summary">{summary.text}</p>}<p className="benchmark-list-prompt">{item.prompt}</p></td>
         <td>{item.submission_count}<span className="cell-secondary">{item.verified_count} verified</span></td>
