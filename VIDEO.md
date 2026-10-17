@@ -23,7 +23,7 @@ The hall is the hero for three reasons:
 | 0:00 to 0:07 | Intro | "An AI data center is a stack of optimization problems: where the racks go, where the equipment goes, the kernels on the GPUs, and the inference bill. Code can check every one." |
 | 0:07 to 0:15 | Harness | "Our harness turns each into a Nemotron team on Crusoe that proposes changes to itself and keeps only what a verifier measures." |
 | 0:15 to 0:35 | 1. Hall layout | "Hall layout. Our cold team starts at 71 out of 100. In run one, it proposed 9 changes to itself, and the gate rejected all 9. Then we tested settings. The only one that beat the cold start was the small model allowed to think." **Outcome A:** "In run two the team turned reasoning on by itself, and [N_HALLS] unseen halls went from 71 to [RUN2_SCORE]." **Outcome B:** "In run two, the gate still found nothing worth keeping on unseen halls." |
-| 0:35 to 0:43 | 2. Equipment | "Equipment placement, same harness: QAPLIB, [QAP_RESULT]." |
+| 0:35 to 0:43 | 2. Equipment | "Equipment placement, same harness: on unseen QAPLIB instances, the gap to the best-known solutions fell from 4.3% to 3.6%." |
 | 0:43 to 0:50 | 3. Kernels | "GPU kernels: 12 CUDA problems with reward-hack guards, built and ready for a Crusoe GPU." (Not run: our project has zero GPU quota.) |
 | 0:50 to 1:00 | 4. Inference | "And serving: the team re-routes its own Nemotron calls, cutting the cost per correct answer by 31% on unseen halls. Bring a verifier. Get a team that keeps only what it measures." |
 
@@ -32,7 +32,7 @@ The hall is the hero for three reasons:
 | Placeholder | Example wording | Fallback if nothing is measured |
 |---|---|---|
 | [RUN2_SCORE] | "73.5" | Use Outcome B |
-| [QAP_RESULT] | "from [QAP_V0] to [QAP_VN] of the best-known answers on 6 unseen instances" | "the gate kept nothing that did not measure better" |
+| ~~[QAP_RESULT]~~ filled: gap to best-known 4.3% → 3.6% (`qaplib-research-1`). State the gap only; never "near SOTA" (robust tabu search reaches 0% at this size in seconds) | "the gate kept nothing that did not measure better" |
 | ~~[INF_COST_PCT]~~ filled: 31% less per correct answer | "40" | "the gate cut [INF_CALLS] calls per question" if accuracy held. If no version passed: "the gate kept the expensive version, because nothing cheaper held accuracy" |
 
 ## Shot list
