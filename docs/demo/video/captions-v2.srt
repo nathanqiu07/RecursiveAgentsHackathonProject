@@ -1,0 +1,51 @@
+1
+00:00:00,000 --> 00:00:04,000
+Every layer of an AI data center is an optimization problem a verifier can check.
+
+2
+00:00:04,000 --> 00:00:08,000
+One harness. Four layers. A Nemotron agent team on Crusoe.
+
+3
+00:00:08,000 --> 00:00:12,000
+1. The team solves tasks and writes notes to a Shared Brain.
+
+4
+00:00:12,000 --> 00:00:16,000
+2. A Reviewer reads You.com results and proposes changes with numeric claims.
+
+5
+00:00:16,000 --> 00:00:20,000
+3. A Gate measures each claim with an exact verifier: keep or reject.
+
+6
+00:00:20,000 --> 00:00:25,000
+Hall layout: the DoneTwin checker re-scores every Nemotron proposal.
+
+7
+00:00:25,000 --> 00:00:32,000
+Every Nemotron layout failed the collision check and was rejected. Hall: no gain yet.
+
+8
+00:00:32,000 --> 00:00:35,800
+Rack placement replay: each dot is one proposed change to the team.
+
+9
+00:00:35,800 --> 00:00:41,800
+The gate compares claimed vs measured gain, and keeps 4 of 6.
+
+10
+00:00:41,800 --> 00:00:46,000
+On 6 unseen instances: 0.597 for v0 cold, 0.845 for the final team.
+
+11
+00:00:46,000 --> 00:00:50,800
+Inference: 31% less per correct answer. QAPLIB: 3.6% from best-known.
+
+12
+00:00:50,800 --> 00:00:56,000
+GPU kernels on a Mac GPU (Crusoe GPU quota was zero): correct kernels 20% to 60%, none faster than PyTorch.
+
+13
+00:00:56,000 --> 00:01:00,000
+Bring a verifier. Get a team that improves.
