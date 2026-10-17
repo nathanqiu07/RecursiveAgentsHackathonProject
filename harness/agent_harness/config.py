@@ -33,3 +33,42 @@ def web_from_env():
         os.environ.get("HARNESS_SEARCH_URL") or None,
         os.environ.get("HARNESS_SEARCH_API_KEY") or None,
     )
+
+
+def model_configuration(db_path):
+    """Snapshot credentials between runs; an active run keeps its own clients."""
+    from .settings import SettingsStore
+
+    with SettingsStore(db_path) as settings:
+        crusoe = settings.get_private("crusoe")
+    if crusoe.get("enabled") and crusoe.get("api_key") and crusoe.get("model"):
+        return {
+            "base_url": "https://api.inference.crusoecloud.com/v1",
+            "model": crusoe["model"],
+            "api_key": crusoe["api_key"],
+        }
+    # A saved disconnect also overrides any Crusoe environment credentials.
+    base = os.environ.get("HARNESS_MODEL_BASE_URL", "").rstrip("/")
+    model = os.environ.get("HARNESS_MODEL")
+    if base and model and base != "https://api.inference.crusoecloud.com/v1":
+        return {
+            "base_url": base,
+            "model": model,
+            "api_key": os.environ.get("HARNESS_MODEL_API_KEY") or None,
+        }
+    return None
+
+
+def model_from_settings(db_path):
+    configuration = model_configuration(db_path)
+    return ChatModel(**configuration) if configuration else None
+
+
+def web_from_settings(db_path):
+    from .settings import SettingsStore
+
+    with SettingsStore(db_path) as settings:
+        you = settings.get_private("you")
+    if you.get("enabled") and you.get("api_key"):
+        return WebResearch(search_key=you["api_key"], provider="you")
+    return web_from_env()

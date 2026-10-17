@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Sandboxed researcher and benchmark attempt agents."
 requires-python = ">=3.10"
 dependencies = [
+  "cryptography>=44,<48",
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
   "jsonschema[format]>=4.23,<5",

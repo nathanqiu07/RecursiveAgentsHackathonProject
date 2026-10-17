@@ -190,7 +190,13 @@ def test_creating_a_run_persists_its_contract_without_launching_an_unsandboxed_a
     assert response.status_code == 202
     run = response.json()
     UUID(run["id"])
-    assert run["request"] == {**body, "benchmark_id": body.get("benchmark_id")}
+    assert run["request"] == {
+        **body,
+        "benchmark_id": body.get("benchmark_id"),
+        "harness": "builtin",
+        "model_profile_id": None,
+        "model": None,
+    }
     assert run["status"] == "queued"
     assert run["compute_job_id"] is None
     assert run["sandbox_id"] is None

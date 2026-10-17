@@ -86,28 +86,41 @@ class RunStore:
         value.pop("lease_until", None)
         return value
 
-    def create(self, request: RunRequest, idempotency_key=None):
+    @staticmethod
+    def _validate_key(idempotency_key):
         if idempotency_key is not None and (
             not idempotency_key
             or len(idempotency_key) > 200
             or any(not 33 <= ord(char) <= 126 for char in idempotency_key)
         ):
             raise ValueError("Idempotency-Key must contain 1–200 visible ASCII characters")
+
+    def replay(self, request, idempotency_key):
+        self._validate_key(idempotency_key)
+        if idempotency_key is None:
+            return None
+        existing = self.db.execute(
+            "SELECT request,run_id FROM agent_run_keys WHERE key=?", (idempotency_key,)
+        ).fetchone()
+        if existing:
+            # Normalize older saved contracts with newly added optional defaults.
+            original = RunRequest.model_validate_json(existing["request"])
+            if original != request:
+                raise RunConflict("This launch key was already used for a different request")
+            return self.get(existing["run_id"])
+        return None
+
+    def create(self, request: RunRequest, idempotency_key=None, *, original_request=None):
+        self._validate_key(idempotency_key)
         run_id = str(uuid4())
         now = self.now()
         encoded = json.dumps(request.model_dump(mode="json"), sort_keys=True, allow_nan=False)
+        identity = original_request if original_request is not None else request
+        original_encoded = json.dumps(identity.model_dump(mode="json"), sort_keys=True)
         with self.transaction():
-            if idempotency_key is not None:
-                existing = self.db.execute(
-                    "SELECT request,run_id FROM agent_run_keys WHERE key=?",
-                    (idempotency_key,),
-                ).fetchone()
-                if existing:
-                    if existing["request"] != encoded:
-                        raise RunConflict(
-                            "This launch key was already used for a different request"
-                        )
-                    return self.get(existing["run_id"])
+            repeated = self.replay(identity, idempotency_key)
+            if repeated:
+                return repeated
             self.db.execute(
                 "INSERT INTO agent_runs(id,request,status,created_at,updated_at) VALUES(?,?,?,?,?)",
                 (run_id, encoded, "queued", now, now),
@@ -115,7 +128,7 @@ class RunStore:
             if idempotency_key is not None:
                 self.db.execute(
                     "INSERT INTO agent_run_keys(key,request,run_id) VALUES(?,?,?)",
-                    (idempotency_key, encoded, run_id),
+                    (idempotency_key, original_encoded, run_id),
                 )
         return self.get(run_id)
 
@@ -183,15 +196,15 @@ class RunStore:
                 )
         return self.get(run_id)
 
-    def claim(self):
+    def claim(self, include_queued=True):
         with self.transaction():
             now = self.now()
             row = self.db.execute(
                 "SELECT * FROM agent_runs WHERE next_check<=? "
                 "AND (lease_until IS NULL OR lease_until<=?) "
-                "AND (status IN ('queued','running') OR cleanup_required=1) "
+                "AND (status='running' OR (? AND status='queued') OR cleanup_required=1) "
                 "ORDER BY created_at,id LIMIT 1",
-                (now, now),
+                (now, now, bool(include_queued)),
             ).fetchone()
             if row is None:
                 return None

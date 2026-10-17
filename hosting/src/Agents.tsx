@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent, type MutableRefObject } from 'react';
 import './agents.css';
+import { harnessLabel, type HarnessCatalog, type HarnessId } from './harnesses';
+import LibraryNovelty, { type LibraryNoveltyReview } from './LibraryNovelty';
 
 type Role = 'researcher' | 'attempt';
 type RunStatus = 'queued' | 'running' | 'submitted' | 'completed' | 'failed' | 'cancelled' | 'needs_attention';
 type Allocation = { resource_id: string; node_id: string; cpus: number; memory_mb: number; scratch_mb: number; timeout_seconds: number };
-type RunRequest = { role: Role; objective: string; benchmark_id: string | null; allocation: Allocation; max_steps: number };
+type RunRequest = { role: Role; objective: string; benchmark_id: string | null; allocation: Allocation; max_steps: number; harness?: HarnessId; model_profile_id?: string | null; model?: string | null };
 type Experiment = { id: string; command: string; purpose: string; timeout_seconds: number; exit_code: number; output: string; truncated: boolean; step?: number; command_sha256?: string };
 type Novelty = { approved: boolean; rationale: string; compared_paper_ids: string[]; related_paper_ids?: string[]; scope?: string; snapshot_sha256?: string; idea?: string };
 type PublicationRef = { kind: 'paper' | 'attempt'; status: string; id?: string };
@@ -12,7 +14,7 @@ type Run = {
   id: string; request: RunRequest; status: RunStatus; created_at: number; started_at: number | null; updated_at: number;
   cancel_requested: boolean; cleanup_required: boolean; compute_job_id: string | null; sandbox_id: string | null;
   error: string | null; result: { summary?: string; verification_status?: string; published?: boolean } | null;
-  state: { steps?: number; experiments?: Experiment[]; novelty?: Novelty; publication?: PublicationRef };
+  state: { steps?: number; experiments?: Experiment[]; novelty?: Novelty; publication?: PublicationRef; runtime?: { harness?: HarnessId; model?: string | null }; runtime_cleanup_required?: boolean };
 };
 type AgentEvent = { sequence: number; kind: string; data: Record<string, unknown>; created_at: number };
 type Pool = { id: string; node_id: string | null; description?: string; enabled?: boolean; cpus: number; memory_mb: number; scratch_mb: number; max_timeout_seconds: number; max_concurrent_jobs?: number };
@@ -24,6 +26,8 @@ type Publication = {
   blocked_reason?: string | null; payload?: unknown; base_checkpoint_url?: string;
   submission?: { title?: string; paper_text?: string | null; paper_url?: string | null; authors?: string[] };
   report?: { verdict: string; summary: string; evidence?: string[] } | null;
+  experimental_report?: { verdict: string; summary: string; evidence?: string[] } | null;
+  novelty?: LibraryNoveltyReview | null;
 };
 type PendingLaunch = { body: string; key: string };
 
@@ -47,6 +51,13 @@ const reasonLabels: Record<string, string> = {
   agent_runtime_error: 'The agent could not continue. Review its latest activity and experiments.',
 };
 const PAGE_SIZE = 20;
+const pendingHarnessCatalog: HarnessCatalog = {
+  default_harness: 'codex', profiles: [],
+  harnesses: (['codex', 'builtin', 'claude-code', 'nemoclaw'] as HarnessId[]).map((id) => ({
+    id, label: harnessLabel(id), available: false, models: [],
+    message: 'Harness availability has not been confirmed. Refresh the Agents tab before launching.',
+  })),
+};
 const date = (seconds: number) => new Date(seconds * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const readable = (value: string) => value.replaceAll('_', ' ');
 const roleLabel = (role: Role) => role === 'researcher' ? 'Researcher' : 'Attempt';
@@ -81,8 +92,8 @@ function eventLabel(event: AgentEvent): string {
   if (event.kind === 'sandbox_allocated') return 'Sandbox allocated';
   if (event.kind === 'experiment_started') return `${event.data.purpose === 'test' ? 'Test' : event.data.purpose === 'setup' ? 'Setup' : 'Experiment'} started`;
   if (event.kind === 'experiment_result') return `${event.data.purpose === 'test' ? 'Test' : event.data.purpose === 'setup' ? 'Setup' : 'Experiment'} ${event.data.exit_code === 0 ? 'completed' : 'failed'}`;
-  if (event.kind === 'novelty_review') return event.data.approved ? 'Idea passed Library novelty review' : 'Idea needs a new approach';
-  if (event.kind === 'final_novelty_review') return event.data.approved ? 'Paper passed final novelty review' : 'Paper needs a novelty review';
+  if (event.kind === 'novelty_review') return event.data.approved ? 'Idea passed researcher novelty review' : 'Idea needs a new approach';
+  if (event.kind === 'final_novelty_review') return event.data.approved ? 'Paper passed researcher novelty review' : 'Paper needs a novelty review';
   if (event.kind === 'evidence_review') return event.data.supported ? 'Evidence review passed' : 'Evidence needs more support';
   if (event.kind === 'publication_started') return event.data.kind === 'paper' ? 'Submitting paper to Library' : 'Submitting benchmark candidate';
   if (event.kind === 'publication_accepted') return event.data.kind === 'paper' ? 'Library accepted the paper for verification' : 'Benchmark accepted the candidate for verification';
@@ -99,25 +110,44 @@ function currentPhase(run: Run, events: AgentEvent[]) {
   return latest ? eventLabel(latest) : 'Starting the run';
 }
 
-function LaunchAgent({ role: initialRole, pools, benchmarks, benchmarkError, pending, onClose, onCreated }: {
-  role: Role; pools: Pool[]; benchmarks: BenchmarkChoice[]; benchmarkError: string;
+function LaunchAgent({ role: initialRole, initialRequest, pools, benchmarks, benchmarkError, harnesses, availabilityChecked, pending, onClose, onCreated }: {
+  role: Role; pools: Pool[]; benchmarks: BenchmarkChoice[]; benchmarkError: string; harnesses: HarnessCatalog; availabilityChecked: boolean;
+  initialRequest: RunRequest | null;
   pending: MutableRefObject<PendingLaunch | null>; onClose: () => void; onCreated: (run: Run) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [role, setRole] = useState<Role>(initialRole);
-  const [objective, setObjective] = useState('');
-  const [benchmarkId, setBenchmarkId] = useState('');
+  const [objective, setObjective] = useState(initialRequest?.objective || '');
+  const [benchmarkId, setBenchmarkId] = useState(initialRequest?.benchmark_id || '');
   const [poolId, setPoolId] = useState(pools[0]?.id || '');
   const [cpus, setCpus] = useState(1);
   const [memory, setMemory] = useState(1024);
   const [scratch, setScratch] = useState(128);
   const [timeout, setTimeoutBudget] = useState(600);
   const [steps, setSteps] = useState(40);
+  const [harness, setHarness] = useState<HarnessId>(initialRequest ? initialRequest.harness || 'builtin' : harnesses.default_harness || 'codex');
+  const [profileId, setProfileId] = useState(initialRequest?.model_profile_id || '');
+  const [model, setModel] = useState(initialRequest?.model || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const guard = useRef(false);
   const requestController = useRef<AbortController | null>(null);
   const pool = pools.find((item) => item.id === poolId);
+  const selectedHarness = harnesses.harnesses.find((item) => item.id === harness);
+  const requiresKeyedProfile = harness === 'builtin' && selectedHarness?.models.length === 0;
+  const profiles = harnesses.profiles.filter((item) => item.harness === harness && item.enabled
+    && (!requiresKeyedProfile || (item.auth_mode === 'api-key' && item.api_key_set && Boolean(item.base_url))));
+  const selectedProfile = profiles.find((item) => item.id === profileId);
+  const requiresProfile = harness === 'claude-code' || harness === 'nemoclaw' || requiresKeyedProfile;
+  const harnessReady = availabilityChecked && selectedHarness?.available === true && (requiresProfile ? Boolean(selectedProfile) : !profileId || Boolean(selectedProfile));
+
+  function chooseHarness(value: HarnessId) {
+    const keyed = value === 'builtin' && harnesses.harnesses.find((item) => item.id === value)?.models.length === 0;
+    const required = value === 'claude-code' || value === 'nemoclaw' || keyed;
+    const profile = harnesses.profiles.find((item) => item.harness === value && item.enabled
+      && (!keyed || (item.auth_mode === 'api-key' && item.api_key_set && Boolean(item.base_url))));
+    setHarness(value); setProfileId(required ? profile?.id || '' : ''); setModel('');
+  }
 
   useEffect(() => {
     if (!dialog.current?.open) dialog.current?.showModal();
@@ -134,6 +164,7 @@ function LaunchAgent({ role: initialRole, pools, benchmarks, benchmarkError, pen
     event.preventDefault();
     if (guard.current) return;
     setError('');
+    if (!harnessReady) { setError('Choose an available harness and model profile. Manage connections to complete setup.'); return; }
     if (!pool?.node_id) { setError('Choose an available sandbox pool.'); return; }
     if (role === 'attempt' && !benchmarkId) { setError('Choose the benchmark this agent should work on.'); return; }
     if (!objective.trim()) { setError('Describe what this agent should investigate or improve.'); return; }
@@ -142,6 +173,7 @@ function LaunchAgent({ role: initialRole, pools, benchmarks, benchmarkError, pen
     }
     const request: RunRequest = {
       role, objective: objective.trim(), benchmark_id: benchmarkId || null, max_steps: steps,
+      harness, model_profile_id: profileId || null, model: profileId ? null : model.trim() || null,
       allocation: { resource_id: pool.id, node_id: pool.node_id, cpus, memory_mb: memory, scratch_mb: scratch, timeout_seconds: timeout },
     };
     const body = JSON.stringify(request);
@@ -168,7 +200,8 @@ function LaunchAgent({ role: initialRole, pools, benchmarks, benchmarkError, pen
     if (saving) event.preventDefault(); else onClose();
   }}>
     <form onSubmit={launch}>
-      <div className="section-heading"><h2 id="launch-agent-title">Launch agent</h2><button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="Close launch controls">×</button></div>
+      <div className="section-heading"><h2 id="launch-agent-title">{initialRequest ? 'Spin out a new agent' : 'New agent'}</h2><button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="Close launch controls">×</button></div>
+      {initialRequest && <p className="agent-new-run-note">Review these copied settings before launching an independent run. It gets a fresh sandbox and experiment history; saved profiles use their current settings.</p>}
       <fieldset className="agent-role-options" disabled={saving}><legend>Agent type</legend>
         <label className={role === 'researcher' ? 'agent-role-option is-selected' : 'agent-role-option'}>
           <input type="radio" name="agent-role" value="researcher" checked={role === 'researcher'} onChange={() => setRole('researcher')} />
@@ -180,6 +213,12 @@ function LaunchAgent({ role: initialRole, pools, benchmarks, benchmarkError, pen
         </label>
       </fieldset>
       <div className="agent-launch-fields">
+        <div className="agent-harness-fields">
+          <label>Agent harness<select value={harness} disabled={saving} onChange={(event) => chooseHarness(event.target.value as HarnessId)}>{harnesses.harnesses.map((item) => <option key={item.id} value={item.id}>{item.label}{item.id === harnesses.default_harness ? ' · default' : ''}{!item.available ? ' · needs setup' : ''}</option>)}</select><span className="agent-field-note">{selectedHarness?.message || 'Choose an agent harness.'}</span></label>
+          <label>Model profile<select value={profileId} disabled={saving} onChange={(event) => { setProfileId(event.target.value); setModel(''); }}><option value="">{requiresKeyedProfile ? 'Choose a saved API key profile' : requiresProfile ? 'Choose a saved model profile' : harness === 'codex' ? 'Existing Codex sign-in · choose model below' : 'Harness environment · choose model below'}</option>{profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.model}</option>)}</select><span className="agent-field-note">{selectedProfile ? selectedProfile.auth_mode === 'codex-oauth' ? 'Uses the existing Codex sign-in on the worker.' : selectedProfile.auth_mode === 'api-key' ? 'Uses this profile’s encrypted API credentials.' : 'Uses the worker environment.' : 'Save multiple models per harness in Connections.'}</span></label>
+          {!profileId && !requiresProfile && <label>Model<select value={model} disabled={saving} onChange={(event) => setModel(event.target.value)}><option value="">Runtime default</option>{model && !selectedHarness?.models.some((item) => item.id === model) && <option value={model}>{model}</option>}{(selectedHarness?.models || []).map((item) => <option key={item.id} value={item.id}>{item.label || item.id}</option>)}</select></label>}
+          {!harnessReady && <p className="agent-warning">{!availabilityChecked ? 'Current harness or sandbox availability could not be checked. Refresh the Agents tab before launching.' : requiresKeyedProfile ? 'Choose a saved API key profile with a base URL. Add one in Connections if none are available.' : selectedHarness?.available && requiresProfile ? 'Choose a saved model profile. Add one in Connections if none are available.' : selectedHarness?.message || 'This harness is unavailable. Complete its setup in Connections before launching.'}</p>}
+        </div>
         <label>Objective<textarea required maxLength={20000} rows={4} value={objective} disabled={saving} onChange={(event) => setObjective(event.target.value)} placeholder={role === 'researcher' ? 'What new idea or research question should the agent investigate?' : 'What should the agent improve? Include the public checkpoint and any available solution artifacts.'} autoFocus /></label>
         <label>Benchmark{role === 'researcher' && ' · optional'}
           <select value={benchmarkId} required={role === 'attempt'} disabled={saving || !!benchmarkError} onChange={(event) => setBenchmarkId(event.target.value)}>
@@ -203,15 +242,16 @@ function LaunchAgent({ role: initialRole, pools, benchmarks, benchmarkError, pen
       </div>
       {error && <p className="error-banner agent-form-error" role="alert">{error}</p>}
       <div className="dialog-actions"><button className="button" type="button" onClick={onClose} disabled={saving}>Cancel</button>
-        <button className="button button-primary" disabled={saving || !pool || (role === 'attempt' && (!benchmarks.length || !!benchmarkError))}>{saving ? 'Launching…' : `Launch ${role}`}</button></div>
+        <button className="button button-primary" disabled={saving || !pool || !harnessReady || (role === 'attempt' && (!benchmarks.length || !!benchmarkError))}>{saving ? 'Launching…' : `Launch ${role}`}</button></div>
     </form>
   </dialog>;
 }
 
 function PublicationView({ reference, publication, error }: { reference: PublicationRef; publication: Publication | null; error: string }) {
   const paper = reference.kind === 'paper';
+  const experimentalReport = publication?.experimental_report || publication?.report;
   return <section className="agent-detail-section" aria-labelledby="agent-submission-heading">
-    <div className="section-heading"><h3 id="agent-submission-heading">{paper ? 'Paper submission' : 'Benchmark submission'}</h3>{publication && <Status status={publication.report?.verdict || publication.status} />}</div>
+    <div className="section-heading"><h3 id="agent-submission-heading">{paper ? 'Paper submission' : 'Benchmark submission'}</h3>{publication && <Status status={paper ? publication.status : publication.report?.verdict || publication.status} />}</div>
     {reference.status !== 'acknowledged' ? <p className="agent-warning">The submission was started, but its acceptance is unconfirmed. Check the destination before launching a replacement.</p> : <>
       <p className="agent-detail-copy">{paper ? 'Submitted to Library for independent verification.' : 'Submitted to the benchmark for independent scoring.'}</p>
       {reference.id && <p className="agent-reference">Submission <code>{reference.id}</code></p>}
@@ -220,10 +260,13 @@ function PublicationView({ reference, publication, error }: { reference: Publica
       {publication && <>
         {(publication.submission?.title || publication.title) && <p className="agent-submission-title">{publication.submission?.title || publication.title}</p>}
         {typeof publication.score === 'number' && Number.isFinite(publication.score) && <p className="agent-verified-score">Verified score <strong>{new Intl.NumberFormat(undefined, { maximumSignificantDigits: 8 }).format(publication.score)}</strong></p>}
-        {publication.report && <p className="agent-detail-copy">{publication.report.summary}</p>}
+        {paper && <LibraryNovelty review={publication.novelty} />}
+        {paper ? <div className="agent-library-review" aria-labelledby="independent-library-experiments-title"><div className="agent-library-review-heading"><h4 id="independent-library-experiments-title">Independent experiment verification</h4>{experimentalReport ? <Status status={experimentalReport.verdict} /> : <span className="agent-status">No report</span>}</div>
+          {experimentalReport ? <><p className="agent-detail-copy">{experimentalReport.summary}</p>{!!experimentalReport.evidence?.length && <details className="agent-disclosure"><summary>Experiment verification evidence</summary><ul>{experimentalReport.evidence.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}</> : <p className="agent-field-note">No experiment verification report is available for this submission.</p>}
+        </div> : publication.report && <p className="agent-detail-copy">{publication.report.summary}</p>}
         {publication.feedback && <p className="agent-detail-copy">{publication.feedback}</p>}
         {(publication.error || publication.blocked_reason) && <p className="error-text">{publication.error || publication.blocked_reason}</p>}
-        {!!publication.report?.evidence?.length && <details className="agent-disclosure"><summary>Verification evidence</summary><ul>{publication.report.evidence.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
+        {!paper && !!publication.report?.evidence?.length && <details className="agent-disclosure"><summary>Verification evidence</summary><ul>{publication.report.evidence.map((item, index) => <li key={index}>{item}</li>)}</ul></details>}
         {publication.submission?.paper_text && <details className="agent-disclosure"><summary>Submitted paper</summary><pre>{publication.submission.paper_text}</pre></details>}
         {Object.hasOwn(publication, 'payload') && <details className="agent-disclosure"><summary>Submitted solution</summary><pre>{JSON.stringify(publication.payload, null, 2)}</pre></details>}
         {publication.base_checkpoint_url?.startsWith('https://github.com/') && <a className="agent-text-link" href={publication.base_checkpoint_url} target="_blank" rel="noreferrer">View base checkpoint ↗</a>}
@@ -232,7 +275,7 @@ function PublicationView({ reference, publication, error }: { reference: Publica
   </section>;
 }
 
-function RunDetail({ id, active, refreshToken, onClose, onUpdated }: { id: string; active: boolean; refreshToken: number; onClose: () => void; onUpdated: () => void }) {
+function RunDetail({ id, active, refreshToken, harnesses, onClose, onUpdated, onSpinOut }: { id: string; active: boolean; refreshToken: number; harnesses: HarnessCatalog | null; onClose: () => void; onUpdated: () => void; onSpinOut: (request: RunRequest) => void }) {
   const [run, setRun] = useState<Run | null>(null);
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [publication, setPublication] = useState<Publication | null>(null);
@@ -311,9 +354,10 @@ function RunDetail({ id, active, refreshToken, onClose, onUpdated }: { id: strin
   const completedIds = new Set(experiments.map((experiment) => experiment.id));
   const inProgress = events.filter((event) => event.kind === 'experiment_started' && !completedIds.has(String(event.data.id)));
   const novelty = run?.state.novelty;
+  const modelProfile = harnesses?.profiles.find((profile) => profile.id === run?.request.model_profile_id);
   const stepCount = run?.state.steps || 0;
   return <section className="agent-run-detail" aria-labelledby="agent-run-heading">
-    <div className="section-heading"><h2 id="agent-run-heading">Run details</h2><button className="button" onClick={onClose}>Close details</button></div>
+    <div className="section-heading"><h2 id="agent-run-heading">Run details</h2><div className="agent-detail-actions">{run && <button className="button" type="button" onClick={() => onSpinOut({ ...run.request, harness: run.state.runtime?.harness || run.request.harness || 'builtin', model: run.state.runtime?.model || run.request.model || null })}>Spin out new agent</button>}<button className="button" onClick={onClose}>Close details</button></div></div>
     {error && <p className="error-banner" role="alert">{error} {run && 'Showing the last available run state.'}</p>}
     {!run && !error && <p className="agent-loading">Loading run…</p>}
     {run && <>
@@ -323,13 +367,14 @@ function RunDetail({ id, active, refreshToken, onClose, onUpdated }: { id: strin
       <div className="agent-step-budget"><span>{stepCount} of {run.request.max_steps} steps used</span><span>{run.request.allocation.timeout_seconds.toLocaleString()} second time limit</span></div>
       <progress className="agent-step-progress" aria-label="Agent step budget used" value={Math.min(stepCount, run.request.max_steps)} max={run.request.max_steps} />
       <p className="agent-field-note">Steps measure the run budget, not the likelihood of finding a solution.</p>
-      <dl className="agent-run-meta"><div><dt>Started</dt><dd>{run.started_at ? date(run.started_at) : 'Waiting to start'}</dd></div><div><dt>Sandbox pool</dt><dd>{run.request.allocation.resource_id}</dd></div><div><dt>Allocation</dt><dd>{run.request.allocation.cpus} CPU · {run.request.allocation.memory_mb.toLocaleString()} MiB</dd></div></dl>
+      <dl className="agent-run-meta"><div><dt>Harness</dt><dd>{harnessLabel(run.state.runtime?.harness || run.request.harness)}</dd></div><div><dt>Model</dt><dd>{run.state.runtime?.model || run.request.model || modelProfile?.model || (run.request.model_profile_id ? 'Saved model profile' : 'Runtime default')}</dd></div>{modelProfile && <div><dt>Model profile</dt><dd>{modelProfile.name}</dd></div>}<div><dt>Started</dt><dd>{run.started_at ? date(run.started_at) : 'Waiting to start'}</dd></div><div><dt>Sandbox pool</dt><dd>{run.request.allocation.resource_id}</dd></div><div><dt>Allocation</dt><dd>{run.request.allocation.cpus} CPU · {run.request.allocation.memory_mb.toLocaleString()} MiB</dd></div></dl>
       {(run.status === 'queued' || run.status === 'running') && <div className="agent-cancel-action"><button className="button" disabled={cancelling || run.cancel_requested} onClick={() => { void cancel(); }}>{cancelling || run.cancel_requested ? 'Stopping…' : 'Cancel run'}</button><span className="agent-field-note">{run.cancel_requested ? 'Waiting for the worker to confirm that the sandbox has stopped.' : 'Stops this run and requests sandbox cleanup.'}</span></div>}
       {cancelError && <p className="error-text" role="alert">{cancelError}</p>}
       {run.cleanup_required && run.status !== 'running' && <p className="agent-warning">Sandbox cleanup is still pending. Its capacity remains reserved until termination is confirmed.</p>}
+      {run.state.runtime_cleanup_required && <p className="agent-warning">The agent runtime could not confirm cleanup. An operator must check the runtime before starting a replacement.</p>}
       {run.error && run.status !== 'running' && <p className={run.status === 'needs_attention' ? 'agent-warning' : 'agent-detail-copy'}>{failureText(run.error)}</p>}
       {run.result?.summary && <section className="agent-detail-section"><h3>Agent findings</h3><p className="agent-detail-copy">{run.result.summary}</p>{run.result.published === false && <p className="agent-field-note">This run finished without a submission.</p>}</section>}
-      {novelty && <section className="agent-detail-section"><div className="section-heading"><h3>Library novelty review</h3><span className="agent-outcome">{novelty.approved ? 'Approved for experiments' : 'More research needed'}</span></div><p className="agent-detail-copy">{novelty.rationale}</p><p className="agent-field-note">Compared with {novelty.compared_paper_ids?.length ?? 0} Library papers. Approval applies to that Library snapshot.</p>{novelty.idea && <details className="agent-disclosure"><summary>Reviewed idea</summary><p>{novelty.idea}</p></details>}</section>}
+      {novelty && <section className="agent-detail-section"><div className="section-heading"><h3>Researcher novelty review</h3><span className="agent-outcome">{novelty.approved ? 'Approved for experiments' : 'More research needed'}</span></div><p className="agent-detail-copy">{novelty.rationale}</p><p className="agent-field-note">Compared with {novelty.compared_paper_ids?.length ?? 0} Library papers. This pre-submission review is separate from the Library’s independent novelty decision.</p>{novelty.idea && <details className="agent-disclosure"><summary>Reviewed idea</summary><p>{novelty.idea}</p></details>}</section>}
       <section className="agent-detail-section" aria-labelledby="agent-experiments-heading"><div className="section-heading"><h3 id="agent-experiments-heading">Experiments and tests</h3><span className="agent-count">{experiments.length} recorded</span></div>
         {experiments.length === 0 && inProgress.length === 0 && <p className="muted agent-detail-copy">No sandbox executions recorded yet.</p>}
         {experiments.map((experiment, index) => <details className="agent-experiment" key={experiment.id}>
@@ -364,9 +409,13 @@ export default function Agents({ active }: { active: boolean }) {
   const [poolError, setPoolError] = useState('');
   const [benchmarkError, setBenchmarkError] = useState('');
   const [poolsReady, setPoolsReady] = useState(false);
+  const [harnesses, setHarnesses] = useState<HarnessCatalog | null>(null);
+  const [harnessError, setHarnessError] = useState('');
+  const [harnessesReady, setHarnessesReady] = useState(false);
   const [historyReady, setHistoryReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [launchRole, setLaunchRole] = useState<Role | null>(null);
+  const [launchSeed, setLaunchSeed] = useState<RunRequest | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [notice, setNotice] = useState('');
   const pendingLaunch = useRef<PendingLaunch | null>(null);
@@ -383,11 +432,12 @@ export default function Agents({ active }: { active: boolean }) {
         if (signal.aborted) return;
         setConfiguration(config);
         if (!config.configured) { setError(''); setPoolsReady(false); return; }
-        const [history, capacity, choices, workerStatus] = await Promise.allSettled([
+        const [history, capacity, choices, workerStatus, harnessCatalog] = await Promise.allSettled([
           api<{ runs: Run[]; total: number }>('/agents/runs?limit=' + PAGE_SIZE + '&offset=' + offset, { signal }),
           api<{ resources: Pool[] }>('/agents/resources', { signal }),
           api<{ benchmarks: BenchmarkChoice[] }>('/benchmarks', { signal }),
           api<WorkerStatus>('/agents/status', { signal }),
+          api<HarnessCatalog>('/agents/settings/harnesses', { signal }),
         ]);
         if (signal.aborted) return;
         if (history.status === 'fulfilled') { setRuns(history.value.runs); setTotal(history.value.total); setHistoryReady(true); setError(''); }
@@ -398,6 +448,8 @@ export default function Agents({ active }: { active: boolean }) {
         else setBenchmarkError(errorText(choices.reason, 'Unable to load benchmarks.'));
         if (workerStatus.status === 'fulfilled') { setWorkers(workerStatus.value); setWorkerError(''); }
         else setWorkerError(errorText(workerStatus.reason, 'Unable to check worker availability.'));
+        if (harnessCatalog.status === 'fulfilled') { setHarnesses(harnessCatalog.value); setHarnessesReady(true); setHarnessError(''); }
+        else { setHarnessError('Unable to check installed harnesses. Refresh after checking the backend.'); setHarnessesReady(false); }
       } catch (failure) { if (!signal.aborted) { setError(errorText(failure, 'Unable to connect to the agent service.')); setPoolsReady(false); } }
       finally {
         if (!signal.aborted) { setLoading(false); setRefreshing(false); timer = window.setTimeout(() => { void poll(); }, 5000); }
@@ -409,15 +461,20 @@ export default function Agents({ active }: { active: boolean }) {
 
   const connected = configuration?.configured === true;
   const signInUrl = configuration?.sign_in_url?.startsWith('/signin-with-chatgpt?') ? configuration.sign_in_url : null;
-  const canLaunch = connected && poolsReady && pools.length > 0;
   function refresh() { setRefreshing(true); setRefreshToken((value) => value + 1); }
+  function newAgent(role: Role, seed: RunRequest | null = null) {
+    if (seed) pendingLaunch.current = null; // An independent run must never replay its source.
+    setLaunchSeed(seed); setLaunchRole(role);
+  }
   return <div className="agents">
-    <header className="agents-header"><div><h1>Agents</h1><p>Explore new research and turn existing ideas into benchmark attempts.</p></div><div className="agents-header-actions"><button className="button" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh'}</button><button className="button" disabled={!canLaunch} onClick={() => setLaunchRole('researcher')}>Launch researcher</button><button className="button button-primary" disabled={!canLaunch} onClick={() => setLaunchRole('attempt')}>Launch attempt</button></div></header>
+    <header className="agents-header"><div><h1>Agents</h1><p>Explore new research and turn existing ideas into benchmark attempts.</p></div><div className="agents-header-actions"><button className="button" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh'}</button><button className="button" disabled={!connected} onClick={() => newAgent('attempt')}>New attempt</button><button className="button button-primary" disabled={!connected} onClick={() => newAgent('researcher')}>New agent</button></div></header>
     {notice && <p className="agent-success" role="status">{notice}</p>}
     {configuration && !connected && <div className="agent-connection-note"><h2>{configuration.requires_sign_in ? 'Sign in to manage agents' : 'Agent service is not connected'}</h2><p>{configuration.message || 'Connect the Agent Harness to launch runs and see their progress.'}</p>{signInUrl && <a className="button button-primary" href={signInUrl} target="_top">Sign in to manage agents</a>}</div>}
     {error && <p className="error-banner" role="alert">{error} {historyReady && connected && 'Showing the last available run history.'}</p>}
     {connected && poolError && <p className="error-banner" role="alert">{poolError} Launching is unavailable until sandbox capacity can be checked.</p>}
     {connected && poolsReady && !pools.length && <p className="agent-warning">No eligible sandbox pools are currently available. Existing runs remain visible; new runs need registered capacity in ResourceManager.</p>}
+    {connected && harnessError && <p className="error-banner" role="alert">{harnessError}</p>}
+    {connected && harnessesReady && !harnesses?.harnesses.some((item) => item.available) && <p className="agent-warning">No agent harness is available. Open Connections to check Codex sign-in, external runtimes, and model profiles.</p>}
     {connected && <div className="agent-worker-status" aria-live="polite">{workerError ? <span>{workerError}</span> : workers ? <><span className={workers.workers_online ? 'agent-worker-online' : ''}>{workers.workers_online} {workers.workers_online === 1 ? 'worker' : 'workers'} online</span><span>{workers.running_runs} running · {workers.queued_runs} queued</span>{workers.workers_online === 0 && <span>Queued agents will wait until a worker connects.</span>}</> : <span>Checking worker availability…</span>}</div>}
     {loading && <p className="agent-loading">Connecting to agents…</p>}
     {connected && <div className={selectedId ? 'agents-workspace has-selection' : 'agents-workspace'}>
@@ -425,9 +482,9 @@ export default function Agents({ active }: { active: boolean }) {
         {historyReady && !runs.length && !error ? <div className="agent-empty"><h3>No agent runs yet</h3><p>Launch a researcher to develop an idea, or an attempt agent to work on a benchmark. Each run has its own sandbox.</p></div> : <ul className="agent-run-list">{runs.map((run) => <li key={run.id}><button className={selectedId === run.id ? 'agent-run-choice is-selected' : 'agent-run-choice'} onClick={() => { setSelectedId(run.id); setNotice(''); }} aria-pressed={selectedId === run.id}><span className="agent-run-choice-heading"><strong>{roleLabel(run.request.role)}</strong><Status status={run.status} /></span><span className="agent-run-choice-objective">{run.request.objective}</span><span className="agent-run-choice-meta"><time dateTime={new Date(run.created_at * 1000).toISOString()}>{date(run.created_at)}</time><span>{run.state.steps || 0}/{run.request.max_steps} steps</span></span></button></li>)}</ul>}
         {total > PAGE_SIZE && <div className="agent-pagination"><span>{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}</span><div><button className="button" disabled={offset === 0 || refreshing} onClick={() => setOffset((value) => Math.max(0, value - PAGE_SIZE))}>Previous</button><button className="button" disabled={offset + PAGE_SIZE >= total || refreshing} onClick={() => setOffset((value) => value + PAGE_SIZE)}>Next</button></div></div>}
       </section>
-      {selectedId ? <RunDetail key={selectedId} id={selectedId} active={active && connected} refreshToken={refreshToken} onClose={() => setSelectedId(null)} onUpdated={refresh} /> : historyReady && !!runs.length && <div className="agent-selection-note"><h2>Select a run</h2><p>Inspect its progress, experiment commands and outputs, and independent verification results.</p></div>}
+      {selectedId ? <RunDetail key={selectedId} id={selectedId} active={active && connected} refreshToken={refreshToken} harnesses={harnesses} onClose={() => setSelectedId(null)} onUpdated={refresh} onSpinOut={(request) => newAgent(request.role, request)} /> : historyReady && !!runs.length && <div className="agent-selection-note"><h2>Select a run</h2><p>Inspect its progress, experiment commands and outputs, and independent verification results.</p></div>}
     </div>}
-    {launchRole && <LaunchAgent role={launchRole} pools={pools} benchmarks={benchmarks} benchmarkError={benchmarkError} pending={pendingLaunch} onClose={() => setLaunchRole(null)} onCreated={(run) => {
+    {launchRole && <LaunchAgent role={launchRole} initialRequest={launchSeed} pools={pools} benchmarks={benchmarks} benchmarkError={benchmarkError} harnesses={harnesses || pendingHarnessCatalog} availabilityChecked={connected && poolsReady && harnessesReady} pending={pendingLaunch} onClose={() => setLaunchRole(null)} onCreated={(run) => {
       setLaunchRole(null); setSelectedId(run.id); setOffset(0); setNotice(`${roleLabel(run.request.role)} queued. It will start when a worker and sandbox capacity are available.`); refresh();
     }} />}
   </div>;

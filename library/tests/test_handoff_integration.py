@@ -23,6 +23,14 @@ class Planner:
     def __init__(self):
         self.calls = 0
 
+    def review_novelty(self, snapshot):
+        return {
+            "verdict": "novel",
+            "rationale": "Independent test reviewer found a distinct contribution.",
+            "reviewed_paper_ids": [paper["id"] for paper in snapshot.papers],
+            "source_paper_ids": [],
+        }
+
     def plan(self, paper, catalog):
         self.calls += 1
         assert paper["submission"]["paper_text"] == TEXT

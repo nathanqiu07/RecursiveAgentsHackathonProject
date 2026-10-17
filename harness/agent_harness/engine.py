@@ -118,6 +118,11 @@ class Engine:
         self.store.owned(self.id, self.token)
         run = self.store.get(self.id)
         if not run["allocation_started"]:
+            self.store.update(
+                self.id,
+                self.token,
+                cleanup_required=bool(self.state.get("runtime_cleanup_required")),
+            )
             return
         try:
             if not self.job_id:
@@ -137,10 +142,53 @@ class Engine:
                 job["status"] in {"completed", "failed", "cancelled"}
                 and job.get("cleanup_required") is False
             )
-            self.store.update(self.id, self.token, cleanup_required=not confirmed)
+            self.store.update(
+                self.id,
+                self.token,
+                cleanup_required=not confirmed or bool(self.state.get("runtime_cleanup_required")),
+            )
             self.event("sandbox_cleanup", {"confirmed": confirmed, "compute_job_id": self.job_id})
         except ServiceError:
             self.store.update(self.id, self.token, cleanup_required=True)
+
+    def close_runtime(self, model=None):
+        reference = self.state.get("runtime_cleanup")
+        if model is None and not reference:
+            return
+        if model is None:
+            from .cli_models import reconcile_runtime_cleanup
+
+            def operation():
+                return reconcile_runtime_cleanup(reference)
+        else:
+            operation = model.close
+        finished = queue.Queue(maxsize=1)
+
+        def close():
+            try:
+                finished.put((True, operation()))
+            except Exception as exc:
+                finished.put((False, exc))
+
+        threading.Thread(target=close, daemon=True).start()
+        while True:
+            # Teardown can outlast an ownership lease. Cancellation must not skip it.
+            try:
+                self.store.heartbeat(self.id, self.token)
+            except RunCancelled:
+                pass
+            try:
+                ok, value = finished.get(timeout=0.5)
+                break
+            except queue.Empty:
+                continue
+        if not ok:
+            raise value
+        if reference:
+            self.state.pop("runtime_cleanup", None)
+            self.state["runtime_cleanup_required"] = False
+            self.save()
+            self.event("runtime_cleanup", {"confirmed": True})
 
     def execute(self, args):
         if self.role == "researcher" and not self.state.get("novelty", {}).get("approved"):
@@ -513,13 +561,14 @@ class Engine:
         raise EndRun("completed", error="step_budget_exceeded")
 
 
-def run_once(store, services, model, web, stop=None):
-    claim = store.claim()
+def run_once(store, services, model, web, stop=None, *, claim_queued=True, model_factory=None):
+    claim = store.claim(include_queued=claim_queued)
     if not claim:
         return False
     run, token, interrupted = claim
     engine = Engine(store, run, token, services, model, web, stop)
     status, result, error = run["status"], run["result"], run["error"]
+    owned_model = None
     try:
         if run["status"] in TERMINAL:
             pass  # Reconcile cleanup only, never restart a finished agent.
@@ -528,12 +577,32 @@ def run_once(store, services, model, web, stop=None):
             if run["state"].get("publication", {}).get("status") == "dispatching":
                 error = "publication_outcome_unknown_do_not_resubmit"
         else:
+            if model_factory:
+                owned_model = engine.model = model_factory(run["request"])
+                engine.state["runtime"] = {
+                    "harness": run["request"].get("harness", "builtin"),
+                    "model": run["request"].get("model") or getattr(owned_model, "model", None),
+                }
+                if hasattr(owned_model, "cleanup_reference"):
+                    engine.state["runtime_cleanup"] = owned_model.cleanup_reference()
+                    engine.state["runtime_cleanup_required"] = True
+                    store.update(run["id"], token, cleanup_required=True)
+                engine.save()
             engine.run_agent()
     except EndRun as exc:
         status, result, error = exc.status, exc.result, exc.error
     except RunCancelled:
         status, error = "cancelled", "cancelled_by_user"
     except LostLease:
+        if owned_model:
+            # The durable reference lets the new owner reconcile an interrupted teardown.
+            def close_lost_model():
+                try:
+                    owned_model.close()
+                except Exception:
+                    pass
+
+            threading.Thread(target=close_lost_model, daemon=True).start()
         return True  # The next owner will reconcile the remote sandbox.
     except ServiceError as exc:
         status, error = "failed", exc.code
@@ -542,6 +611,18 @@ def run_once(store, services, model, web, stop=None):
     # Cancellation or interruption during a publication request leaves an uncertain outcome.
     if engine.state.get("publication", {}).get("status") == "dispatching":
         status, error = "needs_attention", "publication_outcome_unknown_do_not_resubmit"
+    if owned_model or engine.state.get("runtime_cleanup"):
+        try:
+            engine.close_runtime(owned_model)
+        except LostLease:
+            return True
+        except Exception:
+            status, error = "needs_attention", "harness_runtime_cleanup_required"
+            engine.state["runtime_cleanup_required"] = True
+            try:
+                engine.save()
+            except LostLease:
+                pass
     try:
         engine.cleanup()
         store.finish(run["id"], token, status, error, result)

@@ -1,6 +1,6 @@
 # Library
 
-Library accepts papers and runs their verification workflow. Its LLM judge reads the paper, extracts requirements and experimental conditions, and chooses the minimum sufficient resources from the separate ResourceManager service. Library owns the verification agent's task, restricted verification API bridge, report, and verdict. ResourceManager supplies generic compute jobs and their input/output channels. Its [HTTP contract](api/resource-manager.openapi.json) is included here; the ResourceManager service and resource inventory are configured independently, and their source is not included in this repository.
+Library independently checks a submitted paper's novelty against the existing Library before allocating experimental compute. Its judge then extracts requirements and experimental conditions and chooses minimum sufficient resources from the separate ResourceManager service. A paper is accepted as verified only when its independent novelty review is `novel` and its experiments are `verified`. Library owns both decisions; ResourceManager supplies generic compute jobs and their input/output channels. Its [HTTP contract](api/resource-manager.openapi.json) is included here; that service and resource inventory are configured independently.
 
 ```text
 Submitting agent → Library paper queue → Library LLM judge
@@ -31,7 +31,7 @@ uv sync --python 3.12
 uv run uvicorn paper_library.main:app --host 127.0.0.1 --port 8001
 ```
 
-API docs: <http://127.0.0.1:8001/docs>. Machine-readable contract: `/openapi.json`. Saved schemas are included for the [Library API](api/openapi.json), [verification plan](api/verification-plan.schema.json), and [ResourceManager API](api/resource-manager.openapi.json).
+API docs: <http://127.0.0.1:8001/docs>. Machine-readable contract: `/openapi.json`. Saved schemas are included for the [Library API](api/openapi.json), [novelty review](api/novelty-review.schema.json), [verification plan](api/verification-plan.schema.json), and [ResourceManager API](api/resource-manager.openapi.json).
 
 In another terminal, configure and start the Library verification worker:
 
@@ -45,6 +45,18 @@ export LIBRARY_VERIFICATION_API_URL=http://127.0.0.1:8000
 # Set LIBRARY_VERIFICATION_API_KEY if the verification API requires authentication.
 uv run python -m paper_library.worker
 ```
+
+To use the same machine's existing Codex ChatGPT sign-in for Library-owned judging, install the optional sibling harness dependency and select the Codex backend. These are separate Library review calls; the submitting researcher's own novelty assessment is never accepted as verification.
+
+```sh
+cd library
+# Run codex login separately on this worker if it is not already signed in.
+uv run --with-editable ../harness python -m paper_library.worker \
+  --planner-backend codex \
+  --resource-manager-url http://127.0.0.1:8002
+```
+
+`--planner-model` optionally selects an available Codex model. This backend does not require an HTTP planner URL or provider key. The optional adapter uses the harness's native tool-disabled OAuth planner, and never reads or exports its login tokens.
 
 Start a ResourceManager service separately and configure `LIBRARY_RESOURCE_MANAGER_URL` for its endpoint. It manages node registration, the operator-owned resource inventory, compute reservations, and container execution. Library communicates with it through the [ResourceManager HTTP API](api/resource-manager.openapi.json) and does not need Docker access.
 
@@ -73,6 +85,12 @@ List requests support `limit` (1–100, default 50) and `offset` (default 0), re
 
 ## Verification workflow
 
+The independent novelty reviewer compares the complete candidate text with every other stored paper, including pending, blocked and failed submissions. The candidate's own ID is excluded. Unicode/case/whitespace-normalized exact duplicates are rejected without an LLM call. Other overlap receives a separate semantic review of the claimed contribution, mechanism and prior approaches. A new title, paraphrase or parameter change does not by itself establish novelty. Papers and titles are untrusted data; the reviewer cannot invoke tools or follow embedded instructions.
+
+The public `novelty` field records `novel`, `not_novel` or `inconclusive`, a rationale, supporting `source_paper_ids`, the complete snapshot's SHA-256 fingerprint/count, review time and method. Library constructs this provenance itself and validates the reviewer's complete paper-ID coverage. Candidate and Library content are bound to the saved decision. A missing full text, URL-only reference, unreadable record, invalid reviewer output, or catalog exceeding 200 other papers / 100,000 serialized context characters yields `inconclusive` and blocks compute. No paper is silently dropped or summarized to fit the limit. These are novelty findings relative to this Library, not proof of worldwide originality.
+
+Library rechecks its snapshot before allocating compute and before accepting a final verified result. If submissions arrive during review, it repeats the comparison; final acceptance checks the current fingerprint in the same database transaction that saves the verdict. A stale positive review cannot publish. Late overlap blocks acceptance while preserving the experiment in `experimental_report` and reconciling any allocated job. `report` contains only the accepted final outcome, so an experimental success cannot override a failed novelty gate. New blocked novelty decisions have no accepted report.
+
 Library asks ResourceManager for available resources. The judge reads `paper_text` and records claims, procedures, exact conditions, measurable acceptance criteria, and verbatim `source_quotes` in `plan.verification_requirements`. It flags missing or ambiguous details in `plan.missing_information`, without inventing conditions or lowering thresholds. Quotes must occur in the source paper; quote membership establishes provenance rather than proving the interpretation is complete or correct.
 
 The judge selects the minimum estimated sufficient CPU, memory, scratch space, and runtime. Resource capacities are ceilings. An agent that coordinates API calls does not need to duplicate the GPU resources used behind the verification API. Library validates the proposed allocation against ResourceManager's available snapshot and retains the plan with the paper.
@@ -82,6 +100,8 @@ Library requests a generic compute job using `POST /jobs` with only `resource_id
 The paper's `compute_job_id` and `compute_job_status` track that allocation. Library sends its verification task through the job's input channel, reads agent output, and handles requests to the verification API itself. ResourceManager transports those opaque UTF-8 lines without applying a paper schema or deciding what they mean. Library records a verification outcome only after validating the agent's report and compute-job completion. A successful compute exit alone does not mark a paper verified.
 
 Paper progress is `pending_verification → planning → verifying → completed`, with `blocked` and `failed` outcomes where appropriate. Reports contain a `verified`, `not_verified`, or `inconclusive` verdict with evidence. The original paper remains unchanged. Retries preserve that paper and begin a fresh assessment; active and completed papers cannot be retried. Unconfirmed remote cleanup must be resolved before a new attempt may start.
+
+Historical `verified` results without an independent novelty record are moved to `blocked` when the updated Library opens its database. Their original report is preserved as `experimental_report`, together with timestamps and compute metadata; no experiment is automatically rerun. After confirming cleanup, use `POST /papers/{id}/retry` on that same ID for a fresh complete assessment. The retry clears the previous assessment and may allocate compute again. Creating a new submission instead would compare against the old record and can correctly trigger duplicate rejection. URL-only records need an operator to supply their full source text before review; the current HTTP API does not edit existing paper text.
 
 ## Restricted verification access
 
@@ -103,6 +123,7 @@ The compute image must contain a compatible agent runtime and dependencies. The 
 | `LIBRARY_API_KEY` | Optional bearer key for Library paper endpoints |
 | `LIBRARY_RESOURCE_MANAGER_URL` | ResourceManager API base URL, for example `http://127.0.0.1:8002` |
 | `LIBRARY_RESOURCE_MANAGER_API_KEY` | Credential for generic compute requests and job channels |
+| `LIBRARY_PLANNER_BACKEND` | `http` (default) or optional `codex` with the sibling harness installed |
 | `LIBRARY_PLANNER_BASE_URL` | Library's compatible LLM endpoint |
 | `LIBRARY_PLANNER_MODEL` | Explicit planner model ID |
 | `LIBRARY_PLANNER_API_KEY` | Planner provider credential |
@@ -124,4 +145,4 @@ uv run pytest
 uv run ruff check .
 ```
 
-Library tests cover paper intake, requirement extraction, resource selection, agent protocol, restricted verification access, and verification outcomes. Cross-service integration tests skip when a sibling ResourceManager checkout is unavailable.
+Library tests cover paper intake, complete independent novelty comparisons, semantic and exact duplicates, context/source checks, concurrent Library changes, requirement extraction, resource selection, restricted verification access, cleanup and outcomes. Cross-service integration tests skip when a sibling ResourceManager checkout is unavailable.

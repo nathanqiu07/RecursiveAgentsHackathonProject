@@ -14,6 +14,10 @@ data/
 *.sqlite3
 *.sqlite-wal
 *.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.settings.key
+.settings-key-*
 .DS_Store
 .sites-runtime/
 .wrangler/
@@ -32,3 +36,5 @@ gurobi.log
 
 # Live run outputs (commit selected reports by name)
 runs/
+
+*.tsbuildinfo

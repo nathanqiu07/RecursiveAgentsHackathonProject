@@ -14,7 +14,14 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from .models import ComputeJobUpdate, PaperSubmission, VerificationReport, validate_opaque_json
+from .models import (
+    ComputeJobUpdate,
+    NoveltyReview,
+    PaperSubmission,
+    VerificationReport,
+    validate_opaque_json,
+)
+from .novelty import capture_snapshot
 
 POLL_SECONDS = 2
 ACTIVE_STATUSES = {"planning", "verifying"}
@@ -24,6 +31,10 @@ COMPUTE_ACTIVE_STATUSES = {"queued", "provisioning", "running"}
 
 class QueueConflict(Exception):
     """Verification ownership is missing, expired, or incompatible with the operation."""
+
+
+class NoveltySnapshotChanged(QueueConflict):
+    """The Library changed after the independent novelty review."""
 
 
 def utc_time(timestamp: float) -> str:
@@ -79,6 +90,9 @@ class PaperQueue:
                 "lease_token": "TEXT",
                 "lease_until": "REAL",
                 "report": "TEXT",
+                "experimental_report": "TEXT",
+                "novelty": "TEXT",
+                "novelty_candidate_sha256": "TEXT",
                 "error": "TEXT",
                 "plan": "TEXT",
                 "blocked_reason": "TEXT",
@@ -108,6 +122,21 @@ class PaperQueue:
                    AND allocation_token IS NULL AND lease_token IS NOT NULL"""
             )
             db.execute("CREATE INDEX IF NOT EXISTS papers_status ON papers(status, sequence)")
+            # Historical experimental success did not include the independent novelty gate.
+            # Preserve that evidence while requiring a fresh review before acceptance.
+            for legacy in db.execute(
+                "SELECT id,report FROM papers WHERE novelty IS NULL AND report IS NOT NULL"
+            ):
+                if VerificationReport.model_validate_json(legacy["report"]).verdict == "verified":
+                    db.execute(
+                        """UPDATE papers SET status='blocked',experimental_report=report,
+                        report=NULL,blocked_reason=? WHERE id=?""",
+                        (
+                            "Independent Library novelty review is required "
+                            "for historical verification.",
+                            legacy["id"],
+                        ),
+                    )
 
     @contextmanager
     def connection(self):
@@ -140,6 +169,16 @@ class PaperQueue:
             "completed_at": row["completed_at"],
             "worker_id": row["worker_id"],
             "report": report,
+            "experimental_report": (
+                VerificationReport.model_validate_json(row["experimental_report"]).model_dump()
+                if row["experimental_report"]
+                else None
+            ),
+            "novelty": (
+                NoveltyReview.model_validate_json(row["novelty"]).model_dump(mode="json")
+                if row["novelty"]
+                else None
+            ),
             "error": row["error"],
             "plan": plan,
             "blocked_reason": row["blocked_reason"],
@@ -278,6 +317,75 @@ class PaperQueue:
         if not updated:
             raise QueueConflict("Verification ownership is missing, expired, or no longer active")
 
+    def novelty_snapshot(self, paper_id):
+        with self.connection() as db:
+            db.execute("BEGIN")
+            return capture_snapshot(db, paper_id)
+
+    def novelty_is_current(self, paper_id, snapshot):
+        with self.connection() as db:
+            row = db.execute(
+                "SELECT novelty,novelty_candidate_sha256 FROM papers WHERE id=?", (paper_id,)
+            ).fetchone()
+            if row is None or not row["novelty"]:
+                return False
+            review = NoveltyReview.model_validate_json(row["novelty"])
+            return (
+                review.snapshot_fingerprint == snapshot.fingerprint
+                and review.snapshot_count == snapshot.count
+                and row["novelty_candidate_sha256"] == snapshot.candidate_fingerprint
+            )
+
+    def save_novelty(self, paper_id, lease_token, review, snapshot):
+        if isinstance(review, BaseModel):
+            review = review.model_dump(mode="python")
+        review = NoveltyReview.model_validate(review)
+        with self.connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            now = time.time()
+            self.expire(db, now)
+            row = self.owned(db, paper_id, lease_token, now)
+            if row is None or row["status"] not in ACTIVE_STATUSES:
+                raise QueueConflict("Novelty review ownership is missing or expired")
+            current = capture_snapshot(db, paper_id)
+            if (
+                current.fingerprint != snapshot.fingerprint
+                or current.candidate_fingerprint != snapshot.candidate_fingerprint
+            ):
+                raise NoveltySnapshotChanged("Library changed during novelty review")
+            if (
+                review.snapshot_fingerprint != current.fingerprint
+                or review.snapshot_count != current.count
+            ):
+                raise ValueError("Novelty provenance does not match the complete Library snapshot")
+            sources = {str(value) for value in review.source_paper_ids}
+            for source in sources:
+                if (
+                    source == paper_id
+                    or db.execute("SELECT 1 FROM papers WHERE id=?", (source,)).fetchone() is None
+                ):
+                    raise ValueError("Novelty sources must be existing other Library papers")
+            if review.verdict == "not_novel" and not sources:
+                raise ValueError("Non-novel decisions require Library sources")
+            if review.method == "exact_duplicate" and not sources <= set(current.duplicate_ids):
+                raise ValueError("Exact duplicates must match normalized full text")
+            if review.verdict == "novel" and (
+                review.method != "semantic"
+                or current.problem
+                or current.duplicate_ids
+                or len(current.papers) != current.count
+            ):
+                raise ValueError("A novel decision requires a complete semantic comparison")
+            db.execute(
+                "UPDATE papers SET novelty=?,novelty_candidate_sha256=? WHERE id=?",
+                (
+                    review.model_dump_json(),
+                    current.candidate_fingerprint,
+                    paper_id,
+                ),
+            )
+            return self.paper(db.execute("SELECT * FROM papers WHERE id=?", (paper_id,)).fetchone())
+
     def save_plan(self, paper_id: str, lease_token: str, plan: dict):
         encoded = plan_json(plan)
         with self.connection() as db:
@@ -369,15 +477,38 @@ class PaperQueue:
             row = self.owned(db, paper_id, lease_token, now)
             paper = None
             if row is not None and row["status"] in ACTIVE_STATUSES:
+                if report is not None and report.verdict == "verified":
+                    novelty = (
+                        NoveltyReview.model_validate_json(row["novelty"])
+                        if row["novelty"]
+                        else None
+                    )
+                    if (
+                        novelty is None
+                        or novelty.verdict != "novel"
+                        or novelty.method != "semantic"
+                    ):
+                        raise ValueError("Verified reports require an independent novel decision")
+                    current = capture_snapshot(db, paper_id)
+                    if (
+                        novelty.snapshot_fingerprint != current.fingerprint
+                        or novelty.snapshot_count != current.count
+                        or row["novelty_candidate_sha256"] != current.candidate_fingerprint
+                        or current.problem
+                        or current.duplicate_ids
+                    ):
+                        raise NoveltySnapshotChanged("Library changed before final verification")
                 # An active compute job must be reconciled even if a caller omitted the flag.
                 cleanup = cleanup_required or row["compute_job_status"] in COMPUTE_ACTIVE_STATUSES
                 db.execute(
-                    """UPDATE papers SET status=?,completed_at=?,report=?,error=?,
+                    """UPDATE papers SET status=?,completed_at=?,report=?,experimental_report=?,
+                       error=?,
                        cleanup_pending=?,lease_token=NULL,lease_until=NULL,next_poll_at=?
                        WHERE id=?""",
                     (
                         "completed" if report is not None else "failed",
                         utc_time(now),
+                        report.model_dump_json() if report is not None else None,
                         report.model_dump_json() if report is not None else None,
                         error,
                         int(cleanup),
@@ -393,12 +524,19 @@ class PaperQueue:
         return paper
 
     def block_verification(
-        self, paper_id: str, lease_token: str, reason: str, plan: dict | None = None
+        self,
+        paper_id: str,
+        lease_token: str,
+        reason: str,
+        plan: dict | None = None,
+        experimental_report: VerificationReport | None = None,
     ):
         if not isinstance(reason, str) or not reason.strip() or len(reason.strip()) > 10000:
             raise ValueError("A blocked reason must be nonblank and at most 10000 characters")
         if plan is not None:
             self.save_plan(paper_id, lease_token, plan)
+        if experimental_report is not None:
+            experimental_report = VerificationReport.model_validate(experimental_report)
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             now = time.time()
@@ -412,11 +550,13 @@ class PaperQueue:
                 )
                 db.execute(
                     """UPDATE papers SET status='blocked',completed_at=?,blocked_reason=?,
-                       report=NULL,error=NULL,cleanup_pending=?,lease_token=NULL,lease_until=NULL,
+                       report=NULL,experimental_report=COALESCE(?,experimental_report),error=NULL,
+                       cleanup_pending=?,lease_token=NULL,lease_until=NULL,
                        next_poll_at=? WHERE id=?""",
                     (
                         utc_time(now),
                         reason.strip(),
+                        experimental_report.model_dump_json() if experimental_report else None,
                         int(cleanup),
                         now + POLL_SECONDS if cleanup else None,
                         paper_id,
@@ -476,7 +616,8 @@ class PaperQueue:
                 db.execute(
                     """UPDATE papers SET status='pending_verification',started_at=NULL,
                        completed_at=NULL,worker_id=NULL,lease_token=NULL,lease_until=NULL,
-                       report=NULL,error=NULL,plan=NULL,blocked_reason=NULL,resource_id=NULL,
+                       report=NULL,experimental_report=NULL,novelty=NULL,novelty_candidate_sha256=NULL,
+                       error=NULL,plan=NULL,blocked_reason=NULL,resource_id=NULL,
                        allocated_cpus=NULL,allocated_memory_mb=NULL,allocation_token=NULL,
                        cleanup_pending=0,node_id=NULL,sandbox_id=NULL,compute_job_id=NULL,
                        compute_job_status=NULL,compute_key=NULL,next_poll_at=? WHERE id=?""",

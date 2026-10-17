@@ -32,7 +32,7 @@ The included image has Python's standard library and a shell. Install experiment
 
 ## Start
 
-Requires Python 3.10+ and `uv`. Start the [benchmark API](../dashboard/README.md), Library, and ResourceManager first. Library and ResourceManager are separate HTTP services; their source and deployment configuration are not included in this repository. Configure their URLs and credentials using the settings below. ResourceManager must provide the generic compute-job and input/output-channel contract used by `agent_harness/clients.py`; Library must provide the paper intake and verification contract described below.
+Requires Python 3.10+ and `uv`. Start the [benchmark API](../dashboard/README.md), [Library](../library/README.md), and ResourceManager first. Library is included in this repository and runs as a separate HTTP service. ResourceManager is configured independently; its source is not included here. Configure their URLs and credentials using the settings below. ResourceManager must provide the generic compute-job and input/output-channel contract used by `agent_harness/clients.py`; Library must provide the paper intake and verification contract described below.
 
 Configure an eligible, registered ResourceManager pool with this image installed on its Docker host:
 
@@ -50,9 +50,7 @@ Export configuration in both the API and worker shells (`.env.example` is a refe
 export HARNESS_LIBRARY_URL=http://127.0.0.1:8001
 export HARNESS_BENCHMARK_URL=http://127.0.0.1:3001
 export HARNESS_RESOURCE_MANAGER_URL=http://127.0.0.1:8002
-export HARNESS_MODEL_BASE_URL=https://your-model-endpoint.example/v1
-export HARNESS_MODEL=YOUR_MODEL_ID
-# Also export HARNESS_MODEL_API_KEY and any service API keys as needed.
+# Export service API keys if these services require authentication.
 uv run uvicorn agent_harness.main:app --host 127.0.0.1 --port 8003
 ```
 
@@ -63,7 +61,36 @@ cd harness
 uv run python -m agent_harness.worker
 ```
 
-The model endpoint must support tool-calling chat completions at `/chat/completions` and JSON object responses. Research and independent novelty/evidence reviews use separate model calls. Multiple workers can share the local harness database; each run has one renewable owner lease and a distinct sandbox. `--once` processes one run or cleanup reconciliation. API docs are at `http://127.0.0.1:8003/docs`.
+The dashboard defaults to **Codex**, using the worker machine's existing `codex login` with ChatGPT. The harness does not extract its OAuth token or send it to the browser. Run `codex login status` on the worker to check the login; model access is confirmed by an actual inference turn, rather than the model catalog. See [Codex authentication](https://developers.openai.com/codex/auth).
+
+For the built-in research harness, save a Crusoe key and model in **Connections**, or export `HARNESS_MODEL_BASE_URL`, `HARNESS_MODEL`, and `HARNESS_MODEL_API_KEY` for a compatible endpoint. This endpoint must support tool-calling chat completions at `/chat/completions` and JSON object responses. Research and independent novelty/evidence reviews use separate model calls. Multiple workers can share the local harness database; each run has one renewable owner lease and a distinct sandbox. Workers can start before credentials are configured and pick up settings between runs. `--once` processes one run or cleanup reconciliation. API docs are at `http://127.0.0.1:8003/docs`.
+
+## Connections and model profiles
+
+The dashboard's **Connections** tab saves provider keys on the harness backend, loads the Crusoe catalog, tests model tools/JSON and You.com search, and checks worker, Library, benchmark and sandbox availability. Tests are explicit requests; dashboard polling does not generate inference or search traffic. Passing dependency checks is not proof of a completed scientific run or verifier deployment.
+
+Provider and model-profile keys are encrypted in SQLite. A master key is generated next to the database as `<database>.settings.key` with owner-only permissions, or supplied by `HARNESS_SETTINGS_KEY`. Keep this key with your private database backups and share it with API/worker processes using the same database. Losing it makes saved credentials unreadable. Public responses expose only whether a key is set. Blank key edits retain the existing key; disconnect removes the saved credential and overrides its provider environment fallback. Credentials never enter model prompts, compute containers, run events, browser storage, or source control.
+
+Add multiple named model profiles per harness, then select a harness and profile when launching either agent role:
+
+| Harness | Authentication and execution |
+| --- | --- |
+| Codex | Existing local ChatGPT OAuth sign-in; select a model from its catalog or a saved Codex model profile. No portable OAuth-key input. |
+| Claude Code | Installed `claude` CLI plus an Anthropic Messages-compatible endpoint/model and API key. Native tools, MCP, plugins and hooks are disabled for planning. |
+| NVIDIA NemoClaw | Installed NemoClaw, OpenShell and working Docker, with `HARNESS_NEMOCLAW_ENABLED=1` after runtime/image preparation. Each run provisions its own OpenShell planner sandbox and inference route, then destroys it on close. |
+| Research harness | Direct compatible chat completions, normally the saved Crusoe connection. A model profile can select another compatible model/endpoint. |
+
+Codex and Claude Code run as trusted planning clients with native tools disabled. Their structured tool proposals go through this harness's existing novelty, experiment and publication gates; every generated experiment still executes only in the run's ResourceManager sandbox. NemoClaw additionally isolates its planner in OpenShell. The CLI adapters are not allowed to run model-selected commands on the worker host. Runtime availability reports installation/sign-in prerequisites, while endpoint/model access can still fail on a turn. NemoClaw onboarding can require image downloads and takes longer than an inference request.
+
+The model selected for a run is recorded in its request/runtime metadata. A worker takes a fresh connection snapshot at the start of each run; editing a connection affects later runs. Disconnecting a provider does not interrupt a run already using that connection. ChatGPT OAuth applies to supported Codex models; Claude Code, NemoClaw and Crusoe use their own authentication. These API families are not interchangeable.
+
+Settings endpoints (all use the harness's authentication):
+
+- `GET /settings/providers`, `POST /settings/providers/{crusoe|you}`, `POST /settings/providers/{provider}/test` and `/remove`.
+- `GET /settings/providers/crusoe/models`, `GET /settings/readiness` and `GET /settings/harnesses`.
+- `POST /settings/harnesses/profiles` and `POST /settings/harnesses/profiles/{id}/remove`.
+
+Dashboard requests go through the existing authenticated server bridge. Hosted settings require the same operator allowlist as agent controls and a reachable HTTPS harness. Local hosting is sufficient; the public Site cannot reach a loopback harness on your machine.
 
 ## Launch the two roles
 
@@ -100,7 +127,7 @@ The dashboard's **Agents** tab provides these launch controls and live views dir
 
 ## Publication requirements
 
-The researcher must receive a novelty approval before executing commands, then record at least one successful, nontruncated experiment with output. A separate reviewer compares the **entire readable Library snapshot**, including unverified submissions, with the proposed idea. Before publication, the final paper receives another novelty review and an evidence review against this run's actual commands and outputs. A snapshot change during review requires a fresh review. The submitted paper includes the recorded evidence appendix and is queued for the Library's independent verification.
+The researcher must receive a novelty approval before executing commands, then record at least one successful, nontruncated experiment with output. A separate reviewer compares the **entire readable Library snapshot**, including unverified submissions, with the proposed idea. Before publication, the final paper receives another novelty review and an evidence review against this run's actual commands and outputs. A snapshot change during review requires a fresh review. The submitted paper includes the recorded evidence appendix and is queued for the Library's independent verification. Library rechecks novelty independently against its complete current snapshot and records that verdict separately from experiments. It cannot mark a paper verified unless novelty and experiments both pass; a changed Library snapshot requires a fresh review before the final commit.
 
 Novelty approval is an LLM assessment relative to the recorded Library snapshot, not proof of worldwide novelty or a scientific verdict. URL-only papers without `paper_text`, incomplete pagination, or a Library beyond the bounded review context prevent approval rather than silently skipping prior work. The Library currently has no atomic novelty reservation, so external concurrent submissions can still arrive between the final snapshot check and publication.
 
@@ -110,7 +137,9 @@ Runs have bounded steps, runtime, model context, command output, web bodies, and
 
 ## Internet research
 
-Configure optional `HARNESS_SEARCH_URL` to an operator-owned search gateway accepting `GET ?q=...` and returning JSON results with source URLs. `HARNESS_SEARCH_API_KEY`, if configured, is sent as its bearer token. Without a gateway, `web_search` reports `search_not_configured`; known public pages can still be read with `web_read`.
+Save a You.com API key in **Connections** (or export `HARNESS_YOU_API_KEY`/`YDC_API_KEY`) to enable native [You.com Search](https://you.com/docs/api-reference/search/v1-search): `POST https://ydc-index.io/v1/search` with `X-API-Key`, bounded result excerpts and source URLs. The key is never sent to result pages. Crusoe uses its [managed inference endpoint](https://support.crusoecloud.com/hc/en-us/articles/55002524169499-How-To-List-Model-Features-via-curl-and-the-Inference-API), separate from Crusoe capacity/HMAC credentials.
+
+Alternatively, configure optional `HARNESS_SEARCH_URL` to an operator-owned search gateway accepting `GET ?q=...` and returning JSON results with source URLs. `HARNESS_SEARCH_API_KEY`, if configured, is sent as its bearer token. Without either provider, `web_search` reports `search_not_configured`; known public pages can still be read with `web_read`.
 
 Public page reads support text/HTML over HTTPS on port 443. They reject private/local destinations, credentials and redirects, pin connections to vetted public IPs, and use the original TLS hostname. PDF extraction, arbitrary downloads and network package installation are not implemented. Research results are untrusted data. Search gateway responses should contain sources and excerpts, not provider credentials.
 

@@ -26,6 +26,11 @@ class RunRequest(BaseModel):
     benchmark_id: UUID | None = None
     allocation: Allocation
     max_steps: int = Field(default=40, ge=1, le=100, strict=True)
+    harness: Literal["builtin", "codex", "claude-code", "nemoclaw"] = "builtin"
+    model_profile_id: UUID | None = None
+    model: Annotated[
+        str, StringConstraints(max_length=256, pattern=r"^[A-Za-z0-9._/:-]+$")
+    ] | None = None
 
     @model_validator(mode="after")
     def benchmark_required(self):

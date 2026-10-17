@@ -1,0 +1,62 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "enum": [
+        "novel",
+        "not_novel",
+        "inconclusive"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "rationale": {
+      "maxLength": 10000,
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "source_paper_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Source Paper Ids",
+      "type": "array"
+    },
+    "snapshot_fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Fingerprint",
+      "type": "string"
+    },
+    "snapshot_count": {
+      "minimum": 0,
+      "title": "Snapshot Count",
+      "type": "integer"
+    },
+    "reviewed_at": {
+      "title": "Reviewed At",
+      "type": "string"
+    },
+    "method": {
+      "enum": [
+        "semantic",
+        "exact_duplicate",
+        "precheck"
+      ],
+      "title": "Method",
+      "type": "string"
+    }
+  },
+  "required": [
+    "verdict",
+    "rationale",
+    "snapshot_fingerprint",
+    "snapshot_count",
+    "reviewed_at",
+    "method"
+  ],
+  "title": "NoveltyReview",
+  "type": "object"
+}

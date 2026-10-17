@@ -252,6 +252,68 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "NoveltyReview": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "novel",
+              "not_novel",
+              "inconclusive"
+            ],
+            "title": "Verdict"
+          },
+          "rationale": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Rationale"
+          },
+          "source_paper_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Source Paper Ids"
+          },
+          "snapshot_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Fingerprint"
+          },
+          "snapshot_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Snapshot Count"
+          },
+          "reviewed_at": {
+            "type": "string",
+            "title": "Reviewed At"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "semantic",
+              "exact_duplicate",
+              "precheck"
+            ],
+            "title": "Method"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verdict",
+          "rationale",
+          "snapshot_fingerprint",
+          "snapshot_count",
+          "reviewed_at",
+          "method"
+        ],
+        "title": "NoveltyReview"
+      },
       "Paper": {
         "properties": {
           "id": {
@@ -315,6 +377,26 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/VerificationReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "experimental_report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerificationReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "novelty": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NoveltyReview"
               },
               {
                 "type": "null"

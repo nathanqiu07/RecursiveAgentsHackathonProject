@@ -18,6 +18,7 @@ import httpx
 MAX_JSON_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 2 * 1024 * 1024
 MAX_WEB_BYTES = 512 * 1024
+YOU_SEARCH_URL = "https://ydc-index.io/v1/search"
 MAX_PAPERS = 1000
 TIMEOUT = httpx.Timeout(30, connect=5, write=10, pool=5)
 JOB_STATUSES = {"queued", "provisioning", "running", "completed", "failed", "cancelled"}
@@ -98,7 +99,14 @@ def _body(response, maximum, deadline):
     else:
         chunks = response.iter_raw(chunk_size=65536)
     content = bytearray()
-    for chunk in chunks:
+    chunks = iter(chunks)
+    while True:
+        if time.monotonic() >= deadline:
+            raise ServiceError("timeout")
+        try:
+            chunk = next(chunks)
+        except StopIteration:
+            break
         if time.monotonic() >= deadline:
             raise ServiceError("timeout")
         if len(content) + len(chunk) > maximum:
@@ -146,6 +154,7 @@ class _HTTP:
         maximum=MAX_JSON_BYTES,
         extensions=None,
         text=False,
+        deadline=None,
     ):
         request_headers = {"Accept": "application/json", "Accept-Encoding": "identity"}
         if key:
@@ -161,11 +170,25 @@ class _HTTP:
             if len(content) > MAX_REQUEST_BYTES:
                 raise ServiceError("request_too_large")
             request_headers["Content-Type"] = "application/json"
+        explicit_deadline = deadline is not None
+        deadline = (
+            min(time.monotonic() + 30, deadline) if deadline is not None else time.monotonic() + 30
+        )
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ServiceError("timeout")
         request_extensions = {"timeout": TIMEOUT.as_dict(), **(extensions or {})}
+        if explicit_deadline:
+            # Keep connection, TLS, write, and pool waits inside a shared
+            # operation budget. The final read may overrun by its socket timeout;
+            # _body checks the deadline before beginning every further read.
+            request_extensions["timeout"] = {
+                name: min(value, remaining if name == "read" else remaining / 5)
+                for name, value in request_extensions["timeout"].items()
+            }
         request = httpx.Request(
             method, url, headers=request_headers, content=content, extensions=request_extensions
         )
-        deadline = time.monotonic() + 30
         dispatched = False
         try:
             # Build Request explicitly: a caller-supplied client must not merge
@@ -512,7 +535,7 @@ class _ReadableHTML(HTMLParser):
 
 
 class WebResearch(_HTTP):
-    """Optional search gateway and credential-free public HTTPS page reads.
+    """Optional native You.com/gateway search and credential-free HTTPS reads.
 
     The operator-configured search gateway returns JSON for GET ?q=<query>.
     Search credentials are never applied to pages selected by the agent. A
@@ -520,8 +543,15 @@ class WebResearch(_HTTP):
     no proxies, no redirects, and no persistent public connections.
     """
 
-    def __init__(self, search_url=None, search_key=None, client=None):
-        if search_url:
+    def __init__(self, search_url=None, search_key=None, client=None, *, provider="gateway"):
+        if provider not in {"gateway", "you"}:
+            raise ServiceError("invalid_configuration")
+        self.provider = provider
+        if provider == "you":
+            if search_url is not None and search_url != YOU_SEARCH_URL:
+                raise ServiceError("invalid_configuration")
+            self.search_url = YOU_SEARCH_URL
+        elif search_url:
             url = _url(search_url)
             if "?" in search_url:
                 raise ServiceError("invalid_url")
@@ -531,13 +561,72 @@ class WebResearch(_HTTP):
         self.search_key = _key(search_key)
         super().__init__(client, public=True)
 
-    def search(self, query):
-        if not self.search_url:
+    def search(self, query, *, deadline=None, timeout=None):
+        if not self.search_url or (self.provider == "you" and not self.search_key):
             raise ServiceError("search_not_configured")
         if not isinstance(query, str) or not query.strip() or len(query) > 2000:
             raise ServiceError("invalid_query")
+        if self.provider == "you":
+            result = self.request(
+                "POST",
+                YOU_SEARCH_URL,
+                body={"query": query, "count": 5},
+                headers={"X-API-Key": self.search_key},
+                maximum=MAX_WEB_BYTES,
+                extensions={"timeout": timeout} if timeout else None,
+                deadline=deadline,
+            )
+            return self._you_results(result)
         url = httpx.URL(self.search_url).copy_add_param("q", query)
-        return self.request("GET", url, key=self.search_key, maximum=MAX_WEB_BYTES)
+        return self.request(
+            "GET",
+            url,
+            key=self.search_key,
+            maximum=MAX_WEB_BYTES,
+            extensions={"timeout": timeout} if timeout else None,
+            deadline=deadline,
+        )
+
+    def _you_results(self, result):
+        """Only expose bounded search documents, never provider diagnostics."""
+        source = result.get("results")
+        if not isinstance(source, dict) or not any(name in source for name in ("web", "news")):
+            raise ServiceError("invalid_response")
+        cleaned = {}
+        for category in ("web", "news"):
+            items = source.get(category, [])
+            if not isinstance(items, list):
+                raise ServiceError("invalid_response")
+            documents = []
+            for item in items[:10]:
+                if not isinstance(item, dict):
+                    raise ServiceError("invalid_response")
+                url = item.get("url")
+                if not isinstance(url, str) or len(url) > 8192:
+                    raise ServiceError("invalid_response")
+                document = {"url": url}
+                for field in ("title", "description"):
+                    value = item.get(field)
+                    if isinstance(value, str):
+                        document[field] = value[:4000]
+                snippets = item.get("snippets", [])
+                if not isinstance(snippets, list) or any(
+                    not isinstance(snippet, str) for snippet in snippets
+                ):
+                    raise ServiceError("invalid_response")
+                document["snippets"] = [snippet[:4000] for snippet in snippets[:8]]
+                # Even an unexpected upstream echo must not enter agent context.
+                if self.search_key:
+                    for field, value in document.items():
+                        if isinstance(value, str):
+                            document[field] = value.replace(self.search_key, "[redacted]")
+                        else:
+                            document[field] = [
+                                snippet.replace(self.search_key, "[redacted]") for snippet in value
+                            ]
+                documents.append(document)
+            cleaned[category] = documents
+        return {"results": cleaned}
 
     @staticmethod
     def _pinned_url(value):

@@ -26,6 +26,10 @@ Configure the hosted server's `AGENT_HARNESS_URL` with a reachable HTTPS origin 
 
 An unconfigured hosted connection displays a setup state with disabled launch buttons. The local dashboard defaults to a harness on `http://127.0.0.1:8003`; see [local agent setup](../dashboard/README.md#agents).
 
+The source also includes a **Connections** tab for harness availability, multiple named model profiles, Crusoe Foundry inference, optional You.com Search, and read-only readiness checks. Codex defaults to the existing sign-in on the worker; OAuth credentials are not copied to the hosted frontend. API keys are stored encrypted by the separate harness backend and are never returned in settings responses. Claude Code and NemoClaw require their external runtimes and saved model profiles; the UI reports missing setup instead of claiming a live provider is ready.
+
+For local use, start `dashboard/` and the local harness, then enter credentials through Connections. These source changes do not publish a new Site or expose laptop localhost to Cloudflare. Hosted settings controls require the reachable HTTPS harness and operator allowlists described above. A settings save does not verify a live agent run; explicit connection tests make small provider requests and may incur usage charges. See [Connections usage](../dashboard/README.md#connections).
+
 ## Hosted execution
 
 Hosted storage is independent of local SQLite. D1 records survive Worker restarts. API activity advances durable verification jobs for short background windows; keep polling a submission until it reaches a final state. Long evaluations remain queued in the external verifier and resume score checks on the next dashboard visit or API request. The local Node.js version runs a continuous verification worker.

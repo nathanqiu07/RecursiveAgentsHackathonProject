@@ -98,6 +98,45 @@ class VerificationReport(BaseModel):
     evidence: list[Notes] = Field(default_factory=list, max_length=100)
 
 
+class SemanticNoveltyDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    verdict: Literal["novel", "not_novel", "inconclusive"]
+    rationale: Notes
+    reviewed_paper_ids: list[UUID] = Field(max_length=200)
+    source_paper_ids: list[UUID] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def valid_sources(self):
+        for values in (self.reviewed_paper_ids, self.source_paper_ids):
+            if len(values) != len(set(values)):
+                raise ValueError("Novelty source IDs must be unique")
+        if not set(self.source_paper_ids) <= set(self.reviewed_paper_ids):
+            raise ValueError("Novelty sources must belong to reviewed papers")
+        if self.verdict == "not_novel" and not self.source_paper_ids:
+            raise ValueError("A non-novel decision must cite an existing Library paper")
+        return self
+
+
+class NoveltyReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    verdict: Literal["novel", "not_novel", "inconclusive"]
+    rationale: Notes
+    source_paper_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    snapshot_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    snapshot_count: int = Field(ge=0)
+    reviewed_at: str
+    method: Literal["semantic", "exact_duplicate", "precheck"]
+
+    @field_validator("source_paper_ids")
+    @classmethod
+    def unique_sources(cls, value):
+        if len(value) != len(set(value)):
+            raise ValueError("Novelty source IDs must be unique")
+        return value
+
+
 class Paper(BaseModel):
     id: UUID
     status: ManagerStatus
@@ -107,6 +146,8 @@ class Paper(BaseModel):
     completed_at: str | None = None
     worker_id: str | None = None
     report: VerificationReport | None = None
+    experimental_report: VerificationReport | None = None
+    novelty: NoveltyReview | None = None
     error: str | None = None
     plan: dict[str, Any] | None = None
     blocked_reason: str | None = None

@@ -46,6 +46,8 @@ A solver reads the benchmark prompt, constraints, and submission schema, chooses
 
 Start the harness API and workers separately, then use the dashboard's **Agents** tab to launch runs and inspect their progress, experiments, and submissions. External people and programs can continue using the same benchmark API.
 
+Use **Connections** to configure Crusoe inference and You.com search, inspect dependency readiness, and save model profiles for Codex, Claude Code, or NVIDIA NemoClaw. Codex uses the worker's existing ChatGPT sign-in; credentials stay on the backend. New agents select a role, harness, model, and sandbox limits. **Spin out new agent** copies a run's task settings into a fresh, independent run.
+
 ## Components
 
 | Directory | Purpose |

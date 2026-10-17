@@ -14,8 +14,9 @@ from queue import Empty, Queue
 from .agent_io import AgentIO, AgentProtocolError, response_message_id
 from .main import DEFAULT_DB_PATH
 from .models import VerificationReport
+from .novelty import review_snapshot
 from .planner import LLMPlanner, PlannerError
-from .queue import PaperQueue, QueueConflict
+from .queue import NoveltySnapshotChanged, PaperQueue, QueueConflict
 from .resource_catalog import ResourceCatalog, ResourceSpec, SandboxPlan
 from .resource_manager import (
     ResourceManager,
@@ -56,6 +57,38 @@ def supervised_call(function, heartbeat, timeout_seconds=90):
     raise AgentProtocolError("verification_operation_timeout")
 
 
+def independent_novelty(queue, paper, token, planner, heartbeat):
+    for _attempt in range(3):
+        snapshot = queue.novelty_snapshot(paper["id"])
+        if queue.novelty_is_current(paper["id"], snapshot):
+            return queue.get(paper["id"])
+        review = review_snapshot(
+            snapshot,
+            lambda value: supervised_call(lambda: planner.review_novelty(value), heartbeat),
+        )
+        try:
+            return queue.save_novelty(paper["id"], token, review, snapshot)
+        except NoveltySnapshotChanged:
+            continue
+    raise NoveltySnapshotChanged("Library kept changing during novelty review")
+
+
+def block_for_novelty(queue, paper, token, manager, experimental_report=None):
+    if paper["compute_job_id"]:
+        try:
+            cancelled = manager.cancel(paper["compute_job_id"])
+            paper = queue.save_compute_job(paper["id"], token, cancelled)
+        except ResourceManagerError:
+            pass  # Retain the durable job identity and conservative cleanup flag.
+    novelty = paper["novelty"]
+    return queue.block_verification(
+        paper["id"],
+        token,
+        f"Library novelty {novelty['verdict']}: {novelty['rationale']}"[:10000],
+        experimental_report=experimental_report,
+    )
+
+
 def run_once(queue, manager, planner, api_factory, worker_id):
     paper = queue.claim_for_verification(worker_id)
     if paper is None:
@@ -75,6 +108,10 @@ def run_once(queue, manager, planner, api_factory, worker_id):
             queue.save_compute_job(paper_id, token, job)
             queue.defer_verification(paper_id, token, "cleanup_reconciliation")
             return True
+        paper = independent_novelty(queue, paper, token, planner, heartbeat)
+        if paper["novelty"]["verdict"] != "novel":
+            block_for_novelty(queue, paper, token, manager)
+            return True
         if paper["plan"] is None:
             resources = ResourceCatalog(
                 ResourceSpec.model_validate(item) for item in manager.resources()
@@ -90,6 +127,12 @@ def run_once(queue, manager, planner, api_factory, worker_id):
         if plan.decision == "blocked":
             queue.block_verification(paper_id, token, plan.rationale)
             return True
+        if not paper["compute_job_id"]:
+            # Planning can take time: reject new overlap before reserving compute.
+            paper = independent_novelty(queue, paper, token, planner, heartbeat)
+            if paper["novelty"]["verdict"] != "novel":
+                block_for_novelty(queue, paper, token, manager)
+                return True
         job = (
             manager.get(paper["compute_job_id"])
             if paper["compute_job_id"]
@@ -154,11 +197,28 @@ def run_once(queue, manager, planner, api_factory, worker_id):
         if job["status"] == "completed":
             if type(job.get("exit_code")) is not int or job["exit_code"] != 0 or report is None:
                 raise AgentProtocolError("agent_finished_without_valid_report")
-            queue.finish_verification(
-                paper_id, token, report=report, cleanup_required=job["cleanup_required"]
-            )
+            for _attempt in range(3):
+                if report.verdict == "verified":
+                    paper = independent_novelty(queue, paper, token, planner, heartbeat)
+                    if paper["novelty"]["verdict"] != "novel":
+                        block_for_novelty(queue, paper, token, manager, experimental_report=report)
+                        return True
+                try:
+                    queue.finish_verification(
+                        paper_id, token, report=report, cleanup_required=job["cleanup_required"]
+                    )
+                    break
+                except NoveltySnapshotChanged:
+                    continue
+            else:
+                raise NoveltySnapshotChanged("Library changed before final verification")
         else:
             queue.defer_verification(paper_id, token, "awaiting_verification_agent")
+    except NoveltySnapshotChanged:
+        try:
+            queue.defer_verification(paper_id, token, "library_changed_during_novelty_review")
+        except QueueConflict:
+            pass
     except QueueConflict:
         logger.warning("Lost verification ownership for paper %s", paper_id)
     except ResourceManagerError as exc:
@@ -208,6 +268,11 @@ def main(argv=None):
     parser.add_argument("--planner-base-url", default=os.environ.get("LIBRARY_PLANNER_BASE_URL"))
     parser.add_argument("--planner-model", default=os.environ.get("LIBRARY_PLANNER_MODEL"))
     parser.add_argument(
+        "--planner-backend",
+        choices=("http", "codex"),
+        default=os.environ.get("LIBRARY_PLANNER_BACKEND", "http"),
+    )
+    parser.add_argument(
         "--db-path", default=os.environ.get("LIBRARY_DB_PATH", str(DEFAULT_DB_PATH))
     )
     parser.add_argument("--worker-id", default=f"{socket.gethostname()}-{os.getpid()}")
@@ -216,7 +281,9 @@ def main(argv=None):
         "--once", action="store_true", help="Process one paper or poll its compute job"
     )
     args = parser.parse_args(argv)
-    if not args.resource_manager_url or not args.planner_base_url or not args.planner_model:
+    if not args.resource_manager_url or (
+        args.planner_backend == "http" and (not args.planner_base_url or not args.planner_model)
+    ):
         parser.error("Configure Library's resource manager URL and planner endpoint/model")
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     manager = planner = None
@@ -224,9 +291,14 @@ def main(argv=None):
         manager = ResourceManager(
             args.resource_manager_url, os.environ.get("LIBRARY_RESOURCE_MANAGER_API_KEY")
         )
-        planner = LLMPlanner(
-            args.planner_base_url, args.planner_model, os.environ.get("LIBRARY_PLANNER_API_KEY")
-        )
+        if args.planner_backend == "codex":
+            from .codex_planner import CodexPlanner
+
+            planner = CodexPlanner(args.planner_model)
+        else:
+            planner = LLMPlanner(
+                args.planner_base_url, args.planner_model, os.environ.get("LIBRARY_PLANNER_API_KEY")
+            )
         queue = PaperQueue(args.db_path)
 
         def api_factory():

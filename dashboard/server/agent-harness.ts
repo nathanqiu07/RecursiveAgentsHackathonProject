@@ -17,13 +17,16 @@ const runRequest = z.object({
     timeout_seconds: z.number().int().min(30).max(86400),
   }).strict(),
   max_steps: z.number().int().min(1).max(100).default(40),
+  harness: z.enum(['builtin', 'codex', 'claude-code', 'nemoclaw']).optional(),
+  model_profile_id: z.string().regex(UUID).nullable().optional(),
+  model: z.string().max(256).regex(/^[A-Za-z0-9._/:-]*$/).nullable().optional(),
 }).strict().superRefine((value, context) => {
   if (value.role === 'attempt' && !value.benchmark_id) {
     context.addIssue({ code: 'custom', path: ['benchmark_id'], message: 'Choose a benchmark for an attempt agent.' });
   }
 });
 
-type Route = { method: 'GET' | 'POST'; destination: string; kind: string; runId?: string };
+type Route = { method: 'GET' | 'POST'; destination: string; kind: string; runId?: string; provider?: string };
 type Problem = { error: string; uncertain?: boolean; details?: { path: string[]; message: string }[] };
 
 function json(value: unknown, status = 200, extra?: Record<string, string>) {
@@ -60,6 +63,25 @@ function query(url: URL, allowed: Record<string, { initial: number; max: number 
 }
 
 function route(path: string[]): Route | null {
+  if (path[1] === 'settings') {
+    if (path.length === 3 && ['providers', 'readiness', 'harnesses'].includes(path[2])) return {
+      method: 'GET', destination: `/settings/${path[2]}`, kind: path[2],
+    };
+    if (path[2] === 'harnesses' && path[3] === 'profiles') {
+      if (path.length === 4) return { method: 'POST', destination: '/settings/harnesses/profiles', kind: 'profile_save' };
+      if (path.length === 6 && UUID.test(path[4]) && path[5] === 'remove') return {
+        method: 'POST', destination: `/settings/harnesses/profiles/${path[4]}/remove`, kind: 'profile_remove',
+      };
+    }
+    if (path[2] !== 'providers' || !['crusoe', 'you'].includes(path[3])) return null;
+    const provider = path[3];
+    if (path.length === 4) return { method: 'POST', destination: `/settings/providers/${provider}`, kind: 'provider_save', provider };
+    if (path.length === 5 && (['test', 'remove'].includes(path[4]) || (provider === 'crusoe' && path[4] === 'models'))) return {
+      method: path[4] === 'models' ? 'GET' : 'POST', destination: `/settings/providers/${provider}/${path[4]}`,
+      kind: path[4] === 'models' ? 'models' : `provider_${path[4]}`, provider,
+    };
+    return null;
+  }
   if (path.length === 2 && ['resources', 'status'].includes(path[1])) {
     return { method: 'GET', destination: `/${path[1]}`, kind: path[1] };
   }
@@ -114,6 +136,36 @@ function validResponse(value: unknown, selected: Route, launch: boolean) {
   return true;
 }
 
+const keyInput = z.string().max(4096).regex(/^[\x20-\x7e]*$/);
+const modelInput = z.string().max(256).regex(/^[A-Za-z0-9._/:-]*$/);
+const providerState = z.object({
+  configured: z.boolean(), api_key_set: z.boolean(), enabled: z.boolean(),
+  source: z.enum(['saved', 'environment', 'none']), model: z.string().max(256).nullable().optional(),
+  check: z.object({ ok: z.boolean(), message: z.string().max(500), checked_at: z.number().finite() }).nullable(),
+});
+const settingsResponse = z.object({ providers: z.object({ crusoe: providerState, you: providerState }), revision: z.number().int().nonnegative() });
+const profileInput = z.object({ id: z.string().regex(UUID).optional(), name: z.string().trim().min(1).max(100),
+  harness: z.enum(['builtin', 'codex', 'claude-code', 'nemoclaw']), model: modelInput.min(1),
+  base_url: z.string().max(2048).nullable().optional(), api_key: keyInput.optional(),
+  auth_mode: z.enum(['codex-oauth', 'api-key', 'environment']),
+}).strict();
+const harnessResponse = z.object({
+  default_harness: z.enum(['builtin', 'codex', 'claude-code', 'nemoclaw']),
+  harnesses: z.array(z.object({ id: z.enum(['builtin', 'codex', 'claude-code', 'nemoclaw']), label: z.string(),
+    available: z.boolean(), message: z.string(), models: z.array(z.object({ id: z.string(), label: z.string().optional() })) })),
+  profiles: z.array(z.object({ id: z.string().regex(UUID), name: z.string(), harness: z.enum(['builtin', 'codex', 'claude-code', 'nemoclaw']),
+    model: z.string(), base_url: z.string().nullable(), api_key_set: z.boolean(), enabled: z.boolean(),
+    auth_mode: z.enum(['codex-oauth', 'api-key', 'environment']) })),
+});
+const readinessResponse = z.object({ ready: z.boolean(), checks: z.array(z.object({ id: z.string(), label: z.string(),
+  ok: z.boolean(), required: z.boolean(), message: z.string() })) });
+
+function settingsOutput(value: unknown, kind: string) {
+  const schema = kind === 'models' ? z.object({ models: z.array(z.object({ id: z.string(), supported_parameters: z.array(z.string()).optional() })) })
+    : kind === 'readiness' ? readinessResponse : kind === 'harnesses' || kind.startsWith('profile_') ? harnessResponse : settingsResponse;
+  return schema.safeParse(value);
+}
+
 const fieldNames = new Set(['role', 'objective', 'benchmark_id', 'allocation', 'resource_id', 'node_id',
   'cpus', 'memory_mb', 'scratch_mb', 'timeout_seconds', 'max_steps']);
 
@@ -151,6 +203,7 @@ export async function agentHarnessApi(request: Request, path: string[], env: Rec
   const selected = route(path);
   if (!selected) return json({ error: 'Agent route not found.' }, 404);
   const launch = selected.kind === 'runs' && request.method === 'POST';
+  const providerRoute = path[1] === 'settings';
   const expectedMethod = launch ? 'POST' : selected.method;
   if (request.method !== expectedMethod) {
     return json({ error: 'This method is not supported for the agent route.' }, 405,
@@ -167,7 +220,19 @@ export async function agentHarnessApi(request: Request, path: string[], env: Rec
   let payload: unknown;
   const outgoingHeaders: Record<string, string> = { Accept: 'application/json', 'Accept-Encoding': 'identity' };
   if (settings.key) outgoingHeaders.Authorization = `Bearer ${settings.key}`;
-  if (launch) {
+  if (providerRoute && request.method === 'POST' && ['provider_save', 'profile_save'].includes(selected.kind)) {
+    if (request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'application/json') return json({ error: 'Use application/json for connection settings.' }, 415);
+    try {
+      const input: unknown = JSON.parse(new TextDecoder().decode(await boundedBody(request, 16384)));
+      const schema = selected.kind === 'profile_save' ? profileInput
+        : selected.provider === 'crusoe' ? z.object({ api_key: keyInput.optional(), model: modelInput.optional() }).strict()
+          : z.object({ api_key: keyInput.optional() }).strict();
+      const valid = schema.safeParse(input);
+      if (!valid.success) return json({ error: 'Check the connection settings. Only supported fields and printable credentials are accepted.' }, 422);
+      payload = valid.data;
+      outgoingHeaders['Content-Type'] = 'application/json';
+    } catch { return json({ error: 'Connection settings must be valid JSON of at most 16 KiB.' }, 400); }
+  } else if (launch) {
     const idempotencyKey = request.headers.get('Idempotency-Key');
     if (idempotencyKey !== null) {
       if (!/^[\x21-\x7e]{1,200}$/.test(idempotencyKey)) return json({ error: 'Invalid launch request key.' }, 400);
@@ -191,16 +256,17 @@ export async function agentHarnessApi(request: Request, path: string[], env: Rec
   } else if (request.method === 'POST') {
     try {
       const input = new TextDecoder().decode(await boundedBody(request, 1024)).trim();
-      if (input && input !== '{}') return json({ error: 'Cancellation does not accept extra settings.' }, 400);
-    } catch { return json({ error: 'Invalid cancellation request.' }, 400); }
+      if (input && input !== '{}') return json({ error: 'This action does not accept extra settings.' }, 400);
+    } catch { return json({ error: 'Invalid action request.' }, 400); }
   }
   const destination = settings.url + selected.destination + (pagination.size ? `?${pagination}` : '');
   let response: Response;
   try {
     response = await requester(destination, { method: expectedMethod, headers: outgoingHeaders,
-      redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(15000)]),
+      redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(providerRoute ? 45000 : 15000)]),
       ...(payload === undefined ? {} : { body: JSON.stringify(payload) }) });
   } catch {
+    if (providerRoute) return json({ error: 'The connection request could not be confirmed. Refresh its status before trying again.' }, 502);
     return json(launch ? { error: 'The launch could not be confirmed. Refresh the run list before retrying the same launch request.', uncertain: true }
       : request.method === 'POST' ? { error: 'Cancellation could not be confirmed. Refresh to check the run.', uncertain: true }
         : { error: 'The agent harness is unavailable. Check that the service is running.' }, 502);
@@ -210,12 +276,24 @@ export async function agentHarnessApi(request: Request, path: string[], env: Rec
     if (response.headers.get('Content-Encoding') && response.headers.get('Content-Encoding') !== 'identity') throw new Error('Unsupported encoding');
     upstream = JSON.parse(new TextDecoder().decode(await boundedBody(response, MAX_RESPONSE_BYTES)));
   } catch {
+    if (providerRoute) return json({ error: 'The connection service returned an unreadable response. Refresh to check its status.' }, 502);
     return json(launch ? { error: 'The launch acknowledgement was unreadable. Refresh the run list before retrying the same launch request.', uncertain: true }
       : request.method === 'POST' ? { error: 'Cancellation could not be confirmed. Refresh to check the run.', uncertain: true }
         : { error: 'The agent harness returned an unreadable response.' }, 502);
   }
+  if (!response.ok && providerRoute) return json({ error: response.status === 401 || response.status === 403
+    ? 'The dashboard cannot authenticate with the harness settings service.'
+    : response.status === 409 ? 'These connection settings are not ready for this action. Refresh and check the saved values.'
+      : response.status === 400 || response.status === 422 ? 'Check the connection fields and try again.'
+        : 'The settings service could not complete this request. Refresh its status before trying again.' },
+  response.status >= 400 && response.status < 500 ? response.status : 502);
   if (!response.ok) return json(upstreamProblem(response.status, upstream, launch, request.method === 'POST'),
     response.status >= 400 && response.status < 500 ? response.status : 502);
+  if (providerRoute) {
+    const sanitized = settingsOutput(upstream, selected.kind);
+    return response.status === 200 && sanitized.success ? json(sanitized.data)
+      : json({ error: 'The connection service returned an invalid response.' }, 502);
+  }
   if ((launch && response.status !== 202) || (!launch && response.status !== 200)
     || !validResponse(upstream, selected, launch)) {
     return json({ error: launch ? 'The launch acknowledgement was invalid. Refresh the run list before retrying the same launch request.'
