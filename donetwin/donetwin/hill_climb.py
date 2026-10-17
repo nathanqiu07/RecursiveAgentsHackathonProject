@@ -173,12 +173,17 @@ def build_prompt(hall, inc, inc_res, examples, last=None):
                   f"it_kw {inc_res.get('it_kw')}, components {_cj(comps)}):", _cj(inc)]
     fb = _feedback_lines(inc_res)
     parts.append("VERIFIER FEEDBACK ON INCUMBENT:\n" + ("\n".join(fb) if fb else "(no violations)"))
+    parts += _state_lines(hall, inc, inc_res)
     if last:
         parts.append(f"YOUR PREVIOUS ATTEMPT WAS REJECTED: {last}")
-    parts.append("\nTASK: output edits that make the incumbent score strictly higher while keeping every "
-                 "hard rule. Typical wins: add racks in free row length, swap HGX for GB300 where power/CDU "
-                 "budget allows, reassign racks across CDUs so any single CDU failure is survivable, shorten "
-                 "hoses. JSON only.")
+    n_cdu = max(1, len(_objs(hall, "cdu")))
+    parts.append("\nTASK: output edits that make the incumbent score strictly higher while keeping every hard "
+                 "rule. Highest-value moves first: (1) make more single-CDU failures survivable (each one is "
+                 f"+{20 / n_cdu:.1f} points): move racks to where a second CDU with spare capacity is within hose "
+                 "reach, or rebalance cdu assignments; (2) upgrade GB200-NVL72 to GB300-NVL72 (+10 kW) where that "
+                 "CDU and both busways of the row have headroom; (3) add racks in free row length. Prefer a few "
+                 "safe edits over many risky ones; a proposal that breaks a rule is cut back to its valid part. "
+                 "JSON only.")
     return "\n".join(parts)
 
 
@@ -221,9 +226,76 @@ def apply_edits(inc, obj):
     return {"racks": racks}
 
 
+def repair_layout(hall, cand, inc):
+    """Undo the parts of a proposal the verifier blames until the layout is feasible.
+
+    The edits are the racks that are new or changed versus the incumbent. Each pass reverts the edits
+    named in hard violations (or the newest edit if none is named): an added rack is dropped, a changed
+    rack gets its incumbent version back. Untouched racks are never dropped. The incumbent is feasible,
+    so reverting every edit always ends feasible. Returns (payload, score result, edits reverted)."""
+    from donetwin import score as scoring
+    base = {r.get("id"): r for r in inc.get("racks", []) if isinstance(r, dict)}
+    cur = [r for r in cand.get("racks", []) if isinstance(r, dict)]
+    res, reverted = scoring.score(hall, {"racks": cur}), 0
+    for _ in range(len(cur) + 1):
+        edits = [r.get("id") for r in cur if base.get(r.get("id")) != r]
+        if res.get("feasible") or not edits:
+            break
+        text = " ".join(v.get("detail", "") for c in res.get("checks", [])
+                        if c.get("hard", True) and not c.get("passed") for v in c.get("violations", []))
+        named = {i for i in edits if i and re.search(rf"\b{re.escape(str(i))}\b", text)} or {edits[-1]}
+        cur = [base[r.get("id")] if r.get("id") in named and r.get("id") in base else r
+               for r in cur if not (r.get("id") in named and r.get("id") not in base)]
+        reverted += len(named)
+        res = scoring.score(hall, {"racks": cur})
+    return {"racks": cur}, res, reverted
+
+
+def _state_lines(hall, payload, res):
+    """Live loads and resilience gaps, so the model can see where the headroom is."""
+    from donetwin.scene import RACK_CATALOG
+    from donetwin.score import COOLING
+    racks = [r for r in payload.get("racks", []) if isinstance(r, dict) and r.get("model") in RACK_CATALOG]
+    kw = lambda r: RACK_CATALOG[r["model"]]["kw"]
+    cdu = {o["id"]: [0.0, o.get("capacity_kw", 0)] for o in _objs(hall, "cdu")}
+    bw = {o["id"]: [0.0, o.get("capacity_kw", 0) * o.get("derate", 1.0)] for o in _objs(hall, "busway")}
+    for r in racks:
+        if COOLING.get(r["model"]) == "liquid" and r.get("cdu") in cdu:
+            cdu[r["cdu"]][0] += kw(r)
+        for f in {r.get("feed_a"), r.get("feed_b")}:
+            if f in bw:
+                bw[f][0] += kw(r)
+    lines = ["CDU LOAD NOW: " + ", ".join(f"{k} {a:.0f}/{b:.0f} kW" for k, (a, b) in cdu.items()),
+             "BUSWAY LOAD NOW (2N, each feed carries the full rack): "
+             + ", ".join(f"{k} {a:.0f}/{b:.0f} kW" for k, (a, b) in bw.items())]
+    # Hose reach is Manhattan distance, which models get wrong; give them the x windows directly.
+    from donetwin import halls as hall_gen
+    lines.append("HOSE REACH BY ROW (rack centre x range each CDU can cool at that row's rack y; a rack in two "
+                 "windows can fail over between those CDUs):")
+    for row, bws in sorted(_rows(hall).items()):
+        a = next((b for b in bws if b.get("feed") == "A"), bws[0])
+        ry = a["y"] + 0.25 if a.get("feed") == "A" else a["y"]
+        reach = []
+        for c in _objs(hall, "cdu"):
+            px, py = _port_xy(c)
+            slack = c.get("hose_m", 0) - abs(ry - py)
+            if slack > 0:
+                reach.append(f"{c['id']} x {px - slack:.1f}..{px + slack:.1f}")
+        try:
+            free = ", ".join(f"{x0:.1f}..{x1:.1f}" for x0, x1 in hall_gen.row_free_segments(hall, row))
+        except Exception:
+            free = "?"
+        lines.append(f"  row {row} y={ry:.2f}: {' | '.join(reach) or 'no CDU in reach'}; free strip x {free}")
+    gaps = [v.get("detail", "") for c in res.get("checks", []) if c.get("name") == "resilience"
+            for v in c.get("violations", [])]
+    if gaps:
+        lines.append("RESILIENCE GAPS (single-CDU failures the layout does not survive):\n" + "\n".join(gaps[:6]))
+    return lines
+
+
 # ---------------------------------------------------------------- solver
 def solve(hall, llm=None, iters=6, model=None, library_dir="library", start="greedy", log=print,
-          max_tokens=3000, temperature=0.4, patience=3):
+          max_tokens=3000, temperature=0.4, patience=3, repair=True):
     """Strict hill climbing over LLM proposals. Returns (best_payload, history).
 
     start: "greedy" | "empty" | a payload dict to use as the incumbent.
@@ -274,8 +346,12 @@ def solve(hall, llm=None, iters=6, model=None, library_dir="library", start="gre
                 res = scoring.score(hall, cand)
             except Exception as e:  # verifier rejected malformed structure outright
                 res = {"score": 0.0, "feasible": False, "feedback": f"malformed payload: {e}"}
+            fb = _feedback_lines(res)  # the original violations are what the LLM should learn from
+            if repair and not res.get("feasible") and isinstance(cand.get("racks"), list):
+                fixed, fixed_res, n = repair_layout(hall, cand, inc)
+                if fixed_res.get("feasible"):
+                    cand, res, rec["repaired"] = fixed, fixed_res, n
             s = float(res.get("score", 0) or 0)
-            fb = _feedback_lines(res)
             rec.update(score=s, feasible=bool(res.get("feasible")), feedback_head="; ".join(fb[:2]))
             if s > inc_s:
                 rec["accepted"] = True

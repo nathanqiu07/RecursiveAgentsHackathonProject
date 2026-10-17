@@ -76,7 +76,7 @@ def _show(run, hall, it, payload, res, note):
     run.emit("verify", iter=it, report=_ui_report(hall, res), geometry=None)
 
 
-def execute_hall(run, llm, hall, iters=6, model=None, library_dir="library", patience=3,
+def execute_hall(run, llm, hall, iters=6, model=None, library_dir="library", patience=4,
                  max_tokens=3000, temperature=0.4):
     try:
         _execute(run, llm, hall, iters, model or PLANNER_MODEL, library_dir, patience, max_tokens, temperature)
@@ -140,12 +140,18 @@ def _execute(run, llm, hall, iters, model, library_dir, patience, max_tokens, te
                 break
             continue
         res = score.score(hall, cand)
+        fb = hill_climb._feedback_lines(res)  # original violations go back to Nemotron
+        note = f"Nemotron proposal {k}"
+        if not res.get("feasible"):
+            fixed, fixed_res, n = hill_climb.repair_layout(hall, cand, inc)
+            if fixed_res.get("feasible"):
+                run.log("verifier", f"Proposal {k} broke the rules; dropped {n} offending rack(s) to repair it")
+                cand, res, note = fixed, fixed_res, f"Nemotron proposal {k}, repaired (dropped {n} racks)"
         s = float(res.get("score", 0) or 0)
-        _show(run, hall, it, cand, res, f"Nemotron proposal {k}")
-        fb = hill_climb._feedback_lines(res)
+        _show(run, hall, it, cand, res, note)
         if s > inc_s:
             run.emit("decision", iter=it, action="continue",
-                     reason=f"Accepted: {inc_s:.2f} -> {s:.2f} (+{s - inc_s:.2f}). {_summary(res)}")
+                     reason=f"Accepted ({note}): {inc_s:.2f} -> {s:.2f} (+{s - inc_s:.2f}). {_summary(res)}")
             inc, inc_res, inc_s, last, stale = cand, res, s, None, 0
         else:
             why = "infeasible: " + "; ".join(fb[:2]) if not res.get("feasible") else _summary(res)

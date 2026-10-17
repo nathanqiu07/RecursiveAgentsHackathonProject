@@ -64,7 +64,7 @@ class HillClimbTest(unittest.TestCase):
                        "```json\n" + json.dumps(self.worse) + "\n```",
                        "Here you go: " + json.dumps(self.full)])
         best, hist = hill_climb.solve(self.hall, llm=llm, iters=3, model="fake-model",
-                                      library_dir=self.lib, start=self.reduced, log=quiet)
+                                      library_dir=self.lib, start=self.reduced, log=quiet, repair=False)
         self.assertEqual(len(llm.calls), 3)
         self.assertEqual(llm.calls[0]["model"], "fake-model")
         self.assertEqual([h["iter"] for h in hist], [0, 1, 2, 3])
@@ -94,6 +94,15 @@ class HillClimbTest(unittest.TestCase):
         self.assertAlmostEqual(hist[0]["score"], self.full_res["score"])
         self.assertEqual(best, self.full)
         self.assertFalse(any(h["accepted"] for h in hist[1:]))
+
+    def test_repair_keeps_good_part_of_near_miss(self):
+        # full layout + one colliding duplicate: repair drops only the duplicate, which beats the incumbent
+        llm = FakeLLM([json.dumps(self.worse)])
+        best, hist = hill_climb.solve(self.hall, llm=llm, iters=1, library_dir=self.lib, start=self.reduced, log=quiet)
+        self.assertTrue(hist[1]["accepted"])
+        self.assertEqual(hist[1]["repaired"], 1)
+        self.assertNotIn("DUP_1", [r["id"] for r in best["racks"]])
+        self.assertAlmostEqual(hist[1]["score"], self.full_res["score"])
 
     def test_edits_reply_accepted(self):
         missing = next(r for r in self.full["racks"] if r not in self.reduced["racks"])
