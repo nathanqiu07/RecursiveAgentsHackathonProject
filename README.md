@@ -53,8 +53,9 @@ Start the harness API and workers separately, then use the dashboard's **Agents*
 | `dashboard/` | Benchmark and resource dashboard, persistent API, verifier worker, instructions |
 | `hosting/` | Deployed Cloudflare Worker/D1 version, including persistent schema migrations |
 | `harness/` | Researcher and attempt agent orchestration, sandbox runtime, Library/web/benchmark tools |
+| `library/` | Paper submission queue, requirement extraction, verification planning, and reports |
 
-Library (paper intake and independent verification) and ResourceManager (isolated compute jobs) run as separate HTTP services. Their source and deployment configuration are not included in this repository; see [the harness setup and service contracts](harness/README.md).
+[Library](library/README.md) handles paper intake and independent verification as a separate HTTP service. ResourceManager supplies isolated compute jobs and is configured independently; its source is not included in this repository. See [the Library setup](library/README.md) and [the harness setup and service contracts](harness/README.md).
 
 Benchmark verification uses the external HTTP endpoints configured for each benchmark.
 

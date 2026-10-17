@@ -1,0 +1,265 @@
+{
+  "$defs": {
+    "AcceptanceCriterion": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "eq",
+            "ne",
+            "lt",
+            "lte",
+            "gt",
+            "gte"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Expected"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "metric",
+        "operator",
+        "expected"
+      ],
+      "title": "AcceptanceCriterion",
+      "type": "object"
+    },
+    "ExtractedVerificationRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "procedure": {
+          "items": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Procedure",
+          "type": "array"
+        },
+        "conditions": {
+          "additionalProperties": true,
+          "maxProperties": 100,
+          "minProperties": 1,
+          "title": "Conditions",
+          "type": "object"
+        },
+        "acceptance_criteria": {
+          "items": {
+            "$ref": "#/$defs/AcceptanceCriterion"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "source_quotes": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Source Quotes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "procedure",
+        "conditions",
+        "acceptance_criteria",
+        "source_quotes"
+      ],
+      "title": "ExtractedVerificationRequirement",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "decision": {
+      "enum": [
+        "launch",
+        "blocked"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "rationale": {
+      "maxLength": 5000,
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "verification_steps": {
+      "items": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 30,
+      "title": "Verification Steps",
+      "type": "array"
+    },
+    "verification_requirements": {
+      "items": {
+        "$ref": "#/$defs/ExtractedVerificationRequirement"
+      },
+      "maxItems": 50,
+      "title": "Verification Requirements",
+      "type": "array"
+    },
+    "missing_information": {
+      "items": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Missing Information",
+      "type": "array"
+    },
+    "resource_id": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resource Id"
+    },
+    "node_id": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Node Id"
+    },
+    "cpus": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cpus"
+    },
+    "memory_mb": {
+      "anyOf": [
+        {
+          "minimum": 64,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Memory Mb"
+    },
+    "scratch_mb": {
+      "anyOf": [
+        {
+          "minimum": 16,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scratch Mb"
+    },
+    "timeout_seconds": {
+      "anyOf": [
+        {
+          "maximum": 86400,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Timeout Seconds"
+    }
+  },
+  "required": [
+    "decision",
+    "rationale"
+  ],
+  "title": "SandboxPlan",
+  "type": "object"
+}
