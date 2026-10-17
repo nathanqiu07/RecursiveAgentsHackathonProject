@@ -157,6 +157,34 @@ Cost, tokens and calls per verified point are also reported on layers 1 to 3.
 - **No cache savings claimed:** Crusoe reported 0 cached tokens.
 - **Every number in brackets is a placeholder** until the live runs finish.
 
+## Live demo run-of-show (3 minutes)
+
+**Rule: verify live, replay the climbs.** Nothing on stage waits on a live LLM call. Reasoning calls take 100 to 340 s, and Crusoe returned 429s all day. What runs live is the verifier: the DoneTwin scorer recomputing a layout, and the dashboards reading finished runs.
+
+**Before going on:** open these 4 tabs in order and check each one loads:
+1. http://127.0.0.1:5173, Overview tab;
+2. http://127.0.0.1:8000, DoneTwin, with the chosen held-out hall preloaded;
+3. http://127.0.0.1:5173, AI Data Center tab, scrolled to the hill climb, with the run selected;
+4. http://127.0.0.1:5173, Library tab, with the matching paper open.
+
+Rebuild the data once after the last run lands (`scripts/build_datacenter_view.py`, `scripts/publish_results_to_dashboard.py`). Turn on Do Not Disturb.
+
+| Time | On screen | Say (gist) | Fallback if it breaks |
+|---|---|---|---|
+| 0:00 to 0:20 | Overview tab: the thesis and the loop diagram | "An AI data center is a stack of optimization problems code can check. Our harness turns each one into a Nemotron team on Crusoe that edits itself and keeps a change only when the verifier measures a gain." | Hero screenshot, `docs/demo/hero-*.png` (to capture once the Overview tab ships) |
+| 0:20 to 1:00 | DoneTwin control room: one held-out hall in 3D. Show v0 cold's layout (= greedy), then the team's best verified layout, and let the scorer recompute live | "This hall was never seen in training. Here is the cold start: [V0_HALL] out of 100. Here is the team's layout: [VN_HALL]. The score is recomputed right now by code: power, aisles, cooling, hose reach. No LLM grades it." If the gain came from the polish tool, add: "Polish alone, with no LLM, gets 72.75; the team's job was choosing to use it." | `docs/demo/donetwin-empty-hall.png` shows the empty hall; the layout shots are still to capture. If there is no hall gain, show the cold layout and say the gate kept nothing on this layer |
+| 1:00 to 1:30 | AI Data Center tab: the four layer cards, v0 cold → final, with gray no-LLM references | "Four layers, one harness. Each card is the same team before and after it edits itself, on unseen tasks. Gray is the textbook method with no LLM, so you can see where we still lose." | `docs/demo/datacenter-1548.png` (15:48 snapshot from before the v0-cold reframe; re-shoot after the final runs) |
+| 1:30 to 2:10 | Hill climb: best run (currently `qaplib-dc-research-1`), press Replay, then click one green dot | "Each dot is a change the team proposed to itself. Red, the gate refused it. Green, kept. This one: turn reasoning on for the solver. It claimed +0.03. The verifier measured +0.146, but cost went up 93%. The gate shows what it read: You.com sources." | `docs/demo/hillclimb.png`, then `docs/demo/hillclimb-detail.png` |
+| 2:10 to 2:30 | Library tab: the same change written up as a paper, with the gate's verdict attached | "Every change is a paper with a falsifiable claim. The verifier is the reviewer. A claim enters memory only if it reproduces." | Read the claim and verdict from `hillclimb-detail.png` |
+| 2:30 to 3:00 | Back to the AI Data Center tab | Caveats: "Classical references still win on quadratic assignment: our best is 0.802 against 2-swap's 0.967. KernelBench: [KB_STATUS]." Ask: "Bring a verifier, get a team that keeps only what it measures. We want problems from Crusoe's own build-out to run it on." | Same slide, spoken |
+
+**Optional live moment.** At 0:00, start a one-hall Nano run in a terminal (`.venv/bin/python scripts/run_datahall.py --live --one`). Return to it at 2:30 only if it has printed its bill. If not, never mention it. It needs `CRUSOE_API_KEY` in that shell, and it competes with any runs still going for Crusoe's concurrency cap.
+
+**Placeholders to fill at about 5:00 PM** from `reports/RESULTS.md`:
+- [V0_HALL] and [VN_HALL]: one held-out hall from the best hall run.
+- [KB_STATUS]: if an Apple MPS run finished, use "measured on a laptop GPU (Apple MPS), because our Crusoe GPU quota was zero". Otherwise: "built with reward-hack guards, not run: our Crusoe GPU quota was zero".
+- Swap the hill-climb run if a later one beats `qaplib-dc-research-1`.
+
 ## 60-second demo script
 
 See `VIDEO.md`: four layers, with the hall as the hero.
