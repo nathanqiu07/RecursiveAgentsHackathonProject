@@ -853,3 +853,55 @@ def test_url_only_paper_does_not_count_as_read_for_attempt_publication(harness):
     with pytest.raises(GateError, match="no readable"):
         tool(engine, 1, "read_paper", paper_id=PAPER_ID)
     assert engine.state.get("read_paper_ids", []) == []
+
+
+def test_duplicate_peer_hypothesis_rejected_even_when_model_approves(harness):
+    first = owned_engine(harness)
+    tool(first, 1, "review_novelty", idea=IDEA)
+    second = owned_engine(harness)
+    assessment = tool(second, 1, "review_novelty", idea=IDEA.upper() + "!!!")
+    assert assessment["approved"] is False
+    assert assessment["duplicate_run_ids"] == [first.id]
+    assert assessment["compared_run_ids"] == [first.id]
+    peer_input = second.model.novelty_calls[-1]["other_researcher_proposals"]
+    assert peer_input[0]["proposal"]["experiment_plan"] == PROPOSAL["experiment_plan"]
+    with pytest.raises(GateError, match="novelty"):
+        tool(second, 2, "execute", command=EXPERIMENT, purpose="experiment", timeout_seconds=2)
+
+
+def test_peer_semantic_overlap_rejection_and_substantive_revision(harness):
+    first = owned_engine(harness)
+    tool(first, 1, "review_novelty", idea=IDEA)
+    second = owned_engine(harness, model=FakeModel(novelty=[False, True]))
+    assessment = tool(second, 1, "review_novelty", idea="Rephrase the same underlying method.")
+    assert not assessment["approved"]
+    assessment = tool(second, 2, "review_novelty", idea="A distinct, testable new method.")
+    assert assessment["approved"]
+    assert assessment["compared_run_ids"] == [first.id]
+
+
+def test_peer_proposal_changed_during_review_cannot_commit_approval(harness):
+    first = owned_engine(harness)
+    tool(first, 1, "review_novelty", idea=IDEA)
+
+    class RacingModel(FakeModel):
+        def complete_json(self, system, value):
+            result = super().complete_json(system, value)
+            first.state["research_proposal"]["hypothesis"] = "A new concurrent method."
+            first.save()
+            return result
+
+    second = owned_engine(harness, model=RacingModel())
+    with pytest.raises(GateError, match="peer proposal changed"):
+        tool(second, 1, "review_novelty", idea="A distinct candidate before the race.")
+    assert "novelty" not in harness[0].get(second.id)["state"]
+
+
+def test_researchers_can_inspect_unpublished_peer_methods(harness):
+    first = owned_engine(harness)
+    tool(first, 1, "review_novelty", idea=IDEA)
+    second = owned_engine(harness)
+    peers = second.tool("list_research_proposals", {})["proposals"]
+    assert [peer["run_id"] for peer in peers] == [first.id]
+    assert peers[0]["proposal"]["novelty_difference"] == PROPOSAL["novelty_difference"]
+    assert "experiments" not in peers[0]

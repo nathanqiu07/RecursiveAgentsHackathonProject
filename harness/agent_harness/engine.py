@@ -252,6 +252,12 @@ class Engine:
             )
         if self.role == "researcher" and not self.state.get("novelty", {}).get("approved"):
             raise GateError("Review the idea's novelty against the Library before experiments.")
+        if self.role == "researcher" and digest(self.store.research_proposals(self.id)) != (
+            self.state.get("novelty", {}).get("peer_snapshot_sha256")
+        ):
+            assessment = self.novelty(self.state["research_proposal"]["hypothesis"])
+            if not assessment["approved"]:
+                raise GateError("Another researcher overlaps this idea; revise the method first.")
         if not self.job_id:
             try:
                 self.allocate()
@@ -348,6 +354,9 @@ class Engine:
                 "Use propose_research_idea to record a revised hypothesis and experiment plan."
             )
         snapshot = self.library_snapshot()
+        peers = self.store.research_proposals(self.id)
+        if len(json.dumps(peers)) > 180000:
+            raise GateError("Peer proposals exceed the complete novelty review context limit.")
         result = self.call(
             lambda: self.model.complete_json(
                 NOVELTY_REVIEW,
@@ -357,9 +366,24 @@ class Engine:
                     "final_paper": final,
                     "online_sources": list(self.state.get("research_sources", {}).values()),
                     "research_proposal": proposal,
+                    "other_researcher_proposals": peers,
                 },
             )
         )
+        def normalize(text):
+            return " ".join(re.findall(r"\w+", text.casefold()))
+
+        duplicates = [
+            peer["run_id"] for peer in peers
+            if normalize(peer["proposal"]["hypothesis"]) == normalize(proposal["hypothesis"])
+        ]
+        if duplicates:
+            result = {
+                "novel": False,
+                "rationale": "This hypothesis duplicates another research agent. Develop a "
+                "substantively different method and resubmit the proposal.",
+                "related_paper_ids": [],
+            }
         ids = {paper["id"] for paper in snapshot}
         related = result.get("related_paper_ids")
         if (
@@ -376,13 +400,19 @@ class Engine:
             "related_paper_ids": related,
             "compared_paper_ids": sorted(ids),
             "snapshot_sha256": digest(snapshot),
+            "peer_snapshot_sha256": digest(peers),
+            "compared_run_ids": [peer["run_id"] for peer in peers],
+            "duplicate_run_ids": duplicates,
             "idea": idea,
             "step": self.state["steps"],
-            "scope": "Library snapshot only",
+            "scope": "Library, retrieved sources, and recorded peer proposals only",
         }
         if not final:
             self.state["novelty"] = assessment
+        if not self.store.save_reviewed_state(self.id, self.token, self.state, peers):
+            self.state.pop("novelty", None)
             self.save()
+            raise GateError("A peer proposal changed during review. Recheck novelty before work.")
         self.event("final_novelty_review" if final else "novelty_review", assessment)
         return assessment
 
@@ -598,6 +628,11 @@ class Engine:
                 {key: value for key, value in source.items() if key != "text"},
             )
             return source
+        if name == "list_research_proposals":
+            peers = self.store.research_proposals(self.id)
+            if len(json.dumps(peers)) > 180000:
+                raise GateError("Peer proposals exceed the complete review context limit.")
+            return {"proposals": peers, "scope": "Recorded peer proposals only"}
         if name == "propose_research_idea":
             if self.run["request"].get("benchmark_id") and not self.state.get("benchmark"):
                 raise GateError(
@@ -652,6 +687,8 @@ class Engine:
             self.evidence_review(args["paper_text"], evidence)
             if digest(self.library_snapshot()) != review["snapshot_sha256"]:
                 raise GateError("The Library changed during review; recheck before submitting.")
+            if digest(self.store.research_proposals(self.id)) != review["peer_snapshot_sha256"]:
+                raise GateError("Peer proposals changed during review; recheck before submitting.")
             appendix = "\n\n## Retrieved online paper sources\n\n" + json.dumps(
                 self.research_result("")["sources"], indent=2
             )

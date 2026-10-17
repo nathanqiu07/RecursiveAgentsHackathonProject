@@ -165,6 +165,36 @@ class RunStore:
             self.db.execute("SELECT * FROM agent_runs WHERE id=?", (run_id,)).fetchone()
         )
 
+    def research_proposals(self, exclude_run_id):
+        """Complete peer method snapshot, including unpublished and interrupted work.
+
+        Exclude changing execution/status fields so unrelated progress cannot invalidate review.
+        Keep older runs: an interrupted experiment is not permission to copy its method.
+        """
+        snapshot = []
+        rows = self.db.execute(
+            "SELECT id,request,state FROM agent_runs WHERE id<>? ORDER BY id",
+            (exclude_run_id,),
+        ).fetchall()
+        for row in rows:
+            request, state = json.loads(row["request"]), json.loads(row["state"])
+            proposal = state.get("research_proposal")
+            if request.get("role") == "researcher" and proposal:
+                snapshot.append({"run_id": row["id"], "proposal": proposal})
+        return snapshot
+
+    def save_reviewed_state(self, run_id, token, state, peer_snapshot):
+        """Commit a review only if no peer changed its proposal during model review."""
+        with self.transaction():
+            self.owned(run_id, token)
+            if self.research_proposals(run_id) != peer_snapshot:
+                return False
+            self.db.execute(
+                "UPDATE agent_runs SET state=?,updated_at=? WHERE id=? AND lease_token=?",
+                (json.dumps(state, allow_nan=False), self.now(), run_id, token),
+            )
+        return True
+
     def list(self, limit=50, offset=0):
         rows = self.db.execute(
             "SELECT * FROM agent_runs ORDER BY created_at DESC,rowid DESC LIMIT ? OFFSET ?",
