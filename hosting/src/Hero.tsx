@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import './benchmarks.css';
 import './hero.css';
+import BenchmarkProgress, { type ProgressRun } from './BenchmarkProgress';
 
 // The Overview tab. Numbers come from /datacenter.json (scripts/build_datacenter_view.py), the same file the
 // AI Data Center tab reads. Its shape is still changing, so every field is optional and missing ones render "n/a".
@@ -15,7 +16,7 @@ type Layer = {
   id?: string; name?: string; status?: string; score_label?: string; digits?: number; note?: string | null;
   baseline?: Score; best?: Best; summary?: string; scatter?: Point[]; [key: string]: unknown;
 };
-type View = { generated_at?: string; layers?: Layer[] };
+type View = { generated_at?: string; layers?: Layer[]; runs_index?: ProgressRun[] };
 
 // The name slot. The docs carry no product name, so it holds the PITCH.md tagline.
 
@@ -155,7 +156,7 @@ function useDatacenter(active: boolean) {
   }, [active, load]);
   const layers = Array.isArray(view?.layers) ? view.layers : [];
   const tiles = LAYERS.map((meta, index) => buildTile(meta, index, layers.find((layer) => layer?.id === meta.id)));
-  return { tiles, loaded: view != null, generatedAt: view?.generated_at ?? '', error };
+  return { runs: view?.runs_index ?? [], tiles, loaded: view != null, generatedAt: view?.generated_at ?? '', error };
 }
 
 const statusText = { done: 'Measured', running: 'In progress', 'not run': 'Not measured' };
@@ -180,7 +181,7 @@ function EvolutionGraphic() {
 }
 
 export default function Hero({ active, onOpenLayers, onOpenBenchmarks }: { active: boolean; onOpenLayers: () => void; onOpenBenchmarks: () => void }) {
-  const { tiles, loaded, generatedAt, error } = useDatacenter(active);
+  const { runs, tiles, loaded, generatedAt, error } = useDatacenter(active);
   return <div className="hero-page">
     <header className="home-intro">
       <div className="home-copy">
@@ -192,13 +193,8 @@ export default function Hero({ active, onOpenLayers, onOpenBenchmarks }: { activ
       </div>
       <EvolutionGraphic />
     </header>
-    <section className="home-visualizations" aria-labelledby="home-visualizations-title">
-      <div className="home-section-heading"><div><p className="home-eyebrow">FROM THE DECK</p><h2 id="home-visualizations-title">The ideas. The evidence.</h2></div><p>Recorded runs from the presentation.<br />These charts are a snapshot, not a live feed.</p></div>
-      <div className="home-viz-grid">
-        <figure><figcaption><h3>Benchmarks: the hill-climb</h3><p>What the agents predicted, what the verifier measured, and which changes were blocked.</p></figcaption><a href="/deck/chart.svg" target="_blank" rel="noreferrer" aria-label="Open benchmark improvement chart at full size"><img src="/deck/chart.svg" alt="Eleven proposed changes across Data hall, QAPLIB and ALE. QAPLIB claimed a 0.070 gain but measured a 0.137 drop. No change clears the keep line." /></a><span>Measured gain · claim · rejected before scoring</span></figure>
-        <figure><figcaption><h3>Research papers, round by round</h3><p>Each card is an agent-authored proposal, placed in the round it was written.</p></figcaption><a href="/deck/timeline.svg" target="_blank" rel="noreferrer" aria-label="Open research paper timeline at full size"><img src="/deck/timeline.svg" alt="Eleven research proposals over rounds zero to two. Data hall continues across all rounds; QAPLIB and ALE stop after round zero due to rate limits." /></a><span>One card per proposal · measured development gain</span></figure>
-      </div>
-    </section>
+    <BenchmarkProgress runs={runs} />
+    <section className="home-visualizations" aria-label="Research paper timeline from the deck"><div className="home-section-heading"><div><p className="home-eyebrow">DECK SNAPSHOT</p><h2>Research papers, round by round.</h2></div><p>Historical proposal timeline from the presentation.</p></div><div className="home-viz-grid"><figure><a href="/deck/timeline.svg" target="_blank" rel="noreferrer" aria-label="Open historical research paper timeline"><img src="/deck/timeline.svg" alt="Agent research proposals by recorded round across Data hall, QAPLIB and ALE in the presentation snapshot." /></a></figure></div></section>
     <section className="home-loop" id="home-loop" aria-labelledby="home-loop-title">
       <div className="home-section-heading"><div><p className="home-eyebrow">THE METHOD</p><h2 id="home-loop-title">Every version earns its place.</h2></div><p>A shared memory of findings.<br />An independent check on every claim.</p></div>
       <div className="home-steps">{LOOP.map(([number, title, description]) => <article key={number}><span className="home-step-number">{number}</span><h3>{title}<span aria-hidden="true">↗</span></h3><p>{description}</p></article>)}</div>
