@@ -2,24 +2,36 @@
 
 One `CrusoeLLM` is shared by every agent thread. It rate-limits client-side per model
 (the documented free-tier cap is 30 RPM per model, per project), retries transient
-failures with backoff, strips reasoning traces, and keeps a ledger so every run can
-report its token bill. The limiter is per process: teammates sharing one key from
-several machines must split `CRUSOE_RPM` between them.
+failures with full-jitter backoff, strips reasoning traces, and keeps a ledger so every
+run can report its token bill. The RPM limiter is per process: teammates sharing one key
+from several machines must split `CRUSOE_RPM` between them.
+
+The server also rejects requests over a concurrency cap ("max_requests_limit"), which a
+per-process limiter cannot see. `SlotSemaphore` caps in-flight requests per model across
+every process on this machine with flock'd slot files (`CRUSOE_MAX_CONCURRENT`, default 3;
+0 disables; directory `CRUSOE_SLOT_DIR`, default /tmp/crusoe-slots).
 
 `openai` and `python-dotenv` are imported lazily so the pure helpers here
 (`extract_json`, `strip_think`, `cost_usd`, `TokenBucket`) work under a bare Python.
 """
 from __future__ import annotations
 
+import email.utils
 import json
 import os
 import random
 import re
 import threading
 import time
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, ContextManager, Iterator, TypeVar
+
+try:
+    import fcntl
+except ImportError:  # Windows has no flock; the cross-process cap is then skipped, the RPM bucket still applies.
+    fcntl = None  # type: ignore[assignment]
 
 from team.types import Reply
 
@@ -32,10 +44,13 @@ LIGHTNING = "nvidia/Nemotron-3.5-Lightning-30B-A3B"
 DEFAULT_BASE_URL = "https://api.inference.crusoecloud.com/v1"
 DOTENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 DEFAULT_RPM = 25.0
-MAX_RETRIES = 5
-BACKOFF_BASE_S = 1.0
+# 8 retries at 2s, 4s, ... capped at 30s give up to ~2.5 min of backoff per call (~3 min with Retry-After).
+MAX_RETRIES = 8
+BACKOFF_BASE_S = 2.0
 BACKOFF_CAP_S = 30.0
-RETRY_AFTER_CAP_S = 60.0
+DEFAULT_MAX_CONCURRENT = 3
+DEFAULT_SLOT_DIR = "/tmp/crusoe-slots"
+SLOT_POLL_S = 0.1
 
 # USD per 1M tokens (input, output), read from https://www.crusoe.ai/cloud/pricing on 2026-10-17.
 PRICES: dict[str, tuple[float, float]] = {
@@ -148,6 +163,76 @@ class TokenBucket:
         return wait
 
 
+def _slug(model: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", model).strip("_") or "model"
+
+
+class SlotSemaphore:
+    """Counting semaphore shared by every process and thread on this machine that uses the
+    same directory: `slots` lock files, each held with an exclusive flock while one request
+    is in flight.
+
+    flock locks belong to an open file description, so each holder opens its own descriptor
+    and two threads of one process exclude each other just as two processes do. The kernel
+    drops the lock when the descriptor closes or the process dies, so a crash never strands
+    a slot. Slot files are never deleted, which keeps the lock and the path in step."""
+
+    def __init__(self, directory: Path, slots: int, poll_s: float = SLOT_POLL_S) -> None:
+        if fcntl is None:
+            raise RuntimeError("SlotSemaphore needs fcntl.flock, which this platform lacks")
+        if slots < 1:
+            raise ValueError(f"slots must be at least 1, got {slots}")
+        self.directory = Path(directory)
+        self.slots = slots
+        self._poll_s = poll_s
+        self.directory.mkdir(parents=True, exist_ok=True)
+
+    def _try_slot(self, index: int) -> int | None:
+        fd = os.open(self.directory / f"slot-{index}.lock", os.O_RDWR | os.O_CREAT, 0o666)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(fd)
+            return None
+        except BaseException:
+            os.close(fd)
+            raise
+        return fd
+
+    def _acquire(self) -> int:
+        while True:
+            start = random.randrange(self.slots)  # random start spreads holders over the files
+            for offset in range(self.slots):
+                fd = self._try_slot((start + offset) % self.slots)
+                if fd is not None:
+                    return fd
+            # Real sleep, not the client's injectable one: a no-op sleep here would spin.
+            time.sleep(self._poll_s * random.uniform(0.5, 1.5))
+
+    @contextmanager
+    def hold(self) -> Iterator[None]:
+        """Block until a slot is free, hold it for the body, release it however the body exits."""
+        fd = self._acquire()
+        try:
+            yield
+        finally:
+            try:
+                # Explicit unlock first: a child forked mid-request shares this description.
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be an integer, got {raw!r}") from None
+
+
 @dataclass
 class Tally:
     calls: int = 0
@@ -213,27 +298,53 @@ def _status_code(exc: BaseException) -> int | None:
     return exc.status_code if isinstance(exc, openai.APIStatusError) else None
 
 
+_RATE_LIMIT_TEXT = ("rate limit", "rate_limit", "too many requests", "max_requests_limit")
+
+
+def _is_rate_limited(exc: BaseException) -> bool:
+    """A 429, or any error whose text says it was throttled (some gateways use other codes)."""
+    if _status_code(exc) == 429:
+        return True
+    text = str(exc).lower()
+    return any(marker in text for marker in _RATE_LIMIT_TEXT)
+
+
 def _is_retryable(exc: BaseException) -> bool:
-    """429, 408 and 5xx are transient; other 4xx mean the request itself is wrong."""
+    """Rate limits, 408 and 5xx are transient; other 4xx mean the request itself is wrong."""
     import openai
 
+    if _is_rate_limited(exc):
+        return True
     if isinstance(exc, openai.APIConnectionError):  # includes APITimeoutError
         return True
     status = _status_code(exc)
     if status is not None:
-        return status in (408, 429) or status >= 500
+        return status == 408 or status >= 500
     # A dropped connection mid-stream surfaces as the HTTP library's own error.
     return any(c.__name__ in ("TransportError", "TimeoutException") for c in type(exc).__mro__)
 
 
 def _retry_after_s(exc: BaseException) -> float | None:
+    """Seconds the server asked us to wait: retry-after-ms, retry-after seconds, or an HTTP date."""
     headers = getattr(getattr(exc, "response", None), "headers", None)
     if not headers:
         return None
     try:
-        return float(headers.get("retry-after"))
+        return max(0.0, float(headers.get("retry-after-ms")) / 1000.0)
     except (TypeError, ValueError):
+        pass
+    value = headers.get("retry-after")
+    if value is None:
         return None
+    try:
+        return max(0.0, float(value))
+    except (TypeError, ValueError):
+        pass
+    try:
+        when = email.utils.parsedate_to_datetime(value)
+    except (TypeError, ValueError, IndexError):
+        return None
+    return max(0.0, when.timestamp() - time.time())
 
 
 def _reasoning_of(obj: Any) -> str:
@@ -260,13 +371,15 @@ class CrusoeLLM:
         rpm: float | None = None,
         burst: int = 3,
         timeout_s: float = 120.0,
-        max_retries: int = MAX_RETRIES,
+        max_retries: int | None = None,
         extra_body: dict[str, Any] | None = None,
         dotenv_path: Path | None = DOTENV_PATH,
         client: Any = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         """`burst` 3 at 25 RPM admits at most 28 requests in any minute, under the 30 RPM cap.
+        `max_retries` None reads CRUSOE_MAX_RETRIES (default 8). CRUSOE_MAX_CONCURRENT and
+        CRUSOE_SLOT_DIR set the cross-process in-flight cap per model (see `SlotSemaphore`).
         `extra_body` is passed through on every request (e.g. server-specific reasoning switches).
         `dotenv_path=None` skips the dotenv file; `client` injects a fake for offline tests."""
         if dotenv_path is not None:
@@ -283,7 +396,9 @@ class CrusoeLLM:
         self.base_url = base_url or os.environ.get("CRUSOE_BASE_URL") or DEFAULT_BASE_URL
         self.rpm = float(rpm if rpm is not None else os.environ.get("CRUSOE_RPM") or DEFAULT_RPM)
         self.burst = burst
-        self.max_retries = max_retries
+        self.max_retries = max(0, max_retries if max_retries is not None else _env_int("CRUSOE_MAX_RETRIES", MAX_RETRIES))
+        self.max_concurrent = max(0, _env_int("CRUSOE_MAX_CONCURRENT", DEFAULT_MAX_CONCURRENT))
+        self.slot_dir = Path(os.environ.get("CRUSOE_SLOT_DIR") or DEFAULT_SLOT_DIR)
         self.extra_body = extra_body
         self._sleep = sleep
         if client is None:
@@ -294,6 +409,7 @@ class CrusoeLLM:
         self.ledger = UsageLedger()
         self._lock = threading.Lock()
         self._buckets: dict[str, TokenBucket] = {}
+        self._slots: dict[str, SlotSemaphore] = {}
         self._no_json_format: set[str] = set()
 
     def _bucket(self, model: str) -> TokenBucket:
@@ -308,22 +424,35 @@ class CrusoeLLM:
         with self._lock:
             return model not in self._no_json_format
 
+    def _slot(self, model: str) -> ContextManager[None]:
+        """The model's cross-process in-flight slot, or a no-op when the cap is disabled."""
+        if self.max_concurrent <= 0 or fcntl is None:
+            return nullcontext()
+        with self._lock:
+            if model not in self._slots:
+                self._slots[model] = SlotSemaphore(self.slot_dir / _slug(model), self.max_concurrent)
+            return self._slots[model].hold()
+
     def _backoff_s(self, attempt: int, exc: BaseException) -> float:
-        """1s, 2s, 4s ... capped at 30s, plus up to 50% jitter; never shorter than Retry-After."""
-        base = min(BACKOFF_CAP_S, BACKOFF_BASE_S * 2**attempt)
-        delay = base + random.uniform(0, base / 2)
+        """Full jitter: uniform(0, min(30s, 2s * 2**attempt)), so processes throttled together
+        retry apart instead of in lockstep. Retry-After, when sent, is a floor, not an exact wait:
+        the sleep is the larger of that backoff and Retry-After plus up to 1s of jitter, so it
+        can exceed Retry-After. No sleep exceeds BACKOFF_CAP_S."""
+        delay = random.uniform(0, min(BACKOFF_CAP_S, BACKOFF_BASE_S * 2**attempt))
         retry_after = _retry_after_s(exc)
         if retry_after is not None:
-            delay = max(delay, min(retry_after, RETRY_AFTER_CAP_S))
-        return delay
+            delay = max(delay, retry_after + random.uniform(0, 1.0))
+        return min(delay, BACKOFF_CAP_S)
 
     def _with_retries(self, model: str, fn: Callable[[], T]) -> tuple[T, int]:
-        """Run `fn` under the model's rate limiter, retrying transient failures.
+        """Run `fn` under the model's RPM limiter and in-flight slot, retrying transient failures.
+        The slot is held only while `fn` runs, never across a backoff sleep.
         Returns the result and how many retries it took."""
         for attempt in range(self.max_retries + 1):
             self._bucket(model).acquire()
             try:
-                return fn(), attempt
+                with self._slot(model):
+                    return fn(), attempt
             except Exception as exc:
                 if attempt >= self.max_retries or not _is_retryable(exc):
                     raise
