@@ -364,6 +364,58 @@ class EvolveTest(unittest.TestCase):
         self.assertEqual(zero.split(" | ")[7], "n/a")
         self.assertEqual(bare.split(" | ")[4:8], ["-", "-", "-", "-"])
 
+    def test_failed_llm_call_costs_one_task_and_the_gate_excludes_it_from_both_sides(self) -> None:
+        def run_team(version: TeamVersion, b: SharedBrain, task: Task, llm: ScriptedLLM) -> RunResult:
+            steps = " ".join(version.playbooks.get("Layout", []))
+            if task.id in ("train-0", "heldout-0") or ("[good]" in steps and task.id == "dev-0") or (
+                    "[down]" in steps and task.split == "dev"):
+                raise RuntimeError("Crusoe 429 max_requests_limit (orchestrator)")
+            return RunResult(task_id=task.id, version=version.version, score=0.8 if "[good]" in steps else 0.5,
+                             passed=False)
+
+        reply = json.dumps({"mutations": [claimed({"type": "playbook_add", "role": "Layout", "step": "[good] works"}),
+                                          claimed({"type": "playbook_add", "role": "Layout", "step": "[down] dies"})]})
+        brain = SharedBrain(self.dir / "brain")
+        evolver = Evolver(run_team, ScriptedLLM({"reviewer": [reply]}), "m", brain, self.dir / "versions",
+                          initial=TeamVersion(version=0, parent=None, prompts={"Layout": "p"}),
+                          reports_dir=self.dir / "reports")
+        with self.assertLogs("evolve", "WARNING"):
+            evolver.run(1, tasks("train", 2), tasks("dev", 3), tasks("heldout", 2))
+        self.assertEqual(evolver.current.version, 1)
+        gated = [json.loads(l) for l in (self.dir / "versions" / "ledger.jsonl").read_text().splitlines()]
+        gated = [r for r in gated if "paper" in r]
+        self.assertEqual([(r["n"], r["excluded_infra"], r["accepted"]) for r in gated],
+                         [(2, ["dev-0"], True), (0, ["dev-0", "dev-1", "dev-2"], False)])
+        self.assertEqual(gated[1]["reason"], "infra: no comparable tasks")
+        self.assertFalse(any("infra" in e.text for e in brain._snapshot()[1].values()))
+        rows = evolver.final_report(tasks("heldout", 2))
+        self.assertEqual([(r["n"], r["infra_failures"]) for r in rows], [(2, 1)] * 3)
+        self.assertIn("3 infra failures", (self.dir / "reports" / "before_after.md").read_text())
+
+    def test_failed_reviewer_call_logs_the_error_and_the_next_generation_still_evolves(self) -> None:
+        class FlakyReviewer(ScriptedLLM):
+            failed = False
+
+            def chat(self, *args, **kwargs):
+                if kwargs.get("role") == "reviewer" and not self.failed:
+                    self.failed = True
+                    raise RuntimeError("Crusoe 429 max_requests_limit")
+                return super().chat(*args, **kwargs)
+
+        def run_team(version: TeamVersion, b: SharedBrain, task: Task, llm: ScriptedLLM) -> RunResult:
+            good = "[good]" in " ".join(version.playbooks.get("Layout", []))
+            return RunResult(task_id=task.id, version=version.version, score=0.8 if good else 0.5, passed=False)
+
+        reply = json.dumps({"mutations": [claimed({"type": "playbook_add", "role": "Layout", "step": "[good] works"})]})
+        evolver = Evolver(run_team, FlakyReviewer({"reviewer": [reply]}), "m", SharedBrain(self.dir / "brain"),
+                          self.dir / "versions", initial=TeamVersion(version=0, parent=None, prompts={"Layout": "p"}),
+                          reports_dir=self.dir / "reports")
+        evolver.run(2, tasks("train", 2), tasks("dev", 3), tasks("heldout", 2))
+        log = [json.loads(l) for l in (self.dir / "versions" / "ledger.jsonl").read_text().splitlines()]
+        self.assertIn({"generation": 0, "reviewer_error": "RuntimeError: Crusoe 429 max_requests_limit"}, log)
+        self.assertEqual([h["mutations"] for h in evolver.history], [0, 1])
+        self.assertEqual(evolver.current.version, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

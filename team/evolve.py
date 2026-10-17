@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import re
 import tempfile
@@ -25,6 +26,7 @@ from team.sa_library import from_env as library_from_env
 from team.types import LLM, RunResult, Task
 
 RunTeam = Callable[["TeamVersion", SharedBrain, Task, LLM], RunResult]
+log = logging.getLogger("evolve")
 
 MUTATIONS: dict[str, tuple[str, ...]] = {
     "prompt_edit": ("role", "text"),
@@ -217,7 +219,12 @@ class Reviewer:
               "config_set inference knobs: models ({role: model id}; it replaces the whole map and roles left out use "
               "default_model), default_model, thinking ({role: true or false}; reasoning on costs about 25x the "
               "tokens), and " + json.dumps(KNOB_RANGES) + " as inclusive ranges (max_tokens is per call and "
-              "reasoning counts against it). Model ids with USD per 1M input/output tokens: "
+              "reasoning counts against it; with thinking on, replies under ~16000-32000 tokens are often cut off, "
+              "failure 'truncated'). Each config_set changes one key and each mutation is tested alone. "
+              "Put fields at the top level of each mutation (no nested 'fields' object, no dotted keys), e.g. "
+              '{"type": "config_set", "key": "thinking", "value": {"Planner": false}, "rationale": ..., "claim": ...}. '
+              "playbook_add steps and brain texts longer than " + str(MAX_TEXT) + " characters are dropped as invalid. "
+              "Model ids with USD per 1M input/output tokens: "
               + json.dumps({m: PRICES[m] for m in MODEL_IDS}) + ".")
 
     def __init__(self, llm: LLM, model: str, max_mutations: int = 3, tool_catalog: list[str] | None = None,
@@ -271,6 +278,11 @@ def run_cost(r: RunResult, unit: str) -> float:
     return r.cost_usd if unit == "usd" else r.prompt_tokens + r.completion_tokens
 
 
+def infra_failed(r: RunResult) -> bool:
+    """The run never reached the verifier (e.g. the LLM call kept failing): its 0.0 measures the infrastructure."""
+    return any(f.startswith("infra:") for f in r.failures)
+
+
 class Gate:
     """Paired dev comparison with no lost passes: keep a candidate for a real gain, or for a real cost cut at an equal score."""
 
@@ -285,6 +297,14 @@ class Gate:
         threshold = self.min_gain if min_gain is None else min_gain
         p, c = {r.task_id: r for r in parent}, {r.task_id: r for r in candidate}
         ids = sorted(p.keys() & c.keys())
+        # An infra failure on either side says nothing about the team, so that task leaves both sides of the pair.
+        excluded = [i for i in ids if infra_failed(p[i]) or infra_failed(c[i])]
+        if excluded:
+            ids = [i for i in ids if i not in excluded]
+            if not ids:
+                return {"n": 0, "accepted": False, "accepted_by": None, "reason": "infra: no comparable tasks",
+                        "excluded_infra": excluded}
+            return {**self.decide([p[i] for i in ids], [c[i] for i in ids], min_gain), "excluded_infra": excluded}
         if not ids:
             return {"n": 0, "accepted": False, "accepted_by": None, "reason": "no paired dev tasks"}
         pm, cm = mean(p[i].score for i in ids), mean(c[i].score for i in ids)
@@ -384,10 +404,15 @@ class Evolver:
             raise RuntimeError(f"held-out task {task.id} used before final_report")
         if run_id is None:  # evaluation: read-only on the brain, cached per brain state
             key = (version.key(), task.id, self.seed, str(brain.dir), brain.version(), tuple(sorted(brain._hidden)))
-            if key not in self._cache:
-                self._cache[key] = self.run_team(version, brain, task, self.llm)
-            return self._cache[key]
-        result = self.run_team(version, brain, task, self.llm)
+            if key in self._cache:
+                return self._cache[key]
+            result = self._run_team_or_infra(version, brain, task)
+            if not infra_failed(result):  # an infra failure is not cached, so the same call later retries
+                self._cache[key] = result
+            return result
+        result = self._run_team_or_infra(version, brain, task)
+        if infra_failed(result):  # no score, so no brain credit and no "infra" pitfall in the brain
+            return result
         with self._lock:
             baseline = self._last_score.get(task.id)
             self._last_score[task.id] = result.score
@@ -397,6 +422,17 @@ class Evolver:
         if proposals:
             brain.propose(proposals, run_id)
         return result
+
+    def _run_team_or_infra(self, version: TeamVersion, brain: SharedBrain, task: Task) -> RunResult:
+        """One failed LLM call (e.g. Crusoe's sustained 429 after its retries) costs one task, not the whole run."""
+        try:
+            return self.run_team(version, brain, task, self.llm)
+        except Exception as e:  # noqa: BLE001 — any infra error becomes a 0.0 result the Gate excludes
+            message = " ".join(str(e).split())[:300]
+            log.warning("task %s: run_team failed (%s: %s); scored 0.0 as an infra failure",
+                        task.id, type(e).__name__, message)
+            return RunResult(task_id=task.id, version=version.version, score=0.0, passed=False,
+                             failures=[f"infra:{type(e).__name__}"], notes=message)
 
     def _save_solutions(self, label: str, version: TeamVersion, tasks: list[Task], rs: list[RunResult]) -> None:
         """<reports_dir parent>/solutions/<config slug>/<task id>.json per result that carries a solution, for the
@@ -457,7 +493,13 @@ class Evolver:
             role_usage = per_task_usage(usage_before, self._usage_by_role(), len(train))
             pruned = self.brain.prune()
             disputes = self._settle_disputes(g, parent, dev_tasks)
-            mutations = self.reviewer.propose(parent, train, self.brain, role_usage)
+            try:
+                mutations = self.reviewer.propose(parent, train, self.brain, role_usage)
+            except Exception as e:  # noqa: BLE001 — a failed reviewer call skips this generation's mutations
+                error = f"{type(e).__name__}: {' '.join(str(e).split())[:300]}"
+                log.warning("generation %d: reviewer call failed (%s); no mutations this generation", g, error)
+                self._log({"generation": g, "reviewer_error": error})
+                mutations, self.reviewer.dropped = [], []
             for d in self.reviewer.dropped:
                 self._log({"generation": g, "parent": parent.version, "mutation": d["mutation"],
                            "accepted": False, "reason": f"invalid: {d['reason']}"})
@@ -513,7 +555,7 @@ class Evolver:
                 "calls_per_task": round(sum(r.calls for r in rs) / n, 3), "tokens_per_task": round(tokens / n, 1),
                 "cost_per_task_usd": round(cost / n, 8),
                 "cost_per_point_usd": round(cost / score, 8) if score > 0 else None,
-                "tokens": tokens, "cost_usd": round(cost, 6)}
+                "tokens": tokens, "cost_usd": round(cost, 6), "infra_failures": sum(infra_failed(r) for r in rs)}
 
     def final_report(self, heldout_tasks: list[Task]) -> list[dict]:
         """Ablation on unseen tasks: cold v0, v0 + learned brain, final version + learned brain."""
@@ -524,7 +566,11 @@ class Evolver:
                     self._row(f"v{self.current.version} + final brain", self.current, self.brain, heldout_tasks)]
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         (self.reports_dir / "before_after.json").write_text(json.dumps({"rows": rows, "history": self.history}, indent=1))
-        (self.reports_dir / "before_after.md").write_text(markdown_table(rows))
+        # Infra-failed tasks stay in every mean as 0.0; the footnote says how many, so none is silently dropped.
+        infra = [f"{r['config']}: {r['infra_failures']}" for r in rows if r["infra_failures"]]
+        footnote = f"\n{sum(r['infra_failures'] for r in rows)} infra failures (LLM call failed, scored 0.0) — " \
+                   f"{'; '.join(infra)}\n" if infra else ""
+        (self.reports_dir / "before_after.md").write_text(markdown_table(rows) + footnote)
         return rows
 
 

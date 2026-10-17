@@ -24,13 +24,39 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from team.brain import SharedBrain  # noqa: E402
 from team.crusoe import NANO, SUPER, CrusoeLLM, MissingKeyError  # noqa: E402
 from team.datahall import SPLIT_SIZES, datahall_run_team, datahall_v0, load_tasks  # noqa: E402
-from team.evolve import Evolver, TeamVersion, markdown_table  # noqa: E402
+from team.evolve import Evolver, Gate, TeamVersion, markdown_table  # noqa: E402
 from team.fake_llm import ScriptedLLM  # noqa: E402
 from team.sa_library import add_library_args, configure_from_args  # noqa: E402
 from team.types import LLM, Task  # noqa: E402
 
 CANDIDATES_PER_GEN = 3  # Reviewer max_mutations
+# Measured on 4 train halls (Layout varied, other roles Nano with reasoning off): only Nano with reasoning on and a
+# 32000-token budget beat greedy (+2.66 points); at 16000 most replies were cut off, and Super with reasoning ran
+# ~340 s per call and was cut off. The scorer rewarded one-at-a-time GB200 -> GB300 swaps and CDU reassignments.
+DATAHALL_REVIEWER_NOTE = (
+    " Data-hall evidence from earlier measurements: Layout with thinking on and max_tokens 32000 is the only setting "
+    "that beat greedy; at 16000 most reasoning replies were cut off (truncated); Super with thinking on stalled "
+    "(~340 s per call, cut off). Feasible gains came from swapping single GB200 racks to GB300 and reassigning CDUs, "
+    "not from re-laying out rows. Super is currently throttled by Crusoe (HTTP 429 on every call); do not assign it "
+    "to a role.")
 _HALL_NAME = re.compile(r"HALL (\S+):")
+
+
+class ReviewerBudget:
+    """Gives the Reviewer's call its own token budget and reasoning switch; every other call passes through."""
+
+    def __init__(self, llm: Any, max_tokens: int, thinking: bool | None) -> None:
+        self.llm, self.max_tokens, self.thinking = llm, max_tokens, thinking
+
+    def chat(self, model: str, messages: list[dict[str, str]], **kwargs: Any) -> Any:
+        if kwargs.get("role") == "reviewer":
+            kwargs["max_tokens"] = self.max_tokens
+            if self.thinking is not None:
+                kwargs["thinking"] = self.thinking
+        return self.llm.chat(model, messages, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.llm, name)
 
 
 def offline_llm(tasks: list[Task]) -> ScriptedLLM:
@@ -119,10 +145,12 @@ def run_one(llm: LLM, task: Task, v0: TeamVersion) -> None:
 
 
 def evolve(llm: LLM, reviewer_model: str, out: Path, generations: int, seed: int, workers: int,
-           v0: TeamVersion, splits: tuple[list[Task], list[Task], list[Task]]) -> None:
+           v0: TeamVersion, splits: tuple[list[Task], list[Task], list[Task]], min_gain: float = 0.05) -> None:
     train, dev, heldout = splits
     evolver = Evolver(datahall_run_team, llm, reviewer_model, SharedBrain(out / "brain"), out / "versions",
-                      max_workers=workers, seed=seed, initial=v0, reports_dir=out / "reports")
+                      max_workers=workers, seed=seed, initial=v0, reports_dir=out / "reports",
+                      gate=Gate(min_gain=min_gain))
+    evolver.reviewer.system += DATAHALL_REVIEWER_NOTE
     t0 = time.perf_counter()
     final = evolver.run(generations, train, dev, heldout)
     for h in evolver.history:
@@ -156,6 +184,14 @@ def main() -> int:
                     help="halls per split (at most 2 large each)")
     ap.add_argument("--worker-model", default=NANO)
     ap.add_argument("--reviewer-model", default=SUPER)
+    ap.add_argument("--min-gain", type=float, default=0.05,
+                    help="Gate: dev mean score gain needed to accept (score = DoneTwin/100, so 0.02 = 2 points)")
+    ap.add_argument("--reviewer-max-tokens", type=int, default=None,
+                    help="Reviewer call budget (client default 2048); a reasoning model can spend it all thinking")
+    ap.add_argument("--reviewer-thinking", choices=("on", "off"), default=None,
+                    help="force the Reviewer's reasoning switch; default sends nothing (server default)")
+    ap.add_argument("--timeout-s", type=float, default=600.0,
+                    help="per-request timeout; reasoning-on Layout calls run 100-340 s, so 120 s silently kills them")
     add_library_args(ap)
     args = ap.parse_args()
     configure_from_args(args, "datahall")
@@ -166,10 +202,13 @@ def main() -> int:
         llm: Any = None
     else:
         try:
-            llm = CrusoeLLM()
+            llm = CrusoeLLM(timeout_s=args.timeout_s)
         except MissingKeyError as exc:
             print(f"No Crusoe API key configured: {exc}", file=sys.stderr)
             return 2
+        if args.reviewer_max_tokens or args.reviewer_thinking:
+            llm = ReviewerBudget(llm, args.reviewer_max_tokens or 2048,
+                                 None if args.reviewer_thinking is None else args.reviewer_thinking == "on")
     splits = load_tasks(args.seed, tuple(args.split))
     train, dev, heldout = splits
     if llm is None:
@@ -190,7 +229,7 @@ def main() -> int:
           f"dev {mean(t.payload['greedy_score'] for t in dev):.2f}, "
           f"held-out {mean(t.payload['greedy_score'] for t in heldout):.2f} (of 100)", flush=True)
     out = args.out or Path("runs") / f"datahall-{time.strftime('%Y%m%d-%H%M%S')}"
-    evolve(llm, args.reviewer_model, out, args.generations, args.seed, args.workers, v0, splits)
+    evolve(llm, args.reviewer_model, out, args.generations, args.seed, args.workers, v0, splits, args.min_gain)
     if args.live:
         usage = llm.ledger.summary()
         (out / "reports" / "usage.json").write_text(json.dumps(usage, indent=1))
