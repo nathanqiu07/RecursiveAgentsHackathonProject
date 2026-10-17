@@ -251,6 +251,93 @@ def repair_layout(hall, cand, inc):
     return {"racks": cur}, res, reverted
 
 
+def _slots(hall, racks):
+    """Free rack positions at the ends of each row's runs (or the start of an empty row's free strip)."""
+    from donetwin import halls as hall_gen
+    taken = {(round(float(r["x"]), 2), round(float(r["y"]), 2)) for r in racks
+             if isinstance(r.get("x"), (int, float)) and isinstance(r.get("y"), (int, float))}
+    out = []
+    for row, bws in sorted(_rows(hall).items()):
+        a = next((b for b in bws if b.get("feed") == "A"), None)
+        b = next((b for b in bws if b.get("feed") == "B"), None)
+        if not a or not b:
+            continue
+        y = round(a["y"] + 0.25, 3)
+        mine = [r for r in racks if r.get("feed_a") in (a["id"], b["id"]) and isinstance(r.get("x"), (int, float))]
+        if mine:
+            xs = {round(r["x"] + d, 3) for r in mine for d in (-0.6, 0.6)}
+            rots = [mine[0].get("rot", 0)]
+        else:
+            try:
+                xs = {round(x0 + 0.31, 3) for x0, _ in hall_gen.row_free_segments(hall, row)}
+            except Exception:
+                xs = set()
+            rots = [0, 180]
+        for x in sorted(xs):
+            if (round(x, 2), round(y, 2)) not in taken:
+                out += [(x, y, rot, a["id"], b["id"]) for rot in rots]
+    return out
+
+
+def _neighbours(hall, racks, cdus):
+    """Single-rack moves, most valuable first: GB300 upgrades, adds, relocations, CDU reassignments."""
+    from donetwin.score import COOLING
+
+    def with_(i, **kw):
+        return {"racks": [dict(r, **kw) if j == i else r for j, r in enumerate(racks)]}
+    for i, r in enumerate(racks):
+        if r.get("model") == "GB200-NVL72":
+            for c in [r.get("cdu")] + [c for c in cdus if c != r.get("cdu")]:
+                yield with_(i, model="GB300-NVL72", cdu=c), f"upgrade {r['id']} to GB300 on {c}"
+    slots = _slots(hall, racks)
+    ids = {r.get("id") for r in racks}
+    nid = next(f"S{k}" for k in range(1, 10000) if f"S{k}" not in ids)
+    for x, y, rot, fa, fb in slots:
+        base = {"id": nid, "x": x, "y": y, "rot": rot, "feed_a": fa, "feed_b": fb}
+        for model in ("GB300-NVL72", "GB200-NVL72"):
+            for c in cdus:
+                yield {"racks": racks + [dict(base, model=model, cdu=c)]}, f"add {model} at x={x:.1f} on {c}"
+        yield {"racks": racks + [dict(base, model="HGX-B200", cdu=None)]}, f"add HGX-B200 at x={x:.1f}"
+    for i, r in enumerate(racks):
+        if COOLING.get(r.get("model")) == "liquid":
+            for x, y, rot, fa, fb in slots:
+                for c in cdus:
+                    yield (with_(i, x=x, y=y, rot=rot, feed_a=fa, feed_b=fb, cdu=c),
+                           f"move {r['id']} to x={x:.1f} y={y:.1f} on {c}")
+    for i, r in enumerate(racks):
+        if COOLING.get(r.get("model")) == "liquid":
+            for c in cdus:
+                if c != r.get("cdu"):
+                    yield with_(i, cdu=c), f"reassign {r['id']} to {c}"
+
+
+def local_search(hall, payload, max_evals=1500):
+    """Verifier-guided first-improvement search over single-rack moves (no LLM).
+
+    Each accepted move strictly raises the verified score, so the result is never worse than the input.
+    max_evals caps verifier calls (about 8 ms each) and keeps runs deterministic. Returns
+    (payload, score result, list of accepted moves)."""
+    from donetwin import score as scoring
+    cur = {"racks": [dict(r) for r in payload.get("racks", []) if isinstance(r, dict)]}
+    res = scoring.score(hall, cur)
+    if not res.get("feasible"):
+        return cur, res, []
+    cdus = [o["id"] for o in _objs(hall, "cdu")]
+    moves, evals, improved = [], 0, True
+    while improved and evals < max_evals:
+        improved = False
+        for cand, label in _neighbours(hall, cur["racks"], cdus):
+            if evals >= max_evals:
+                break
+            evals += 1
+            r = scoring.score(hall, cand)
+            if r.get("feasible") and r["score"] > res["score"] + 1e-9:
+                cur, res, improved = cand, r, True
+                moves.append(label)
+                break
+    return cur, res, moves
+
+
 def _state_lines(hall, payload, res):
     """Live loads and resilience gaps, so the model can see where the headroom is."""
     from donetwin.scene import RACK_CATALOG

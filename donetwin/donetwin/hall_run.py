@@ -40,7 +40,39 @@ def _ui_scene(hall, payload):
     return scene
 
 
-def _ui_report(hall, res):
+def meters(hall, payload, res):
+    """Live readings for the UI meter panel: feeder loads, failover status, rack counts."""
+    from .scene import RACK_CATALOG
+    racks = [r for r in (payload or {}).get("racks", []) if isinstance(r, dict) and r.get("model") in RACK_CATALOG]
+    cdus = {o["id"]: {"load_kw": 0.0, "cap_kw": float(o.get("capacity_kw", 0)), "racks": 0, "hose_m": o.get("hose_m")}
+            for o in hall.get("objects", []) if o.get("kind") == "cdu"}
+    bws = {o["id"]: {"load_kw": 0.0, "cap_kw": round(o.get("capacity_kw", 0) * o.get("derate", 1.0), 1),
+                     "racks": 0, "row": o.get("row"), "feed": o.get("feed")}
+           for o in hall.get("objects", []) if o.get("kind") == "busway"}
+    air = 0.0
+    for r in racks:
+        kw = RACK_CATALOG[r["model"]]["kw"]
+        if score.COOLING.get(r["model"]) == "liquid" and r.get("cdu") in cdus:
+            cdus[r["cdu"]]["load_kw"] += kw
+            cdus[r["cdu"]]["racks"] += 1
+        elif score.COOLING.get(r["model"]) == "air":
+            air += kw
+        for f in {r.get("feed_a"), r.get("feed_b")}:
+            if f in bws:
+                bws[f]["load_kw"] += kw
+                bws[f]["racks"] += 1
+    gaps = [v.get("detail", "") for c in res.get("checks", []) if c.get("name") == "resilience"
+            for v in c.get("violations", [])]
+    for cid, m in cdus.items():
+        m["survivable"] = bool(res.get("feasible")) and not any(g.startswith(f"loss of {cid} ") for g in gaps)
+    models = {}
+    for r in racks:
+        models[r["model"]] = models.get(r["model"], 0) + 1
+    return {"cdus": cdus, "busways": bws, "air_kw": air, "air_cap_kw": float(hall.get("air_cooling_kw", 0)),
+            "resilience_gaps": gaps, "rack_models": models}
+
+
+def _ui_report(hall, res, payload=None, stage=None):
     ids = [o["id"] for o in hall.get("objects", [])]
     checks = []
     for c in res.get("checks", []):
@@ -58,7 +90,8 @@ def _ui_report(hall, res):
             "all_pass": bool(res.get("feasible")),
             "penalty": round(sum(1 + sum(v["magnitude"] for v in c["violations"]) for c in failing), 3),
             "score": res.get("score"), "components": res.get("components"),
-            "it_kw": res.get("it_kw"), "upper_bound_kw": res.get("upper_bound_kw")}
+            "it_kw": res.get("it_kw"), "upper_bound_kw": res.get("upper_bound_kw"),
+            "stage": stage, "meters": meters(hall, payload, res)}
 
 
 def _summary(res):
@@ -73,7 +106,7 @@ def _show(run, hall, it, payload, res, note):
     scene = _ui_scene(hall, payload)
     run.emit("sandbox", iter=it, ok=scene is not None, error=None if scene else "payload rejected",
              stdout="", scene=scene, points={}, mode="score")
-    run.emit("verify", iter=it, report=_ui_report(hall, res), geometry=None)
+    run.emit("verify", iter=it, report=_ui_report(hall, res, payload, note), geometry=None)
 
 
 def execute_hall(run, llm, hall, iters=6, model=None, library_dir="library", patience=4,
