@@ -133,6 +133,21 @@ class VerifierApiTest(unittest.TestCase):
             evaluate({"submission": {"tasks": [{"seed": 100, "tier": "small", "answers": {}}]}, "split": "heldout"})
 
 
+class ReviewerBudgetTest(unittest.TestCase):
+    def test_only_the_reviewer_call_gets_the_larger_budget_and_format_hint(self):
+        from scripts.run_inference_opt import REVIEW_FORMAT, ReviewerBudget
+
+        inner = ScriptedLLM({}, default="{}")
+        llm = ReviewerBudget(inner)
+        llm.chat("m", [{"role": "user", "content": "review"}], role="reviewer")
+        llm.chat("m", [{"role": "user", "content": "work"}], role="rack_fit", max_tokens=300, thinking=True)
+        rev, work = inner.calls
+        self.assertEqual((rev["max_tokens"], rev["thinking"]), (8000, False))
+        self.assertTrue(rev["messages"][-1]["content"].endswith(REVIEW_FORMAT))
+        self.assertEqual((work["max_tokens"], work["thinking"], work["messages"][-1]["content"]), (300, True, "work"))
+        self.assertIs(llm.calls, inner.calls)
+
+
 class OfflineEvolveTest(unittest.TestCase):
     def test_offline_evolve_accepts_a_cheaper_version_at_equal_accuracy(self):
         with tempfile.TemporaryDirectory() as tmp:

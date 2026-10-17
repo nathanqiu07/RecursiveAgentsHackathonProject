@@ -31,8 +31,8 @@ if str(ROOT) not in sys.path:
 from benchmarks.inference_opt.workload import TIERS, grade, load_tasks, make_questions  # noqa: E402
 
 MAX_BODY = 1024 * 1024
-V0_DIRS = [ROOT / "reports" / "inference_opt_1" / "solutions" / "v0-empty-brain-cold",
-           ROOT / "runs" / "inference-opt-1" / "solutions" / "v0-empty-brain-cold"]
+V0_DIRS = [ROOT / "reports" / "inference_opt_2" / "solutions" / "v0-empty-brain-cold",
+           ROOT / "runs" / "inference-opt-2" / "solutions" / "v0-empty-brain-cold"]
 V0_NAME = "v0 (Super, reasoning on, one call per question)"
 
 

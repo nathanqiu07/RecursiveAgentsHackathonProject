@@ -1,0 +1,123 @@
+{
+ "rows": [
+  {
+   "config": "v0 (cold brain)",
+   "n_tasks": 4,
+   "questions": 48,
+   "correct": 47,
+   "accuracy": 0.9792,
+   "pass_rate": 1.0,
+   "cost_per_task_usd": 0.0128313,
+   "cost_per_correct_usd": 0.00109203,
+   "p50_call_latency_s": 9.672,
+   "p50_task_wall_s": 163.132,
+   "calls_per_task": 12.0,
+   "tokens_per_task": 9802.8,
+   "cost_usd": 0.051325
+  },
+  {
+   "config": "v1 + final brain (final)",
+   "n_tasks": 4,
+   "questions": 48,
+   "correct": 48,
+   "accuracy": 1.0,
+   "pass_rate": 1.0,
+   "cost_per_task_usd": 0.0090333,
+   "cost_per_correct_usd": 0.00075277,
+   "p50_call_latency_s": 19.013,
+   "p50_task_wall_s": 77.18,
+   "calls_per_task": 4.0,
+   "tokens_per_task": 6242.8,
+   "cost_usd": 0.036133
+  }
+ ],
+ "per_type": {
+  "v0": {
+   "cdu_headroom": {
+    "accuracy": 0.9167,
+    "cost_usd": 0.009843,
+    "p50_latency_s": 8.442
+   },
+   "busway_left": {
+    "accuracy": 1.0,
+    "cost_usd": 0.015002,
+    "p50_latency_s": 11.599
+   },
+   "hose_slack": {
+    "accuracy": 1.0,
+    "cost_usd": 0.012605,
+    "p50_latency_s": 8.743
+   },
+   "rack_fit": {
+    "accuracy": 1.0,
+    "cost_usd": 0.013875,
+    "p50_latency_s": 9.12
+   }
+  },
+  "final": {
+   "cdu_headroom": {
+    "accuracy": 1.0,
+    "cost_usd": 0.010445,
+    "p50_latency_s": 23.134
+   },
+   "busway_left": {
+    "accuracy": 1.0,
+    "cost_usd": 0.0083,
+    "p50_latency_s": 18.115
+   },
+   "hose_slack": {
+    "accuracy": 1.0,
+    "cost_usd": 0.008618,
+    "p50_latency_s": 18.578
+   },
+   "rack_fit": {
+    "accuracy": 1.0,
+    "cost_usd": 0.00877,
+    "p50_latency_s": 21.102
+   }
+  }
+ },
+ "final_version": 1,
+ "final_config": {
+  "default_model": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B",
+  "models": {},
+  "thinking": {
+   "cdu_headroom": true,
+   "busway_left": true,
+   "hose_slack": true,
+   "rack_fit": true
+  },
+  "max_tokens": 4000,
+  "batch_size": 3,
+  "temperature": 0.0,
+  "knob_notes": "Roles are question types. models/thinking/max_tokens_by_type are keyed by question type; batch_size = questions of one type answered in one JSON call (1..12): fewer calls and less repeated prompt, but one bad reply loses the whole batch. A type's failures are wrong:<type>, bad_json:<type>, truncated:<type> (hit max_tokens), slow:<type> (mean call latency > 20 s)."
+ },
+ "changelog": [
+  "v0: one model for every question type, reasoning on, one question per call",
+  "v1: config_set {\"key\": \"batch_size\", \"value\": 3} - Increasing batch_size from 1 to 3 reduces the number of API calls per task by grouping multiple questions of the same type into a single call, lowering overhead and cost. With 4 roles and ~3 calls per role currently, batching can reduce total calls by up to ~60% without affecting correctness if outputs remain valid JSON. The current cost per task is $0.012851; reducing calls should cut cost significantly. [1] supports batching for inference efficiency. [dev gain +0.000; cheaper at equal score: cost -32%]"
+ ],
+ "headline": "Held-out: accuracy 0.979 -> 1.000 at 70.4% of the cost per task; p50 call latency 9.672 s -> 19.013 s.",
+ "history": [
+  {
+   "generation": 0,
+   "parent": 0,
+   "version": 1,
+   "train_mean": 0.9583,
+   "dev_mean": 1.0,
+   "mutations": 1,
+   "accepted": "config_set",
+   "accepted_reason": "cheaper at equal score: cost -32%",
+   "pruned": 0,
+   "disputes_settled": 0,
+   "brain": {
+    "version": 2,
+    "active": 1,
+    "disputed": 0,
+    "retired": 0,
+    "total_chars": 14,
+    "avg_helps": 0.0,
+    "avg_hurts": 0.0
+   }
+  }
+ ]
+}

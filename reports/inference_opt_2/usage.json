@@ -1,0 +1,76 @@
+{
+ "total": {
+  "calls": 208,
+  "errors": 1,
+  "retries": 108,
+  "prompt_tokens": 102440,
+  "completion_tokens": 97595,
+  "cached_tokens": 0,
+  "cost_usd": 0.26496,
+  "latency_s": 2486.607
+ },
+ "by_role": {
+  "busway_left": {
+   "calls": 52,
+   "errors": 0,
+   "retries": 32,
+   "prompt_tokens": 24211,
+   "completion_tokens": 27616,
+   "cached_tokens": 0,
+   "cost_usd": 0.073542,
+   "latency_s": 703.375
+  },
+  "cdu_headroom": {
+   "calls": 52,
+   "errors": 0,
+   "retries": 23,
+   "prompt_tokens": 28146,
+   "completion_tokens": 21145,
+   "cached_tokens": 0,
+   "cost_usd": 0.059192,
+   "latency_s": 563.219
+  },
+  "hose_slack": {
+   "calls": 51,
+   "errors": 1,
+   "retries": 32,
+   "prompt_tokens": 24238,
+   "completion_tokens": 22284,
+   "cached_tokens": 0,
+   "cost_usd": 0.060753,
+   "latency_s": 579.968
+  },
+  "rack_fit": {
+   "calls": 52,
+   "errors": 0,
+   "retries": 21,
+   "prompt_tokens": 23703,
+   "completion_tokens": 26323,
+   "cached_tokens": 0,
+   "cost_usd": 0.070286,
+   "latency_s": 634.758
+  },
+  "reviewer": {
+   "calls": 1,
+   "errors": 0,
+   "retries": 0,
+   "prompt_tokens": 2142,
+   "completion_tokens": 227,
+   "cached_tokens": 0,
+   "cost_usd": 0.001187,
+   "latency_s": 5.286
+  }
+ },
+ "by_model": {
+  "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B": {
+   "calls": 208,
+   "errors": 1,
+   "retries": 108,
+   "prompt_tokens": 102440,
+   "completion_tokens": 97595,
+   "cached_tokens": 0,
+   "cost_usd": 0.26496,
+   "latency_s": 2486.607
+  }
+ }
+}
