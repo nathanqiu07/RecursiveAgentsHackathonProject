@@ -51,15 +51,18 @@ Each adapter is one function with the same signature: `run_team(version, brain, 
 | Keep a change only if it helps | Candidate and parent run on the same dev tasks. A change is kept for a mean gain of 0.05 or more with no lost passes, or a cost cut of 15% or more at equal score | `team/evolve.py` (`Gate`) |
 | Before/after on unseen tasks | Train, dev and held-out splits must be disjoint. Touching a held-out task before the final report raises an error | `team/evolve.py` (`Evolver`) |
 
-## 6. Case studies
+## 6. Case studies: every layer of an AI data center is an optimization problem that code can score
 
-| Case study | Verifier | Baseline | Status |
-|---|---|---|---|
-| GPU data-hall layout | Rikin's DoneTwin scorer, 0 to 100, no LLM | Greedy, about 68 to 70 | Live |
-| QAPLIB facility layout | Exact cost of the permutation, as a gap to the best-known answer | 2-swap, 0.989 on held-out | Being wired in |
-| Inference cost (an axis on every case study) | Measured Crusoe cost, tokens and calls per verified point | v0's bill | Live |
+| Layer | Case study | Verifier | Baseline | Status |
+|---|---|---|---|---|
+| Where the GPU racks go | GPU data-hall layout (**hero**) | Rikin's DoneTwin scorer, 0 to 100, no LLM | Greedy, 71.0 on 15 held-out halls | Run 1 done: tied greedy, gate rejected 9 of 9 changes. Run 2 pending |
+| Where the equipment goes | QAPLIB facility layout (quadratic assignment) | Exact cost of the assignment, as a gap to the best-known answer | 2-swap, 0.989 on held-out | Smoke run; evolve run relaunching after a Crusoe 429 |
+| What runs on the GPUs | KernelBench mini, 12 Level-1 CUDA problems | Correctness and speed, with reward-hack guards | PyTorch reference | Built and tested offline; needs a Crusoe GPU VM |
+| What it costs | Inference cost, an axis on every case study | Measured Crusoe cost, tokens and calls per verified point | v0's bill | Live |
 
-Named as fitting the same interface, not run: AlgoTune, ALE-Bench, KernelBench. Details and the before/after tables are in `DEMO.md`.
+**Off-theme generality test:** ALE-Bench AHC039, with an official scorer. Not in the video. Named as fitting the same interface, not run: AlgoTune.
+
+Details are in `DEMO.md`, and the video plan is in `VIDEO.md`.
 
 **Closest prior work:**
 - ACE (Agentic Context Engineering, 2025) already has a curator with helpful/harmful counters.
