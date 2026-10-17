@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recursive Agents Live Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="logo" viewBox="0 0 64 64">
+      <g class="spin"><path d="M32 4a28 28 0 1 1-24.2 14" fill="none" stroke="#22d3ee" stroke-width="5" stroke-linecap="round"/><path d="M4 12l4 7 7-4" fill="none" stroke="#22d3ee" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <circle cx="32" cy="32" r="17" fill="#160f3a"/>
+      <text x="32" y="38" text-anchor="middle" font-family="Unbounded,Arial Black,sans-serif" font-weight="900" font-size="15" fill="#f5f1ff">N+1</text>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="viewport"><div class="stage" id="stage">
+
+<header class="top">
+  <div class="team"><svg><use href="#logo"/></svg>Recursive Agents</div>
+  <div class="crusoe">Runs on <i class="clogo" role="img" aria-label="Crusoe"></i> · Nemotron</div>
+</header>
+
+<!-- 1: hero -->
+<section class="beat on" data-cam="0" data-name="hero">
+  <div class="hero-head">
+    <div class="kicker">Bring a verifier. Get a team that improves.</div>
+    <h1>Every layer of an AI data center as a <span class="grad">verifiable optimization problem</span></h1>
+    <p class="sub">Each tile: v0 cold (the starting team, empty Shared Brain) → the final version, scored on held-out tasks it never saw.</p>
+  </div>
+  <div class="tiles" id="tiles"></div>
+</section>
+
+<!-- 2: the loop -->
+<section class="beat" data-cam="1" data-name="loop">
+  <div>
+    <div class="kicker">How version N+1 is made</div>
+    <h2>Every change has to <span class="grad">prove itself</span> before it ships</h2>
+  </div>
+  <div class="loop">
+    <div class="step" style="--d:.05s"><div class="bar" style="background:var(--cyan)"></div><div class="n">01 · READ</div><h4>Shared Brain</h4><p>Every role reads its slice of memory before it works. Entries are 280 characters and need a cited measurement to get in.</p></div>
+    <div class="step" style="--d:.25s"><div class="bar" style="background:var(--violet)"></div><div class="n">02 · WORK</div><h4>Nemotron team</h4><p>Nemotron solver and reviewer roles solve the task on Crusoe Managed Inference.</p></div>
+    <div class="step" style="--d:.45s"><div class="bar" style="background:var(--magenta)"></div><div class="n">03 · SCORE</div><h4>Verifier</h4><p>The verifier recomputes the answer and returns a number. No LLM judge, so no agent can argue with the score.</p></div>
+    <div class="step" style="--d:.65s"><div class="bar" style="background:var(--flame)"></div><div class="n">04 · PROPOSE</div><h4>Research paper</h4><p>The Reviewer reads You.com search results, then proposes one typed change (prompt, tool, playbook step or config) and predicts the gain.</p></div>
+    <div class="step" style="--d:.85s"><div class="bar" style="background:var(--lime)"></div><div class="n">05 · GATE</div><h4>Keep or reject</h4><p>The team reruns the dev set with and without the change. It is kept only for a measured gain or a measured cost cut.</p></div>
+  </div>
+  <div class="loop-out">
+    <div class="out-card" style="--d:1.15s"><span class="dotc" style="background:var(--lime)"></span>Kept changes publish as papers to SA's Library.</div>
+    <div class="out-card" style="--d:1.35s"><span class="dotc" style="background:var(--cyan)"></span>The final version is scored on held-out tasks it never saw.</div>
+  </div>
+</section>
+
+<!-- 3: live twin -->
+<section class="beat center" data-cam="2" data-name="twin">
+  <div class="kicker">Live, right now</div>
+  <h2>Hand a data hall to the agents</h2>
+  <a class="twin-btn" href="http://127.0.0.1:8000" target="_blank" rel="noopener">Open the DoneTwin control room <span aria-hidden="true">↗</span></a>
+  <p class="twin-line">Pick <b>small-10000</b>, press <b>Hand off to agents</b>. The verifier scores every proposal; infeasible ones are rejected live.</p>
+  <p class="twin-note">DoneTwin 3D control room, hall layout layer. DoneTwin's halls are also the source for the rack placement problems and the inference questions.</p>
+</section>
+
+<!-- 4: replay -->
+<section class="beat" data-cam="3" data-name="replay">
+  <div class="replay-head">
+    <div>
+      <div class="kicker" id="rp-kicker">Replay of a live run</div>
+      <h2 class="h2s" id="rp-title">The hill-climb, change by change</h2>
+    </div>
+    <div class="controls">
+      <label class="ctl">Run <select id="rp-run" aria-label="Run to replay"></select></label>
+      <div class="speed" role="group" aria-label="Replay speed">
+        <button data-speed="1" class="on">1x</button><button data-speed="2">2x</button><button data-speed="4">4x</button>
+      </div>
+      <button class="ctl-btn" id="rp-replay" title="Replay (R)">↻ Replay</button>
+    </div>
+  </div>
+  <div class="replay">
+    <div class="panel chart-panel">
+      <div class="chart-meta"><span id="rp-metric">dev score</span><span class="legend"><i class="lg-kept"></i>kept <i class="lg-rej"></i>rejected <i class="lg-inc"></i>incumbent <i class="lg-v0"></i>v0 cold</span></div>
+      <svg id="rp-chart" viewBox="0 0 980 520" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="side">
+      <div class="panel cand" id="rp-cand"></div>
+      <div class="panel srcs" id="rp-srcs"></div>
+      <div class="panel held" id="rp-held"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5: papers -->
+<section class="beat" data-cam="4" data-name="papers">
+  <div class="replay-head">
+    <div>
+      <div class="kicker">Research papers, written by agents</div>
+      <h2 class="h2s">Every paper is checked against its own claim</h2>
+    </div>
+    <div class="verdict-totals" id="pp-totals"></div>
+  </div>
+  <p class="sub" id="pp-sub">Papers per generation for one run. The gate reruns each claim and stamps the verdict.</p>
+  <div class="timeline" id="pp-timeline"></div>
+</section>
+
+<!-- 6: receipts -->
+<section class="beat" data-cam="5" data-name="receipts">
+  <div>
+    <div class="kicker">Receipts, computed from the live run data</div>
+    <h2 class="h2s">What the team actually did</h2>
+  </div>
+  <div class="stats" id="rc-stats"></div>
+  <div class="panel rc-table-wrap"><table id="rc-table"></table></div>
+</section>
+
+<!-- 7: close -->
+<section class="beat center" data-cam="6" data-name="close">
+  <svg class="close-logo"><use href="#logo"/></svg>
+  <div class="big"><span class="grad">Recursive Agents</span></div>
+  <h2 class="close-h">Bring a verifier. Get a team that improves.</h2>
+  <div class="crusoe close-crusoe">Built on <i class="clogo" role="img" aria-label="Crusoe"></i> Managed Inference · NVIDIA Nemotron</div>
+</section>
+
+</div></div>
+
+<footer class="foot">
+  <a href="http://127.0.0.1:5173" target="_blank" rel="noopener">Full dashboard ↗</a>
+  <a href="http://127.0.0.1:8000" target="_blank" rel="noopener">DoneTwin ↗</a>
+  <span id="asof">data: loading</span>
+  <span class="spacer"></span>
+  <span class="keys">← → step · R replay · F full screen</span>
+  <button id="prev" aria-label="Previous beat">‹</button><span id="count">1 / 7</span><button id="next" aria-label="Next beat">›</button>
+</footer>
+
+<script src="three.min.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>
