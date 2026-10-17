@@ -26,7 +26,7 @@ Most agent teams score the same on run 100 as on run 1, and their shared notes f
 | Keep it lean | 280-character entries, a 40-entry active cap, retire after 3 uses when hurts exceed helps + 1, and proven entries leave memory once promoted | `team/brain.py` (`prune`), `team/evolve.py` |
 | Conflict-aware | Same wording with different numbers is never a duplicate. A contradiction keeps the better-supported entry or marks both disputed; each generation, up to 2 disputed pairs are settled by running dev once with each side hidden, and the loser is retired with the measurement on record. Writes are file-locked, and every decision goes to `ledger.jsonl` | `team/brain.py` (`Curator`, `SharedBrain`) |
 | Measurable gains | Held-out ablation: v0 with empty memory vs v0 with learned memory | `team/evolve.py` (`final_report`) |
-| Cheap on Crusoe | `stable_prefix()` renders byte-identical text until the brain changes, so it is prefix-cacheable. Cost is tracked per role, cached tokens included | `team/brain.py`, `team/crusoe.py` |
+| Cheap on Crusoe | Cost, tokens and calls are tracked per role and model on every call. Promoting proven entries into playbooks shrinks what every later call reads. The gate also keeps a change that cuts cost per task by 15% or more at equal score. `stable_prefix()` renders byte-identical text, but Crusoe reported 0 cached tokens in our 2026-10-17 probe, so we claim no cache savings | `team/brain.py`, `team/crusoe.py`, `team/evolve.py` |
 
 ### Version N+1
 
