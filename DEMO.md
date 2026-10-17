@@ -76,8 +76,10 @@ Both outcomes are reportable:
 - **Evolve run 1** (`runs/qaplib-evolve-1/`): crashed on a Crusoe 429 (`max_requests_limit`) before finishing.
 - **Data-center QAP instances** (`benchmarks/qaplib/dc_instances.py`): GPU rack placement in DoneTwin halls, in QAPLIB's format. Facilities are one training job's racks, locations are the hall's rack slots, flow is GB/s between racks, and distance is cable-tray length. There is no published optimum, so the reference is the best of a time-boxed robust tabu search and 2-swap; 1.0 matches it. This is what ties the QAPLIB layer to real data-center data.
 - **Held-out so far (v0 cold → final):**
-  - QAPLIB (`qaplib-research-1`, 6 instances), compared with the best-known solutions (SOTA): mean gap 4.33% (v0 cold) → 3.63% (final); 0 of 6 at best-known. Learned memory alone made v0 worse (15.10% gap); the accepted versions recovered it. State the gap only, never "near SOTA": robust tabu search reaches 0% on instances this size in seconds.
-  - Data-center QAP (`qaplib-dc-research-1`, rack placement): 0.477 → 0.802 (+0.325). v0 cold returned an invalid placement on 1 of 6 instances (scored 0); on the other 5 the gain is 0.573 → 0.802 (+0.229). No published optimum exists, so this stays v0 cold → final.
+  - QAPLIB (`qaplib-research-1`, 6 instances), compared with the best-known solutions (SOTA): mean gap 4.33% (v0 cold) → 3.63% (final); 0 of 6 at best-known. Learned memory alone made v0 worse (15.10% gap); the accepted versions recovered it. A second run, `qaplib-research-2`, did worse: score 0.674 → 0.754, but v0 cold had 1 invalid program, and on mean gap over valid instances it went from 28.1% to 43.6%. If asked, the QAPLIB result does not replicate across runs. State the gap only, never "near SOTA": robust tabu search reaches 0% on instances this size in seconds.
+  - Rack placement (data-center QAP), v0 cold → final, since no published optimum exists:
+    - **Headline, `qaplib-dc-research-2`:** 0.597 → 0.845 (+0.248), no invalid placements. Cost per task rose about 3x ($0.00034 → $0.00107).
+    - `qaplib-dc-research-1`: 0.477 → 0.802 (+0.325), but v0 cold returned an invalid placement on 1 of 6 (scored 0); on the other 5 it is 0.573 → 0.802 (+0.229). Not used as the headline for that reason.
   - Still running: `qaplib-research-2` and `qaplib-dc-research-2`.
 - **Evolve run 2** (`runs/qaplib-evolve-2/`): 2 generations on a 4 / 3 / 6 split, after the 429 client fix. Result: [QAP_RESULT]. Same table as layer 1, v0 cold to final.
 
