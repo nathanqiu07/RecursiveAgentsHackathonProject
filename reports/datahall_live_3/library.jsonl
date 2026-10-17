@@ -1,0 +1,6 @@
+{"key": "a47e825e550745b0", "paper_id": "c1a3c968-e1e4-4670-8d59-49832abba77e", "title": "[datahall] g0 v0: playbook_add Layout: Reassign each rack to the nearest CDU with remaining capacity, using hose distance and cap...", "kind": "mutation", "generation": 0}
+{"key": "a77b08da0f78c6f3", "paper_id": "1c62588e-a20c-40cf-8d12-1bf48685fe3e", "title": "[datahall] g0 v0: config_set models.Layout: {'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B': [0.3, 2.4]}", "kind": "mutation", "generation": 0}
+{"key": "065e5b3835ec5698", "paper_id": "435fe927-29c4-4057-ae05-d55f43c15da9", "title": "[datahall] g0 v0: config_set capacity_calc: {'enabled': True}", "kind": "mutation", "generation": 0}
+{"key": "a47e825e550745b0", "paper_id": "c1a3c968-e1e4-4670-8d59-49832abba77e", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "a77b08da0f78c6f3", "paper_id": "1c62588e-a20c-40cf-8d12-1bf48685fe3e", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "065e5b3835ec5698", "paper_id": "435fe927-29c4-4057-ae05-d55f43c15da9", "verdict": "not_verified", "verdict_via": "report"}

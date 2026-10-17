@@ -1,0 +1,6 @@
+{"key": "bf094a61da162a0b", "paper_id": "b7f46a19-5ca8-479d-9907-4d1f37af447f", "title": "[datahall] g0 v0: playbook_add Layout: Validate each rack's assigned CDU has a hose length within Manhattan distance limits befor...", "kind": "mutation", "generation": 0}
+{"key": "6540337f896c8cb6", "paper_id": "d4507a0a-5dc0-4bad-bac4-77afe250aeca", "title": "[datahall] g0 v0: config_set thinking: {'Layout': True}", "kind": "mutation", "generation": 0}
+{"key": "17b0743710220f36", "paper_id": "60d13436-c178-48fd-b4e8-d4a5f1295143", "title": "[datahall] g0 v0: config_set max_tokens: 32000", "kind": "mutation", "generation": 0}
+{"key": "bf094a61da162a0b", "paper_id": "b7f46a19-5ca8-479d-9907-4d1f37af447f", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "6540337f896c8cb6", "paper_id": "d4507a0a-5dc0-4bad-bac4-77afe250aeca", "verdict": "not_verified", "verdict_via": "report"}
+{"key": "17b0743710220f36", "paper_id": "60d13436-c178-48fd-b4e8-d4a5f1295143", "verdict": "not_verified", "verdict_via": "report"}

@@ -1,6 +1,6 @@
 {
  "schema_version": 1,
- "generated_at": "2026-10-17 15:11:04 PDT",
+ "generated_at": "2026-10-17 16:24:21 PDT",
  "command": ".venv/bin/python scripts/collect_results.py",
  "case_studies": [
   {
@@ -9,7 +9,12 @@
    "verifier": "DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible",
    "digits": 3,
    "baseline": {
-    "name": "greedy baseline (no LLM)",
+    "name": "v0 + empty brain (cold)",
+    "score": 0.71,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "greedy layout (no LLM)",
     "score": 0.71,
     "source": "final held-out table"
    },
@@ -17,7 +22,7 @@
    "status_detail": "final report and live usage written",
    "live_evidence": "usage.json: 475 paid calls, $0.1730",
    "started_at": "14:53 PDT",
-   "last_update": "15:08 PDT",
+   "last_update": "15:18 PDT",
    "heldout": [
     {
      "config": "v0 + empty brain (cold)",
@@ -31,8 +36,14 @@
      "mean_gap_pct": null,
      "at_bks": null,
      "invalid": null,
-     "vs_baseline": 0.0,
-     "vs_baseline_pct": 0.0
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
     },
     {
      "config": "v0 + final brain",
@@ -46,8 +57,14 @@
      "mean_gap_pct": null,
      "at_bks": null,
      "invalid": null,
-     "vs_baseline": 0.0,
-     "vs_baseline_pct": 0.0
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
     },
     {
      "config": "greedy baseline (no LLM)",
@@ -61,16 +78,27 @@
      "mean_gap_pct": null,
      "at_bks": null,
      "invalid": null,
-     "vs_baseline": 0.0,
-     "vs_baseline_pct": 0.0
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
     }
    ],
-   "best": {
-    "config": "v0 + empty brain (cold)",
+   "final": {
+    "config": "v0 + final brain",
     "score": 0.71,
     "gain": 0.0,
-    "gain_pct": 0.0
+    "gain_pct": 0.0,
+    "vs_reference": {
+     "abs": 0.0,
+     "pct": 0.0
+    }
    },
+   "cost_headline": null,
    "rating": null,
    "history": [
     {
@@ -268,28 +296,572 @@
    "verifier": "DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible",
    "digits": 3,
    "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.6879,
+    "source": "held-out table"
+   },
+   "reference": {
     "name": "greedy layout (no LLM)",
-    "score": null,
-    "source": "not available yet"
+    "score": 0.688,
+    "source": "final held-out table"
    },
-   "status": "not started",
-   "status_detail": "nothing on disk yet",
-   "live_evidence": "named live run",
-   "started_at": null,
-   "last_update": null,
-   "heldout": [],
-   "best": null,
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 128 paid calls, $0.0433",
+   "started_at": "15:23 PDT",
+   "last_update": "15:32 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6879,
+     "pass_rate": 1.0,
+     "tokens": 97150,
+     "cost_usd": 0.008658,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0001,
+      "pct": -0.015
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6879,
+     "pass_rate": 1.0,
+     "tokens": 111536,
+     "cost_usd": 0.011372,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0001,
+      "pct": -0.015
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "greedy baseline (no LLM)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.688,
+     "pass_rate": 1.0,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.0001,
+      "pct": 0.015
+     }
+    }
+   ],
+   "final": {
+    "config": "v0 + final brain",
+    "score": 0.6879,
+    "gain": 0.0,
+    "gain_pct": 0.0,
+    "vs_reference": {
+     "abs": -0.0001,
+     "pct": -0.015
+    }
+   },
+   "cost_headline": null,
    "rating": null,
-   "history": [],
-   "generations": [],
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 0,
+     "train_mean": 0.6838,
+     "dev_mean": 0.6916,
+     "accepted": null
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "tool_set",
+     "change": "tool capacity_calc enabled=True",
+     "claim": "dev gain +0.040, cost -20.0%: Provides quick capacity checks, reducing Layout reasoning tokens an...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": -1.75,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.000 < 0.02; cost -2% misses the -15% cut",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "tool_set",
+     "change": "tool nearest_examples enabled=True",
+     "claim": "dev gain +0.030, cost -10.0%: Gives Layout concrete patterns to avoid collisions and hose issues,...",
+     "measured_gain": 0.0009,
+     "measured_cost_change_pct": 2.27,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.001 < 0.02; cost +2% misses the -15% cut",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "playbook_add",
+     "change": "Layout step: After proposing a rack placement, invoke capacity_calc to verify bu...",
+     "claim": "dev gain +0.050, cost -5.0%: Early capacity verification reduces rework and iterations, improvin...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": 10.61,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.000 < 0.02; cost +11% misses the -15% cut",
+     "verdict": "not reproduced"
+    }
+   ],
    "papers": {
-    "total": 0,
+    "total": 3,
     "accepted": 0,
-    "verdicts": {}
+    "verdicts": {
+     "not reproduced": 3
+    }
    },
-   "totals": null,
-   "sources": [],
-   "notes": []
+   "totals": {
+    "calls": 128,
+    "errors": 0,
+    "prompt_tokens": 357091,
+    "completion_tokens": 109741,
+    "cached_tokens": 0,
+    "tokens": 466832,
+    "cost_usd": 0.04334,
+    "wall_s": 512.1,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+      "calls": 127,
+      "cost_usd": 0.039423
+     },
+     "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B": {
+      "calls": 1,
+      "cost_usd": 0.003917
+     }
+    }
+   },
+   "sources": [
+    "runs/datahall-live-2/reports/before_after.json",
+    "runs/datahall-live-2/reports/vs_greedy.md",
+    "runs/datahall-live-2/reports/usage.json",
+    "runs/datahall-live-2/versions/ledger.jsonl",
+    "runs/datahall-live-2.log"
+   ],
+   "notes": [
+    "'v0 + final brain' appears twice in the final report: no candidate passed the gate, so the final version is v0 and its arm repeats 'v0 + final brain'; shown once."
+   ]
+  },
+  {
+   "id": "datahall-live-2d",
+   "name": "Data hall layout, live run 2d",
+   "verifier": "DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible",
+   "digits": 3,
+   "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.6879,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "greedy layout (no LLM)",
+    "score": 0.688,
+    "source": "final held-out table"
+   },
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 109 paid calls, $0.0794",
+   "started_at": "15:30 PDT",
+   "last_update": "15:49 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6879,
+     "pass_rate": 1.0,
+     "tokens": 84732,
+     "cost_usd": 0.007278,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0001,
+      "pct": -0.015
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6879,
+     "pass_rate": 1.0,
+     "tokens": 113543,
+     "cost_usd": 0.011364,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0001,
+      "pct": -0.015
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "greedy baseline (no LLM)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.688,
+     "pass_rate": 1.0,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.0001,
+      "pct": 0.015
+     }
+    }
+   ],
+   "final": {
+    "config": "v0 + final brain",
+    "score": 0.6879,
+    "gain": 0.0,
+    "gain_pct": 0.0,
+    "vs_reference": {
+     "abs": -0.0001,
+     "pct": -0.015
+    }
+   },
+   "cost_headline": null,
+   "rating": null,
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 0,
+     "train_mean": 0.6838,
+     "dev_mean": 0.6916,
+     "accepted": null
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "playbook_add",
+     "change": "Layout step: Validate each rack's assigned CDU has a hose length within Manhatta...",
+     "claim": "dev gain +0.020, cost -0.1%: Improves feasibility by reducing hose violations without increasing...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": -0.85,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.000 < 0.02; cost -1% misses the -15% cut",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "thinking = {\"Layout\": true}",
+     "claim": "dev gain +0.030, cost -0.1%: Enables reasoning improvements; cost impact minimal due to unchange...",
+     "measured_gain": 0.0047,
+     "measured_cost_change_pct": 1189.79,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.005 < 0.02; cost +1190% misses the -15% cut",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 32000",
+     "claim": "dev gain +0.015, cost +0.0%: Prevents truncated responses that cause 'no_improvement' failures;...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": 0.0,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.000 < 0.02; cost +0% misses the -15% cut",
+     "verdict": "not reproduced"
+    }
+   ],
+   "papers": {
+    "total": 3,
+    "accepted": 0,
+    "verdicts": {
+     "not reproduced": 3
+    }
+   },
+   "totals": {
+    "calls": 109,
+    "errors": 0,
+    "prompt_tokens": 300028,
+    "completion_tokens": 321873,
+    "cached_tokens": 0,
+    "tokens": 621901,
+    "cost_usd": 0.079376,
+    "wall_s": 1105.9,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+      "calls": 109,
+      "cost_usd": 0.079376
+     }
+    }
+   },
+   "sources": [
+    "runs/datahall-live-2d/reports/before_after.json",
+    "runs/datahall-live-2d/reports/vs_greedy.md",
+    "runs/datahall-live-2d/reports/usage.json",
+    "runs/datahall-live-2d/versions/ledger.jsonl",
+    "runs/datahall-live-2d.log"
+   ],
+   "notes": [
+    "'v0 + final brain' appears twice in the final report: no candidate passed the gate, so the final version is v0 and its arm repeats 'v0 + final brain'; shown once."
+   ]
+  },
+  {
+   "id": "datahall-live-3",
+   "name": "Data hall layout, live run 3",
+   "verifier": "DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, zones); score = DoneTwin score / 100, pass = feasible",
+   "digits": 3,
+   "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.6879,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "greedy layout (no LLM)",
+    "score": 0.688,
+    "source": "final held-out table"
+   },
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 129 paid calls, $0.0385",
+   "started_at": "15:54 PDT",
+   "last_update": "16:04 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6879,
+     "pass_rate": 1.0,
+     "tokens": 86955,
+     "cost_usd": 0.007542,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0001,
+      "pct": -0.015
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6879,
+     "pass_rate": 1.0,
+     "tokens": 80679,
+     "cost_usd": 0.005832,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": -0.0001,
+      "pct": -0.015
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "greedy baseline (no LLM)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.688,
+     "pass_rate": 1.0,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.0001,
+      "pct": 0.015
+     }
+    }
+   ],
+   "final": {
+    "config": "v0 + final brain",
+    "score": 0.6879,
+    "gain": 0.0,
+    "gain_pct": 0.0,
+    "vs_reference": {
+     "abs": -0.0001,
+     "pct": -0.015
+    }
+   },
+   "cost_headline": null,
+   "rating": null,
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 0,
+     "train_mean": 0.6838,
+     "dev_mean": 0.6916,
+     "accepted": null
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "playbook_add",
+     "change": "Layout step: Reassign each rack to the nearest CDU with remaining capacity, usin...",
+     "claim": "dev gain +0.020, cost -0.2%: Expected improvement in mean dev score by fixing the most frequent...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": 4.47,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.000 < 0.02; cost +4% misses the -15% cut",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "models.Layout = {\"nvidia/NVIDIA-Nemotron-3-Super-120B-A12B\": [0.3, 2.4]}",
+     "claim": "dev gain +0.015, cost -0.1%: Higher-capacity model may yield better layouts with fewer retries;...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": -2.75,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.000 < 0.02; cost -3% misses the -15% cut",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "capacity_calc = {\"enabled\": true}",
+     "claim": "dev gain +0.025, cost -0.2%: Accurate capacity calculations will eliminate cdu_capacity violatio...",
+     "measured_gain": 0.0009,
+     "measured_cost_change_pct": 167.06,
+     "dev_n": 4,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain +0.001 < 0.02; cost +167% misses the -15% cut",
+     "verdict": "not reproduced"
+    }
+   ],
+   "papers": {
+    "total": 4,
+    "accepted": 0,
+    "verdicts": {
+     "not reproduced": 3
+    }
+   },
+   "totals": {
+    "calls": 129,
+    "errors": 0,
+    "prompt_tokens": 349625,
+    "completion_tokens": 105174,
+    "cached_tokens": 0,
+    "tokens": 454799,
+    "cost_usd": 0.038516,
+    "wall_s": 585.6,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+      "calls": 129,
+      "cost_usd": 0.038516
+     }
+    }
+   },
+   "sources": [
+    "runs/datahall-live-3/reports/before_after.json",
+    "runs/datahall-live-3/reports/vs_greedy.md",
+    "runs/datahall-live-3/reports/usage.json",
+    "runs/datahall-live-3/versions/ledger.jsonl",
+    "runs/datahall-live-3.log"
+   ],
+   "notes": [
+    "'v0 + final brain' appears twice in the final report: no candidate passed the gate, so the final version is v0 and its arm repeats 'v0 + final brain'; shown once."
+   ]
   },
   {
    "id": "qaplib-evolve-1",
@@ -297,6 +869,11 @@
    "verifier": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
    "digits": 4,
    "baseline": {
+    "name": "v0 cold",
+    "score": null,
+    "source": "pending: the run's held-out table"
+   },
+   "reference": {
     "name": "2-swap local search, 10 s restarts (no LLM)",
     "score": 0.9954,
     "source": "reports/qaplib_baseline.json on this run's 6 held-out instances"
@@ -307,7 +884,8 @@
    "started_at": "14:56 PDT",
    "last_update": "15:09 PDT",
    "heldout": [],
-   "best": null,
+   "final": null,
+   "cost_headline": null,
    "rating": null,
    "history": [
     {
@@ -350,11 +928,844 @@
    "notes": []
   },
   {
+   "id": "qaplib-research-1",
+   "name": "QAPLIB, live run with research",
+   "verifier": "exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), pass = gap to BKS <= 1%",
+   "digits": 4,
+   "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.9593,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "2-swap local search, 10 s restarts (no LLM)",
+    "score": 0.9954,
+    "source": "final held-out table"
+   },
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 89 paid calls, $0.0163",
+   "started_at": "16:02 PDT",
+   "last_update": "16:05 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.9593,
+     "pass_rate": 0.3333,
+     "tokens": 17037,
+     "cost_usd": 0.002109,
+     "mean_gap_pct": 4.332,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.0361,
+      "pct": -3.627
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.8738,
+     "pass_rate": 0.0,
+     "tokens": 20147,
+     "cost_usd": 0.002083,
+     "mean_gap_pct": 15.099,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.1216,
+      "pct": -12.216
+     },
+     "vs_v0_cold": {
+      "abs": -0.0855,
+      "pct": -8.913
+     }
+    },
+    {
+     "config": "v2 + final brain",
+     "version": 2,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.9662,
+     "pass_rate": 0.3333,
+     "tokens": 30028,
+     "cost_usd": 0.003329,
+     "mean_gap_pct": 3.629,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.0292,
+      "pct": -2.933
+     },
+     "vs_v0_cold": {
+      "abs": 0.0069,
+      "pct": 0.719
+     }
+    },
+    {
+     "config": "2-swap baseline (no LLM, 10 s restarts)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.9954,
+     "pass_rate": 0.8333,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": 0.463,
+     "at_bks": 2,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.0361,
+      "pct": 3.763
+     }
+    }
+   ],
+   "final": {
+    "config": "v2 + final brain",
+    "score": 0.9662,
+    "gain": 0.0069,
+    "gain_pct": 0.719,
+    "vs_reference": {
+     "abs": -0.0292,
+     "pct": -2.933
+    }
+   },
+   "cost_headline": null,
+   "rating": null,
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 1,
+     "train_mean": 0.8382,
+     "dev_mean": 0.8868,
+     "accepted": "config_set"
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "version": 2,
+     "train_mean": 0.5526,
+     "dev_mean": 0.9122,
+     "accepted": "config_set"
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "playbook_add",
+     "change": "None step: Validate output permutation format and checksum before returning.",
+     "claim": "dev gain +0.050, cost -0.1%: Verifying permutations prevents syntax/runtime errors observed in f...",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: playbook_add missing ['role']",
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "models.solver = \"nvidia/NVIDIA-Nemotron-3-Super-120B-A12B\"",
+     "claim": "dev gain +0.070, cost -0.1%: Using the larger 120B model (nvidia/NVIDIA-Nemotron-3-Super-120B-A1...",
+     "measured_gain": -0.082,
+     "measured_cost_change_pct": -17.92,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.082 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "thinking.solver = true",
+     "claim": "dev gain +0.040, cost -0.1%: Activating thinking (reasoning) for the solver role is expected to...",
+     "measured_gain": 0.0728,
+     "measured_cost_change_pct": -9.84,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    },
+    {
+     "gen": 1,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "playbook_remove",
+     "change": "{\"index\": 0}",
+     "claim": "dev gain +0.015, cost -0.2%: Eliminating simulated_annealing reduces runtime errors and large ga...",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: playbook_remove missing ['role']",
+     "verdict": null
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 8000",
+     "claim": "dev gain +0.020, cost -0.1%: Increasing max_tokens to 8000 allows longer chain-of-thought withou...",
+     "measured_gain": -0.0112,
+     "measured_cost_change_pct": 34.87,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.011 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "config_set",
+     "change": "temperature = 0.2",
+     "claim": "dev gain +0.010, cost -0.1%: Lowering temperature to 0.2 sharpens output consistency, reducing g...",
+     "measured_gain": 0.0365,
+     "measured_cost_change_pct": 14.04,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "accepted, effect smaller than claimed"
+    }
+   ],
+   "papers": {
+    "total": 8,
+    "accepted": 2,
+    "verdicts": {
+     "not reproduced": 2,
+     "reproduced": 1,
+     "accepted, effect smaller than claimed": 1
+    }
+   },
+   "totals": {
+    "calls": 89,
+    "errors": 0,
+    "prompt_tokens": 97346,
+    "completion_tokens": 57131,
+    "cached_tokens": 0,
+    "tokens": 154477,
+    "cost_usd": 0.016293,
+    "wall_s": 507.3,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+      "calls": 89,
+      "cost_usd": 0.016293
+     }
+    }
+   },
+   "sources": [
+    "reports/qaplib_live/research1_nano/before_after.json",
+    "reports/qaplib_live/research1_nano/vs_2swap.md",
+    "reports/qaplib_live/research1_nano/qaplib_rows.json",
+    "reports/qaplib_live/research1_nano/usage.json",
+    "reports/qaplib_live/research1_nano/version_ledger.jsonl",
+    "reports/qaplib_live/research1_nano/run.log"
+   ],
+   "notes": []
+  },
+  {
+   "id": "qaplib-dc-1",
+   "name": "GPU rack placement (data-center QAP), live run 1",
+   "verifier": "exact traffic x cable-length cost of the rack placement on generated GPU halls; score = reference cost / cost",
+   "digits": 4,
+   "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.5042,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "2-swap local search, 10 s restarts (no LLM)",
+    "score": 0.9666,
+    "source": "final held-out table"
+   },
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 96 paid calls, $0.0168",
+   "started_at": "15:52 PDT",
+   "last_update": "15:52 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.5042,
+     "pass_rate": 0.0,
+     "tokens": 15899,
+     "cost_usd": 0.001796,
+     "mean_gap_pct": 146.205,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.4624,
+      "pct": -47.838
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.5865,
+     "pass_rate": 0.0,
+     "tokens": 27586,
+     "cost_usd": 0.002246,
+     "mean_gap_pct": 87.542,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.3801,
+      "pct": -39.323
+     },
+     "vs_v0_cold": {
+      "abs": 0.0823,
+      "pct": 16.323
+     }
+    },
+    {
+     "config": "v1 + final brain",
+     "version": 1,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.6394,
+     "pass_rate": 0.0,
+     "tokens": 27256,
+     "cost_usd": 0.002238,
+     "mean_gap_pct": 86.48,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.3272,
+      "pct": -33.851
+     },
+     "vs_v0_cold": {
+      "abs": 0.1352,
+      "pct": 26.815
+     }
+    },
+    {
+     "config": "2-swap baseline (no LLM, 10 s restarts)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.9666,
+     "pass_rate": 0.1667,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": 3.519,
+     "at_bks": 1,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.4624,
+      "pct": 91.71
+     }
+    }
+   ],
+   "final": {
+    "config": "v1 + final brain",
+    "score": 0.6394,
+    "gain": 0.1352,
+    "gain_pct": 26.815,
+    "vs_reference": {
+     "abs": -0.3272,
+     "pct": -33.851
+    }
+   },
+   "cost_headline": null,
+   "rating": null,
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 0,
+     "train_mean": 0.5731,
+     "dev_mean": 0.8041,
+     "accepted": null
+    },
+    {
+     "gen": 1,
+     "parent": 0,
+     "version": 1,
+     "train_mean": 0.6409,
+     "dev_mean": 0.7151,
+     "accepted": "config_set"
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "playbook_add",
+     "change": "solver step: Validate permutation length matches problem size before execution",
+     "claim": "dev gain +0.020, cost -0.1%: Prevents runtime errors and reduces wasted compute on invalid solut...",
+     "measured_gain": -0.2424,
+     "measured_cost_change_pct": 5.71,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.242 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 4000",
+     "claim": "dev gain +0.010, cost -0.1%: Reduces token usage while keeping solution length sufficient, cutti...",
+     "measured_gain": -0.2168,
+     "measured_cost_change_pct": 7.75,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.217 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "temperature = 0.1",
+     "claim": "dev gain +0.015, cost -0.1%: Lower temperature yields more deterministic outputs, improving veri...",
+     "measured_gain": -0.3957,
+     "measured_cost_change_pct": 9.13,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.396 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 1,
+     "parent": 0,
+     "mutation_type": "playbook_remove",
+     "change": "{\"role\": \"solver\", \"index\": 0}",
+     "claim": "dev gain +0.005, cost -0.1%: Removes a generic heuristic that consistently yields high gaps, for...",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: playbook index 0 out of range",
+     "verdict": null
+    },
+    {
+     "gen": 1,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 4000",
+     "claim": "dev gain +0.003, cost -0.1%: Reduces token consumption per call, lowering cost per task by rough...",
+     "measured_gain": -0.2409,
+     "measured_cost_change_pct": -5.33,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.241 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 1,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "temperature = 0.1",
+     "claim": "dev gain +0.004, cost -0.1%: Lower temperature yields more deterministic outputs, improving solu...",
+     "measured_gain": 0.0933,
+     "measured_cost_change_pct": -9.2,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    }
+   ],
+   "papers": {
+    "total": 6,
+    "accepted": 1,
+    "verdicts": {
+     "not reproduced": 4,
+     "reproduced": 1
+    }
+   },
+   "totals": {
+    "calls": 96,
+    "errors": 0,
+    "prompt_tokens": 136994,
+    "completion_tokens": 49823,
+    "cached_tokens": 0,
+    "tokens": 186817,
+    "cost_usd": 0.016814,
+    "wall_s": 574.4,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+      "calls": 96,
+      "cost_usd": 0.016814
+     }
+    }
+   },
+   "sources": [
+    "reports/qaplib_live/dc1_nano/before_after.json",
+    "reports/qaplib_live/dc1_nano/vs_2swap.md",
+    "reports/qaplib_live/dc1_nano/qaplib_rows.json",
+    "reports/qaplib_live/dc1_nano/usage.json",
+    "reports/qaplib_live/dc1_nano/version_ledger.jsonl",
+    "reports/qaplib_live/dc1_nano/run.log"
+   ],
+   "notes": []
+  },
+  {
+   "id": "qaplib-dc-research-1",
+   "name": "GPU rack placement (data-center QAP), live run with research",
+   "verifier": "exact traffic x cable-length cost of the rack placement on generated GPU halls; score = reference cost / cost",
+   "digits": 4,
+   "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.4773,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "2-swap local search, 10 s restarts (no LLM)",
+    "score": 0.9666,
+    "source": "final held-out table"
+   },
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 89 paid calls, $0.0208",
+   "started_at": "16:02 PDT",
+   "last_update": "16:02 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.4773,
+     "pass_rate": 0.1667,
+     "tokens": 15206,
+     "cost_usd": 0.001804,
+     "mean_gap_pct": 117.053,
+     "at_bks": 1,
+     "invalid": 1,
+     "vs_reference": {
+      "abs": -0.4893,
+      "pct": -50.621
+     },
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.7132,
+     "pass_rate": 0.0,
+     "tokens": 27526,
+     "cost_usd": 0.002286,
+     "mean_gap_pct": 50.77,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.2534,
+      "pct": -26.216
+     },
+     "vs_v0_cold": {
+      "abs": 0.2359,
+      "pct": 49.424
+     }
+    },
+    {
+     "config": "v2 + final brain",
+     "version": 2,
+     "is_baseline": false,
+     "n": 6,
+     "mean_score": 0.802,
+     "pass_rate": 0.0,
+     "tokens": 46241,
+     "cost_usd": 0.00615,
+     "mean_gap_pct": 28.575,
+     "at_bks": 0,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": -0.1646,
+      "pct": -17.029
+     },
+     "vs_v0_cold": {
+      "abs": 0.3247,
+      "pct": 68.028
+     }
+    },
+    {
+     "config": "2-swap baseline (no LLM, 10 s restarts)",
+     "version": null,
+     "is_baseline": true,
+     "n": 6,
+     "mean_score": 0.9666,
+     "pass_rate": 0.1667,
+     "tokens": 0,
+     "cost_usd": 0.0,
+     "mean_gap_pct": 3.519,
+     "at_bks": 1,
+     "invalid": 0,
+     "vs_reference": {
+      "abs": 0.0,
+      "pct": 0.0
+     },
+     "vs_v0_cold": {
+      "abs": 0.4893,
+      "pct": 102.514
+     }
+    }
+   ],
+   "final": {
+    "config": "v2 + final brain",
+    "score": 0.802,
+    "gain": 0.3247,
+    "gain_pct": 68.028,
+    "vs_reference": {
+     "abs": -0.1646,
+     "pct": -17.029
+    }
+   },
+   "cost_headline": null,
+   "rating": null,
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 1,
+     "train_mean": 0.4142,
+     "dev_mean": 0.5707,
+     "accepted": "config_set"
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "version": 2,
+     "train_mean": 0.5677,
+     "dev_mean": 0.6759,
+     "accepted": "config_set"
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "playbook_add",
+     "change": "None step: Run tabu search with aspiration threshold and 2-opt neighborhood fo...",
+     "claim": "dev gain +0.050, cost -0.1%: Based on [1] which shows tabu search reduces gap by ~30% and improv...",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: playbook_add missing ['role']",
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 8000",
+     "claim": "dev gain +0.020, cost -0.1%: Increasing max_tokens to 8000 allows longer reasoning without trunc...",
+     "measured_gain": 0.274,
+     "measured_cost_change_pct": -7.25,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "temperature = 0.1",
+     "claim": "dev gain +0.010, cost -0.1%: Lower temperature reduces stochasticity, leading to more determinis...",
+     "measured_gain": 0.2413,
+     "measured_cost_change_pct": -6.46,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "reproduced"
+    },
+    {
+     "gen": 1,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "playbook_add",
+     "change": "None step: Run tabu search with adaptive neighborhood and restart after 5 iter...",
+     "claim": "dev gain +0.050, cost -0.1%: Improves solution quality by reducing gap; modest cost increase fro...",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: playbook_add missing ['role']",
+     "verdict": null
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "config_set",
+     "change": "max_tokens = 12000",
+     "claim": "dev gain +0.020, cost -0.1%: Higher token budget improves solution correctness; slight cost redu...",
+     "measured_gain": -0.1178,
+     "measured_cost_change_pct": 0.2,
+     "dev_n": 3,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "gain -0.118 < 0.003",
+     "verdict": "not reproduced"
+    },
+    {
+     "gen": 1,
+     "parent": 1,
+     "mutation_type": "config_set",
+     "change": "thinking = {\"solver\": true}",
+     "claim": "dev gain +0.030, cost -0.1%: Thinking improves heuristic design accuracy; reduces need for multi...",
+     "measured_gain": 0.1463,
+     "measured_cost_change_pct": 93.25,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "score",
+     "reason": "accepted",
+     "verdict": "accepted, effect smaller than claimed"
+    }
+   ],
+   "papers": {
+    "total": 8,
+    "accepted": 3,
+    "verdicts": {
+     "reproduced": 2,
+     "not reproduced": 1,
+     "accepted, effect smaller than claimed": 1
+    }
+   },
+   "totals": {
+    "calls": 89,
+    "errors": 0,
+    "prompt_tokens": 125049,
+    "completion_tokens": 72912,
+    "cached_tokens": 0,
+    "tokens": 197961,
+    "cost_usd": 0.020835,
+    "wall_s": 513.7,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+      "calls": 89,
+      "cost_usd": 0.020835
+     }
+    }
+   },
+   "sources": [
+    "reports/qaplib_live/dc_research1_nano/before_after.json",
+    "reports/qaplib_live/dc_research1_nano/vs_2swap.md",
+    "reports/qaplib_live/dc_research1_nano/qaplib_rows.json",
+    "reports/qaplib_live/dc_research1_nano/usage.json",
+    "reports/qaplib_live/dc_research1_nano/version_ledger.jsonl",
+    "reports/qaplib_live/dc_research1_nano/run.log"
+   ],
+   "notes": [
+    "v0 cold saved a solution for 5 of the 6 held-out halls. The missing hall is scored as invalid (score 0), so 0.4773 is the mean over all 6 with that hall at 0 (the 5 saved halls average 0.5728)."
+   ]
+  },
+  {
    "id": "alebench-live-1",
    "name": "ALE-Bench AHC039 (Purse Seine Fishing)",
    "verifier": "ALE-Bench AHC039 scorer on private Lite seeds; score = mean case score / greedy case score (1.0 = greedy); rank vs 583 contestants on all 150 private seeds",
    "digits": 3,
    "baseline": {
+    "name": "v0 cold",
+    "score": null,
+    "source": "pending: the run's held-out table"
+   },
+   "reference": {
     "name": "reference greedy (no LLM)",
     "score": 1.0,
     "source": "1.0 by definition of the score"
@@ -365,7 +1776,8 @@
    "started_at": "15:01 PDT",
    "last_update": "15:09 PDT",
    "heldout": [],
-   "best": null,
+   "final": null,
+   "cost_headline": null,
    "rating": null,
    "history": [],
    "generations": [
@@ -402,28 +1814,261 @@
    "verifier": "compile, correctness on 5 signed input sets plus a held-back seed, CUDA-event timing; score = speedup over torch eager if correct (cap 10), else 0",
    "digits": 2,
    "baseline": {
+    "name": "v0 cold",
+    "score": null,
+    "source": "pending: the run's held-out table"
+   },
+   "reference": {
     "name": "torch eager (speedup 1.0x)",
     "score": 1.0,
     "source": "1.0 by definition of the score"
    },
-   "status": "blocked",
-   "status_detail": "needs a Crusoe GPU VM (no runs/kernelbench-* yet)",
-   "live_evidence": null,
-   "started_at": null,
-   "last_update": null,
+   "status": "running",
+   "status_detail": "4 candidates scored on dev, generation 0; started 16:21 PDT, last write 16:23 PDT",
+   "live_evidence": "named live run",
+   "started_at": "16:21 PDT",
+   "last_update": "16:23 PDT",
    "heldout": [],
-   "best": null,
+   "final": null,
+   "cost_headline": null,
    "rating": null,
    "history": [],
-   "generations": [],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "prompt_edit",
+     "change": "kernel prompt: You are a GPU performance engineer. Target: Apple GPU via PyTorch M...",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: claim must be {\"dev_gain\": <number>, \"cost_change_pct\": <number>, \"why\": <str>}, got None",
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "temperature = 0.1",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: claim must be {\"dev_gain\": <number>, \"cost_change_pct\": <number>, \"why\": <str>}, got None",
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "attempts = 3",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": "invalid: claim must be {\"dev_gain\": <number>, \"cost_change_pct\": <number>, \"why\": <str>}, got None",
+     "verdict": null
+    }
+   ],
    "papers": {
-    "total": 0,
+    "total": 4,
     "accepted": 0,
     "verdicts": {}
    },
    "totals": null,
-   "sources": [],
+   "sources": [
+    "runs/kernelbench-mps-1/versions/ledger.jsonl",
+    "runs/kernelbench-mps-1.log"
+   ],
    "notes": []
+  },
+  {
+   "id": "inference-opt-2",
+   "name": "Inference serving cost (exact-answer data-center ops Q&A)",
+   "verifier": "exact numeric answers checked in code within a stated tolerance; score = accuracy, pass = accuracy >= 0.9; cost = Crusoe billed tokens x team.crusoe.PRICES (the run's goal is the same accuracy at lower cost; see reports/inference_opt_2/heldout_cost_latency.md)",
+   "digits": 3,
+   "baseline": {
+    "name": "v0 + empty brain (cold)",
+    "score": 0.9792,
+    "source": "held-out table"
+   },
+   "reference": {
+    "name": "none: v0 (Super, reasoning on, one call per question) is the expensive start",
+    "score": null,
+    "source": "1.0 by definition of the score"
+   },
+   "status": "done",
+   "status_detail": "final report and live usage written",
+   "live_evidence": "usage.json: 208 paid calls, $0.2650",
+   "started_at": "15:59 PDT",
+   "last_update": "16:14 PDT",
+   "heldout": [
+    {
+     "config": "v0 + empty brain (cold)",
+     "version": 0,
+     "is_baseline": false,
+     "n": 4,
+     "mean_score": 0.9792,
+     "pass_rate": 1.0,
+     "tokens": 39211,
+     "cost_usd": 0.051325,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": null,
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v0 + final brain",
+     "version": 0,
+     "is_baseline": false,
+     "n": 4,
+     "mean_score": 0.9792,
+     "pass_rate": 1.0,
+     "tokens": 42903,
+     "cost_usd": 0.055247,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": null,
+     "vs_v0_cold": {
+      "abs": 0.0,
+      "pct": 0.0
+     }
+    },
+    {
+     "config": "v1 + final brain",
+     "version": 1,
+     "is_baseline": false,
+     "n": 4,
+     "mean_score": 1.0,
+     "pass_rate": 1.0,
+     "tokens": 24971,
+     "cost_usd": 0.036133,
+     "mean_gap_pct": null,
+     "at_bks": null,
+     "invalid": null,
+     "vs_reference": null,
+     "vs_v0_cold": {
+      "abs": 0.0208,
+      "pct": 2.124
+     }
+    }
+   ],
+   "final": {
+    "config": "v1 + final brain",
+    "score": 1.0,
+    "gain": 0.0208,
+    "gain_pct": 2.124,
+    "vs_reference": null
+   },
+   "cost_headline": {
+    "cold_config": "v0 (cold brain)",
+    "final_config": "v1 + final brain (final)",
+    "cold_usd": 0.00109203,
+    "final_usd": 0.00075277,
+    "less_pct": 31.1,
+    "questions": 48,
+    "cold_correct": 47,
+    "final_correct": 48
+   },
+   "rating": null,
+   "history": [
+    {
+     "gen": 0,
+     "parent": 0,
+     "version": 1,
+     "train_mean": 0.9583,
+     "dev_mean": 1.0,
+     "accepted": "config_set"
+    }
+   ],
+   "generations": [
+    {
+     "gen": 0,
+     "parent": null,
+     "mutation_type": null,
+     "change": "{}",
+     "claim": "none recorded (ledger predates claims)",
+     "measured_gain": null,
+     "measured_cost_change_pct": null,
+     "dev_n": null,
+     "accepted": false,
+     "accepted_by": null,
+     "reason": null,
+     "verdict": null
+    },
+    {
+     "gen": 0,
+     "parent": 0,
+     "mutation_type": "config_set",
+     "change": "batch_size = 3",
+     "claim": "dev gain +0.000, cost -55.0%: Batching 3 questions per call reduces calls_per_task from ~12 to ~4...",
+     "measured_gain": 0.0,
+     "measured_cost_change_pct": -31.77,
+     "dev_n": 3,
+     "accepted": true,
+     "accepted_by": "cost",
+     "reason": "cheaper at equal score: cost -32%",
+     "verdict": "reproduced"
+    }
+   ],
+   "papers": {
+    "total": 2,
+    "accepted": 1,
+    "verdicts": {
+     "reproduced": 1
+    }
+   },
+   "totals": {
+    "calls": 208,
+    "errors": 1,
+    "prompt_tokens": 102440,
+    "completion_tokens": 97595,
+    "cached_tokens": 0,
+    "tokens": 200035,
+    "cost_usd": 0.26496,
+    "wall_s": 927.9,
+    "by_model": {
+     "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B": {
+      "calls": 208,
+      "cost_usd": 0.26496
+     }
+    }
+   },
+   "sources": [
+    "runs/inference-opt-2/reports/before_after.json",
+    "runs/inference-opt-2/reports/usage.json",
+    "runs/inference-opt-2/versions/ledger.jsonl",
+    "runs/inference-opt-2.log"
+   ],
+   "notes": [
+    "accuracy 47/48 -> 48/48 is one question, so no accuracy gain is claimed; the headline is cost per correct answer. Median call latency 9.7 s -> 19.0 s; time per hall 163 s -> 77 s."
+   ]
   }
  ],
  "experiments": [
@@ -465,6 +2110,40 @@
      "tokens_per_hall": 56528,
      "cost_usd": 0.039392,
      "wall_s_per_hall": 362.0,
+     "errors": 0
+    },
+    {
+     "variant": "B",
+     "label": "Nano 30B, reasoning on, max 16k tokens",
+     "tag": "rep",
+     "halls": 4,
+     "mean_score": 0.6949,
+     "greedy": 0.6949,
+     "mean_gain_pts": 0.0,
+     "improved": 0,
+     "feasible_attempts": 0,
+     "attempts": 12,
+     "calls_per_hall": 4,
+     "tokens_per_hall": 57760,
+     "cost_usd": 0.040405,
+     "wall_s_per_hall": 437.0,
+     "errors": 0
+    },
+    {
+     "variant": "B32",
+     "label": "Nano 30B, reasoning on, max 32k tokens",
+     "tag": "rep",
+     "halls": 4,
+     "mean_score": 0.7216,
+     "greedy": 0.6949,
+     "mean_gain_pts": 2.663,
+     "improved": 2,
+     "feasible_attempts": 3,
+     "attempts": 12,
+     "calls_per_hall": 4.5,
+     "tokens_per_hall": 97594,
+     "cost_usd": 0.071866,
+     "wall_s_per_hall": 738.7,
      "errors": 0
     },
     {
@@ -538,17 +2217,18 @@
    ],
    "sources": [
     "/private/tmp/claude-501/-Users-iamdaone-Documents-RecursiveAgentsHackathonProject/068a120f-637f-4002-856f-3eb6683d41a7/scratchpad/headroom/results_main.jsonl",
-    "/private/tmp/claude-501/-Users-iamdaone-Documents-RecursiveAgentsHackathonProject/068a120f-637f-4002-856f-3eb6683d41a7/scratchpad/headroom/results_pb.jsonl"
+    "/private/tmp/claude-501/-Users-iamdaone-Documents-RecursiveAgentsHackathonProject/068a120f-637f-4002-856f-3eb6683d41a7/scratchpad/headroom/results_pb.jsonl",
+    "/private/tmp/claude-501/-Users-iamdaone-Documents-RecursiveAgentsHackathonProject/068a120f-637f-4002-856f-3eb6683d41a7/scratchpad/headroom/results_rep.jsonl"
    ],
-   "status": "running",
-   "status_detail": "20 hall runs in 6 configs; last write 15:09 PDT",
+   "status": "done",
+   "status_detail": "28 hall runs in 8 configs; last write 15:19 PDT",
    "baseline_score": 0.6949,
-   "cost_usd": 0.135011,
-   "calls": 93,
+   "cost_usd": 0.247282,
+   "calls": 127,
    "best": {
-    "config": "B (Nano 30B, reasoning on, max 16k tokens)",
-    "score": 0.7084,
-    "gain": 0.0135
+    "config": "B32 (Nano 30B, reasoning on, max 32k tokens)",
+    "score": 0.7216,
+    "gain": 0.0267
    }
   }
  ],
@@ -648,6 +2328,10 @@
  ],
  "not_counted": [
   {
+   "run": "runs/alebench-live-2",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
    "run": "runs/alebench-offline",
    "reason": "no paid usage.json: offline, scripted or a service log"
   },
@@ -660,8 +2344,44 @@
    "reason": "no paid usage.json: offline, scripted or a service log"
   },
   {
+   "run": "runs/datahall-live-4",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
+   "run": "runs/inference-opt-1",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
+   "run": "runs/inference-opt-1-attempt0",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
    "run": "runs/localhost",
    "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
+   "run": "runs/qaplib-dc-research-2",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
+   "run": "runs/qaplib-evolve-2",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
+   "run": "runs/qaplib-evolve-3",
+   "reason": "not a named live run"
+  },
+  {
+   "run": "runs/qaplib-evolve-4",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
+   "run": "runs/qaplib-evolve-5",
+   "reason": "no paid usage.json: offline, scripted or a service log"
+  },
+  {
+   "run": "runs/qaplib-research-2",
+   "reason": "not a named live run"
   }
  ]
 }

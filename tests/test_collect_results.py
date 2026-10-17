@@ -90,12 +90,14 @@ class CollectResultsTest(unittest.TestCase):
     def test_done_run_reports_heldout_totals_and_generations(self):
         c = self.cases["datahall-live-1"]
         self.assertEqual(c["status"], "done")
-        self.assertEqual(c["baseline"]["score"], 0.71)
+        self.assertEqual(c["baseline"]["score"], 0.70)  # v0 cold is the baseline
+        self.assertEqual(c["reference"]["score"], 0.71)  # greedy is the no-LLM reference
         configs = [r["config"] for r in c["heldout"]]
         self.assertEqual(configs, ["v0 + empty brain (cold)", "v0 + final brain", "greedy baseline (no LLM)"])
         self.assertTrue(c["notes"], "the duplicated final arm is explained")
-        self.assertEqual(c["best"]["config"], "v0 + final brain")
-        self.assertAlmostEqual(c["best"]["gain"], 0.04)
+        self.assertEqual(c["final"]["config"], "v0 + final brain")
+        self.assertAlmostEqual(c["final"]["gain"], 0.05)  # final minus v0 cold
+        self.assertAlmostEqual(c["final"]["vs_reference"]["abs"], 0.04)  # final minus greedy
         self.assertEqual(c["totals"]["calls"], 40)
         self.assertEqual(c["totals"]["tokens"], 3500)
         self.assertEqual(c["totals"]["cost_usd"], 0.05)
@@ -110,9 +112,10 @@ class CollectResultsTest(unittest.TestCase):
         self.assertEqual(len(c["generations"]), 1, "the half-written line is skipped")
         self.assertEqual(c["generations"][0]["verdict"], "not reproduced")
         self.assertEqual(c["heldout"], [])
-        self.assertIsNone(c["best"])
+        self.assertIsNone(c["final"])
         self.assertIsNone(c["totals"])
-        self.assertAlmostEqual(c["baseline"]["score"], 0.99)  # 2-swap on this run's two held-out instances
+        self.assertIsNone(c["baseline"]["score"])
+        self.assertAlmostEqual(c["reference"]["score"], 0.99)  # 2-swap on this run's two held-out instances
 
     def test_missing_run_is_not_started(self):
         c = self.cases["datahall-live-2"]
@@ -139,19 +142,30 @@ class CollectResultsTest(unittest.TestCase):
     def test_markdown_layout(self):
         self.assertNotIn("—", self.md)
         lines = self.md.splitlines()
-        self.assertIn("| Case study | Baseline | Best team version | Gain | Status | Cost |", lines)
-        summary = lines.index("| Case study | Baseline | Best team version | Gain | Status | Cost |")
+        header = "| Case study | Baseline: v0 cold | Final team version | Gain (final - v0 cold) | Status | Cost |"
+        self.assertIn(header, lines)
+        summary = lines.index(header)
         self.assertLess(summary, lines.index("## Data hall layout, live run 1"))
         self.assertLess(lines.index("## Data hall layout, live run 1"), lines.index("## Live smoke tests"))
         self.assertTrue(lines[-1].startswith("Generated ") and cr.COMMAND in lines[-1])
-        self.assertIn("| Data hall layout, live run 1 | greedy baseline (no LLM) 0.710 | v0 + final brain 0.750 | "
-                      "+0.040 (+5.6%) | done | $0.0500 (40 calls) |", lines)
+        self.assertIn("| Data hall layout, live run 1 | 0.700 | v0 + final brain 0.750 | +0.050 (+7.1%) | "
+                      "done | $0.0500 (40 calls) |", lines)
+        self.assertNotIn("greedy baseline (no LLM)", self.md)  # classical heuristics are not results
+
+    def test_inference_headline_is_cost_per_correct_answer(self):
+        h = cr.cost_per_correct([{"config": "v0 (cold brain)", "questions": 48, "correct": 47,
+                                  "cost_per_correct_usd": 0.00109203},
+                                 {"config": "v1 + final brain (final)", "questions": 48, "correct": 48,
+                                  "cost_per_correct_usd": 0.00075277}])
+        self.assertEqual(h["less_pct"], 31.1)
+        self.assertEqual((h["cold_correct"], h["final_correct"]), (47, 48))
+        self.assertIsNone(cr.cost_per_correct([]))
 
     def test_json_schema_is_stable(self):
         data = json.loads(self.json_path.read_text())
         self.assertEqual(data["schema_version"], cr.SCHEMA_VERSION)
         for c in data["case_studies"]:
-            for key in ("name", "verifier", "baseline", "status", "heldout", "generations", "totals", "sources"):
+            for key in ("name", "verifier", "baseline", "reference", "final", "status", "heldout", "generations", "totals", "sources"):
                 self.assertIn(key, c)
             self.assertIn(c["status"], ("done", "running", "not started", "blocked"))
 

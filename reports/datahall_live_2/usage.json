@@ -1,0 +1,66 @@
+{
+ "total": {
+  "calls": 109,
+  "errors": 0,
+  "retries": 9,
+  "prompt_tokens": 300028,
+  "completion_tokens": 321873,
+  "cached_tokens": 0,
+  "cost_usd": 0.079376,
+  "latency_s": 3263.466
+ },
+ "by_role": {
+  "Checker": {
+   "calls": 24,
+   "errors": 0,
+   "retries": 2,
+   "prompt_tokens": 47244,
+   "completion_tokens": 6592,
+   "cached_tokens": 0,
+   "cost_usd": 0.003681,
+   "latency_s": 77.84
+  },
+  "Layout": {
+   "calls": 56,
+   "errors": 0,
+   "retries": 2,
+   "prompt_tokens": 209400,
+   "completion_tokens": 312016,
+   "cached_tokens": 0,
+   "cost_usd": 0.072873,
+   "latency_s": 3092.569
+  },
+  "Planner": {
+   "calls": 28,
+   "errors": 0,
+   "retries": 5,
+   "prompt_tokens": 41118,
+   "completion_tokens": 2888,
+   "cached_tokens": 0,
+   "cost_usd": 0.002633,
+   "latency_s": 88.027
+  },
+  "reviewer": {
+   "calls": 1,
+   "errors": 0,
+   "retries": 0,
+   "prompt_tokens": 2266,
+   "completion_tokens": 377,
+   "cached_tokens": 0,
+   "cost_usd": 0.000189,
+   "latency_s": 5.03
+  }
+ },
+ "by_model": {
+  "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B": {
+   "calls": 109,
+   "errors": 0,
+   "retries": 9,
+   "prompt_tokens": 300028,
+   "completion_tokens": 321873,
+   "cached_tokens": 0,
+   "cost_usd": 0.079376,
+   "latency_s": 3263.466
+  }
+ }
+}

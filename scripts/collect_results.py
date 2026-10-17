@@ -36,16 +36,34 @@ FRESH_S = 15 * 60  # an experiment file touched this recently counts as still ru
 DATAHALL = dict(verifier="DoneTwin checker: hard feasibility rules (collision, 2N power, CDU capacity, hose reach, "
                          "zones); score = DoneTwin score / 100, pass = feasible",
                 baseline_name="greedy layout (no LLM)", digits=3, baseline_kind="datahall")
+QAPLIB = dict(digits=4, baseline_kind="qaplib",
+              verifier="exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), "
+                       "pass = gap to BKS <= 1%",
+              baseline_name="2-swap local search, 10 s restarts (no LLM)")
+DC_QAP = dict(QAPLIB, verifier="exact traffic x cable-length cost of the rack placement on generated GPU halls; "
+                               "score = reference cost / cost")
 CASE_STUDIES: list[dict[str, Any]] = [
     dict(id="datahall-live-1", name="Data hall layout, live run 1", dirs=["reports/datahall_live_1"],
          aliases=["runs/datahall-live-1"], log="reports/datahall_live_1/run.log", **DATAHALL),
     dict(id="datahall-live-2", name="Data hall layout, live run 2", dirs=["runs/datahall-live-2"],
          log="runs/datahall-live-2.log", **DATAHALL),
+    dict(id="datahall-live-2d", name="Data hall layout, live run 2d", dirs=["runs/datahall-live-2d"],
+         log="runs/datahall-live-2d.log", **DATAHALL),
+    dict(id="datahall-live-3", name="Data hall layout, live run 3", dirs=["runs/datahall-live-3"],
+         aliases=["reports/datahall_live_3"], log="runs/datahall-live-3.log", **DATAHALL),
     dict(id="qaplib-evolve-1", name="QAPLIB (quadratic assignment)", dirs=["runs/qaplib-evolve-1"],
-         log="runs/qaplib-evolve-1.log", digits=4, baseline_kind="qaplib",
-         verifier="exact QAP cost of the printed permutation; score = BKS / cost (1.0 = best known), "
-                  "pass = gap to BKS <= 1%",
-         baseline_name="2-swap local search, 10 s restarts (no LLM)"),
+         log="runs/qaplib-evolve-1.log", **QAPLIB),
+    dict(id="qaplib-research-1", name="QAPLIB, live run with research", dirs=["reports/qaplib_live/research1_nano"],
+         aliases=["runs/qaplib-research-1"], log="reports/qaplib_live/research1_nano/run.log", **QAPLIB),
+    dict(id="qaplib-dc-1", name="GPU rack placement (data-center QAP), live run 1",
+         dirs=["reports/qaplib_live/dc1_nano"], aliases=["runs/qaplib-dc-1"],
+         log="reports/qaplib_live/dc1_nano/run.log", **DC_QAP),
+    dict(id="qaplib-dc-research-1", name="GPU rack placement (data-center QAP), live run with research",
+         dirs=["reports/qaplib_live/dc_research1_nano"], aliases=["runs/qaplib-dc-research-1"],
+         log="reports/qaplib_live/dc_research1_nano/run.log", **DC_QAP,
+         note="v0 cold saved a solution for 5 of the 6 held-out halls. The missing hall is scored as invalid "
+              "(score 0), so 0.4773 is the mean over all 6 with that hall at 0 (the 5 saved halls average "
+              "0.5728)."),
     dict(id="alebench-live-1", name="ALE-Bench AHC039 (Purse Seine Fishing)", dirs=["runs/alebench-live-1"],
          log="runs/alebench-live-1.log", digits=3, baseline_kind="fixed", baseline_score=1.0,
          verifier="ALE-Bench AHC039 scorer on private Lite seeds; score = mean case score / greedy case score "
@@ -57,13 +75,16 @@ CASE_STUDIES: list[dict[str, Any]] = [
                   "score = speedup over torch eager if correct (cap 10), else 0",
          baseline_name="torch eager (speedup 1.0x)",
          missing_status=("blocked", "needs a Crusoe GPU VM (no runs/kernelbench-* yet)")),
-    dict(id="inference-opt-1", name="Inference serving cost (exact-answer data-center ops Q&A)",
-         dirs=["runs/inference-opt-1"], log="runs/inference-opt-1.log", digits=3, baseline_kind="fixed",
+    dict(id="inference-opt-2", name="Inference serving cost (exact-answer data-center ops Q&A)",
+         dirs=["runs/inference-opt-2"], log="runs/inference-opt-2.log", digits=3, baseline_kind="fixed",
          baseline_score=None,
          verifier="exact numeric answers checked in code within a stated tolerance; score = accuracy, pass = "
                   "accuracy >= 0.9; cost = Crusoe billed tokens x team.crusoe.PRICES (the run's goal is the same "
-                  "accuracy at lower cost; see reports/inference_opt_1/heldout_cost_latency.md)",
-         baseline_name="v0: Super, reasoning on, one call per question"),
+                  "accuracy at lower cost; see reports/inference_opt_2/heldout_cost_latency.md)",
+         baseline_name="none: v0 (Super, reasoning on, one call per question) is the expensive start",
+         cost_headline=True,
+         note="accuracy 47/48 -> 48/48 is one question, so no accuracy gain is claimed; the headline is cost per "
+              "correct answer. Median call latency 9.7 s -> 19.0 s; time per hall 163 s -> 77 s."),
 ]
 SMOKES = ["runs/qaplib-one", "runs/alebench-one", "runs/datahall-one", "runs/kernelbench-one"]
 # The connection probe printed to the console only; these figures were copied from that live output.
@@ -310,10 +331,44 @@ def heldout_rows(ba: Any, rows_json: Any, vs_md: str, base: float | None) -> tup
                                 "mean_score": to_float(r.get("Mean score")), "pass_rate": to_float(r.get("Pass rate")),
                                 "tokens": 0, "cost_usd": 0.0, "mean_gap_pct": None, "at_bks": None, "invalid": None})
     for r in out:
-        s = r["mean_score"]
-        r["vs_baseline"] = None if s is None or base is None else round(s - base, 6)
-        r["vs_baseline_pct"] = None if s is None or not base else round((s - base) / base * 100, 3)
+        r["vs_reference"] = delta(r["mean_score"], base)
     return out, notes
+
+
+def delta(score: float | None, base: float | None) -> dict | None:
+    if score is None or base is None:
+        return None
+    return {"abs": round(score - base, 6), "pct": round((score - base) / base * 100, 3) if base else None}
+
+
+def cold_and_final(rows: list[dict]) -> tuple[dict | None, dict | None]:
+    """v0 cold (the starting team, empty shared brain) and the final team version on the held-out set."""
+    team = [r for r in rows if not r["is_baseline"] and r["mean_score"] is not None]
+    cold = next((r for r in team if "cold" in str(r["config"]) or "empty brain" in str(r["config"])), None)
+    rest = [r for r in team if r is not cold]
+    final = max(rest, key=lambda r: (r["version"] or 0, "final brain" in str(r["config"]))) if rest else None
+    return cold, final
+
+
+def cost_per_correct(rows: Any) -> dict | None:
+    """Inference headline: $ per correct answer, v0 cold (first row) to final (last row)."""
+    rows = [r for r in rows or [] if isinstance(r, dict) and r.get("cost_per_correct_usd")]
+    if len(rows) < 2:
+        return None
+    cold, final = rows[0], rows[-1]
+    a, b = cold["cost_per_correct_usd"], final["cost_per_correct_usd"]
+    return {"cold_config": cold.get("config"), "final_config": final.get("config"), "cold_usd": a, "final_usd": b,
+            "less_pct": round((1 - b / a) * 100, 1), "questions": final.get("questions"),
+            "cold_correct": cold.get("correct"), "final_correct": final.get("correct")}
+
+
+def final_entry(cold: dict | None, final: dict | None) -> dict | None:
+    if final is None:
+        return None
+    gain = delta(final["mean_score"], None if cold is None else cold["mean_score"])
+    return {"config": final["config"], "score": final["mean_score"],
+            "gain": None if gain is None else gain["abs"], "gain_pct": None if gain is None else gain["pct"],
+            "vs_reference": final.get("vs_reference")}
 
 
 def run_status(dirs: list[Path], log: Path | None, usage: Any, ba: Any, facts: dict) -> tuple[str, str]:
@@ -381,10 +436,16 @@ def collect_evolve(spec: dict, root: Path, dirs: list[Path], log: Path | None) -
     facts = log_facts(log_text)
     status, detail = run_status(dirs, log, usage, ba, facts)
 
-    base, base_name, base_src = baseline_for(spec, root, vs_md, rows_json, facts)
-    rows, notes = heldout_rows(ba, rows_json, vs_md, base) if status == "done" else ([], [])
-    team = [r for r in rows if not r["is_baseline"] and r["mean_score"] is not None]
-    best = max(team, key=lambda r: (r["mean_score"], -(r["cost_usd"] or 0))) if team else None
+    ref, _, ref_src = baseline_for(spec, root, vs_md, rows_json, facts)
+    ref_name = spec["baseline_name"]
+    rows, notes = heldout_rows(ba, rows_json, vs_md, ref) if status == "done" else ([], [])
+    cold, final = cold_and_final(rows)
+    for r in rows:
+        r["vs_v0_cold"] = delta(r["mean_score"], None if cold is None else cold["mean_score"])
+    if spec.get("note") and status == "done":
+        notes = notes + [spec["note"]]
+    cost_path = find_file(dirs, ("heldout_cost_latency.json",)) if spec.get("cost_headline") else None
+    cost_headline = cost_per_correct((read_json(cost_path) or {}).get("rows")) if status == "done" else None
     gens = generation_rows(ledger)
     history = (ba or {}).get("history") if isinstance(ba, dict) else None
     verdicts = Counter(g["verdict"] for g in gens if g["verdict"])
@@ -417,12 +478,13 @@ def collect_evolve(spec: dict, root: Path, dirs: list[Path], log: Path | None) -
     rating_rows = rating if isinstance(rating, list) and status == "done" else None
     return {
         "id": spec["id"], "name": spec["name"], "verifier": spec["verifier"], "digits": spec["digits"],
-        "baseline": {"name": base_name, "score": base, "source": base_src},
+        "baseline": {"name": "v0 cold" if cold is None else cold["config"],
+                     "score": None if cold is None else cold["mean_score"],
+                     "source": "held-out table" if cold else "pending: the run's held-out table"},
+        "reference": {"name": ref_name, "score": ref, "source": ref_src},
         "status": status, "status_detail": detail, "live_evidence": live,
         "started_at": stamp(started), "last_update": stamp(last),
-        "heldout": rows, "best": None if best is None else {
-            "config": best["config"], "score": best["mean_score"], "gain": best["vs_baseline"],
-            "gain_pct": best["vs_baseline_pct"]},
+        "heldout": rows, "final": final_entry(cold, final), "cost_headline": cost_headline,
         "rating": rating_rows, "history": dev_means(ledger, history or []), "generations": gens,
         "papers": {"total": len(gens), "accepted": sum(g["accepted"] for g in gens), "verdicts": dict(verdicts)},
         "totals": totals, "sources": [rel(p, root) for p in files], "notes": notes,
@@ -438,10 +500,11 @@ def collect_case(spec: dict, root: Path) -> dict[str, Any]:
         if not results:
             status, detail = spec["missing_status"]
             return {"id": spec["id"], "name": spec["name"], "verifier": spec["verifier"], "digits": spec["digits"],
-                    "baseline": {"name": spec["baseline_name"], "score": spec.get("baseline_score"),
-                                 "source": "1.0 by definition of the score"},
+                    "baseline": {"name": "v0 cold", "score": None, "source": "pending: no live run"},
+                    "reference": {"name": spec["baseline_name"], "score": spec.get("baseline_score"),
+                                  "source": "1.0 by definition of the score"},
                     "status": status, "status_detail": detail, "live_evidence": None, "started_at": None,
-                    "last_update": None, "heldout": [], "best": None, "rating": None, "history": [],
+                    "last_update": None, "heldout": [], "final": None, "rating": None, "history": [],
                     "generations": [], "papers": {"total": 0, "accepted": 0, "verdicts": {}}, "totals": None,
                     "sources": [], "notes": []}
         order = {"done": 0, "running": 1, "blocked": 2, "not started": 3}
@@ -593,6 +656,8 @@ def f_score(x: Any, d: int) -> str:
 def f_delta(delta: Any, pct: Any, d: int) -> str:
     if delta is None:
         return "n/a"
+    if abs(delta) < 0.5 * 10 ** -d:  # print a rounding-level difference as +0, not -0
+        delta, pct = 0.0, (None if pct is None else 0.0)
     return f"{delta:+.{d}f}" + ("" if pct is None else f" ({pct:+.1f}%)")
 
 
@@ -604,20 +669,31 @@ def f_int(x: Any) -> str:
     return "n/a" if x is None else f"{int(x):,}"
 
 
+SUMMARY_HEADER = ["Case study", "Baseline: v0 cold", "Final team version", "Gain (final - v0 cold)", "Status", "Cost"]
+
+
 def summary_row(c: dict) -> list[str]:
     d = c["digits"]
     b = c["baseline"]
-    base = f"{b['name']} {f_score(b['score'], d)}" if b["score"] is not None else f"{b['name']} (pending)"
+    pending = "pending" if c["status"] in ("running", "not started") else "n/a"
+    base = f_score(b["score"], d) if b["score"] is not None else pending
     status = c["status"] if c["status"] in ("done", "not started") else f"{c['status']}: {c['status_detail']}"
-    if c["best"]:
-        best = f"{c['best']['config']} {f_score(c['best']['score'], d)}"
+    ch = c.get("cost_headline")
+    if ch:
+        return [c["name"], f"${ch['cold_usd']:.6f} per correct answer", f"{ch['final_config']} "
+                f"${ch['final_usd']:.6f} per correct answer", f"{ch['less_pct']:.0f}% less per correct answer "
+                f"({ch['questions']} held-out questions)", "done",
+                f"{f_money(c['totals']['cost_usd'])} ({f_int(c['totals']['calls'])} calls)" if c["totals"] else "n/a"]
+    if c["final"]:
+        f = c["final"]
+        best = f"{f['config']} {f_score(f['score'], d)}"
         team_rating = [r for r in c.get("rating") or [] if str(r.get("entry", "")).startswith("team")]
         if team_rating:
             top = max(team_rating, key=lambda r: r.get("total", 0))
             best += f"; rank {top.get('rank')}/{top.get('entrants')}, perf {top.get('performance')}"
-        gain = f_delta(c["best"]["gain"], c["best"]["gain_pct"], d)
+        gain = f_delta(f["gain"], f["gain_pct"], d)
     else:
-        best, gain = ("pending", "pending") if c["status"] in ("running", "not started") else ("n/a", "n/a")
+        best = gain = pending
     t = c["totals"]
     cost = (f"{f_money(t['cost_usd'])} ({f_int(t['calls'])} calls)" if t else
             "pending (usage.json written at run end)" if c["status"] == "running" else
@@ -625,13 +701,25 @@ def summary_row(c: dict) -> list[str]:
     return [c["name"], base, best, gain, status, cost]
 
 
+def rel_cell(r: dict, key: str, d: int) -> str:
+    if key == "vs_v0_cold" and ("cold" in str(r["config"]) or "empty brain" in str(r["config"])):
+        return "baseline"
+    v = r.get(key)
+    return "n/a" if v is None else f_delta(v["abs"], v["pct"], d)
+
+
 def render_case(c: dict) -> list[str]:
     d = c["digits"]
     b = c["baseline"]
     out = [f"## {c['name']}", "",
            f"- Verifier: {c['verifier']}.",
-           f"- Baseline: {b['name']}, held-out mean {f_score(b['score'], d)} (source: {b['source']}).",
+           f"- Baseline: v0 cold ({b['name']}), held-out mean {f_score(b['score'], d)} (source: {b['source']}).",
            f"- Status: {c['status']}; {c['status_detail']}."]
+    ch = c.get("cost_headline")
+    if ch:
+        out.append(f"- Headline: $ per correct answer {ch['cold_usd']:.6f} -> {ch['final_usd']:.6f}, "
+                   f"{ch['less_pct']:.0f}% less per correct answer ({ch['questions']} held-out questions; "
+                   f"source: heldout_cost_latency.json).")
     if c.get("live_evidence"):
         out.append(f"- Live evidence: {c['live_evidence']}.")
     t = c["totals"]
@@ -652,14 +740,16 @@ def render_case(c: dict) -> list[str]:
         gap = any(r.get("mean_gap_pct") is not None for r in c["heldout"])
         out += ["### Held-out", "",
                 "| Config | n | Mean score | Pass rate | " + ("Gap to BKS (%) | " if gap else "")
-                + "Tokens | Cost (USD) | vs baseline |",
+                + "Tokens | Cost (USD) | vs v0 cold |",
                 "|---|---|---|---|" + ("---|" if gap else "") + "---|---|---|"]
         for r in c["heldout"]:
+            if r["is_baseline"]:  # classical heuristics stay out of the per-run tables; see the summary footnote
+                continue
             pr = "n/a" if r["pass_rate"] is None else f"{r['pass_rate'] * 100:.0f}%"
             g = ("n/a" if r.get("mean_gap_pct") is None else f"{r['mean_gap_pct']:.2f}") + " | " if gap else ""
             out.append(f"| {cell(r['config'])} | {r['n']} | {f_score(r['mean_score'], d)} | {pr} | {g}"
                        f"{f_int(r['tokens'])} | {f_money(r['cost_usd'])} | "
-                       f"{'baseline' if r['is_baseline'] else f_delta(r['vs_baseline'], r['vs_baseline_pct'], d)} |")
+                       f"{rel_cell(r, 'vs_v0_cold', d)} |")
         out.append("")
     for note in c["notes"]:
         out += [f"Note: {note}", ""]
@@ -699,17 +789,15 @@ def render_case(c: dict) -> list[str]:
 
 def render_experiment(e: dict) -> list[str]:
     out = [f"## {e['name']}", "", f"- Verifier: {e['verifier']}.",
-           f"- Baseline: {e['baseline_name']}, mean over the halls {f_score(e.get('baseline_score'), 4)}.",
            f"- Status: {e['status']}; {e['status_detail']}.",
            f"- Cost so far: {f_money(e.get('cost_usd'))} over {f_int(e.get('calls', 0))} calls.", ""]
     if e["groups"]:
-        out += ["| Config | Layout model and settings | Run tag | Halls | Mean score | Greedy | Mean gain (pts of 100) | "
-                "Improved | Feasible attempts | Calls/hall | Tokens/hall | Cost (USD) | Wall s/hall | Errors |",
-                "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        out += ["| Config | Layout model and settings | Run tag | Halls | Mean score | "
+                "Feasible attempts | Calls/hall | Tokens/hall | Cost (USD) | Wall s/hall | Errors |",
+                "|---|---|---|---|---|---|---|---|---|---|---|"]
         for g in e["groups"]:
             out.append(f"| {g['variant']} | {cell(g['label'])} | {cell(g['tag'])} | {g['halls']} | "
-                       f"{g['mean_score']:.4f} | {g['greedy']:.4f} | {g['mean_gain_pts']:+.2f} | "
-                       f"{g['improved']}/{g['halls']} | {g['feasible_attempts']}/{g['attempts']} | "
+                       f"{g['mean_score']:.4f} | {g['feasible_attempts']}/{g['attempts']} | "
                        f"{g['calls_per_hall']:.1f} | {g['tokens_per_hall']:,} | {f_money(g['cost_usd'])} | "
                        f"{g['wall_s_per_hall']:.0f} | {g['errors']} |")
         out.append("")
@@ -745,25 +833,40 @@ def render_smokes(smokes: list[dict]) -> list[str]:
     return out
 
 
+def two_swap_footnote(cases: list[dict]) -> list[str]:
+    """The one place a classical heuristic appears: 2-swap on the QAPLIB and rack-placement held-out tasks."""
+    def ref(prefix: str) -> float | None:
+        return next((c["reference"]["score"] for c in cases if c["id"].startswith(prefix) and c["status"] == "done"
+                     and c["reference"]["score"] is not None), None)
+    qap, rack = ref("qaplib-research"), ref("qaplib-dc")
+    if qap is None or rack is None:
+        return []
+    return [f"QAPLIB and rack placement: a 10 s 2-swap search scores {qap:.3f} / {rack:.3f} on the same tasks."]
+
+
 def render_markdown(data: dict) -> str:
     cases, exps = data["case_studies"], data["experiments"]
     lines = ["# Benchmark results (live Crusoe runs only)", "",
              "Every number here comes from a live run on Crusoe Managed Inference (Nemotron-3 Nano 30B and Super 120B). "
-             "Offline and scripted runs are tests and are excluded. Scores: higher is better; gain = best team "
-             "version minus baseline on the held-out set.", "",
-             "## Summary", "", "| Case study | Baseline | Best team version | Gain | Status | Cost |",
-             "|---|---|---|---|---|---|"]
+             "Offline and scripted runs are tests and are excluded. Scores: higher is better. The baseline is v0 "
+             "cold: the starting team version with an empty shared brain. Gain = final team version minus v0 cold "
+             "on the held-out set.", "",
+             "## Summary", "", "| " + " | ".join(SUMMARY_HEADER) + " |",
+             "|" + "---|" * len(SUMMARY_HEADER)]
     for c in cases:
         lines.append("| " + " | ".join(cell(x) for x in summary_row(c)) + " |")
+    spec_notes = {sp["id"]: sp["note"] for sp in CASE_STUDIES if sp.get("note")}
     for e in exps:
         best = e.get("best")
         status = e["status"] if e["status"] in ("done", "not started") else f"{e['status']}: {e['status_detail']}"
         lines.append("| " + " | ".join(cell(x) for x in [
-            e["name"] + " (4 train halls)",
-            f"{e['baseline_name']} {f_score(e.get('baseline_score'), 4)}",
-            f"{best['config']} {best['score']:.4f}" if best else "pending",
-            f_delta(best["gain"], None, 4) if best else "pending", status,
+            e["name"] + " (4 train halls)", "n/a (settings sweep, no v0 arm)",
+            f"{best['config']} {best['score']:.4f}" if best else "pending", "n/a", status,
             f"{f_money(e.get('cost_usd'))} ({f_int(e.get('calls', 0))} calls)"]) + " |")
+    lines.append("")
+    lines += two_swap_footnote(cases)
+    lines += [f"Note, {c['name']}: {spec_notes[c['id']]}" for c in cases
+              if c["id"] in spec_notes and c["status"] == "done"]
     lines.append("")
     for c in cases:
         lines += render_case(c)
