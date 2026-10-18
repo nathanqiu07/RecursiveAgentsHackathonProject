@@ -1,5 +1,7 @@
 """Container identity checks must never satisfy a VM-only receipt."""
 import tempfile
+import hashlib
+import json
 import unittest
 from unittest.mock import patch
 
@@ -12,6 +14,37 @@ from common import Blocked
 
 
 class DockerIdentityTests(unittest.TestCase):
+    def test_approved_mount_detects_content_change_and_extra_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'mount'
+            root.mkdir()
+            (root/'weights').write_bytes(b'approved')
+            manifest=Path(directory)/'manifest.json'
+            manifest.write_text(json.dumps({'files':{'weights':hashlib.sha256(b'approved').hexdigest()},'symlinks':{}}))
+            mount={'source':str(root),'target':'/models/test','manifest':str(manifest),
+                   'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest()}
+            docker_host.verify_mount(mount)
+            (root/'weights').write_bytes(b'changed')
+            with self.assertRaisesRegex(Blocked,'content_changed'):
+                docker_host.verify_mount(mount)
+            (root/'weights').write_bytes(b'approved')
+            (root/'extra').write_bytes(b'unapproved')
+            with self.assertRaisesRegex(Blocked,'file_set_changed'):
+                docker_host.verify_mount(mount)
+
+    def test_approved_mount_rejects_symlink_escape(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'mount'
+            root.mkdir()
+            (Path(directory)/'outside').write_bytes(b'outside')
+            (root/'escape').symlink_to('../outside')
+            manifest=Path(directory)/'manifest.json'
+            manifest.write_text(json.dumps({'files':{},'symlinks':{'escape':'../outside'}}))
+            mount={'source':str(root),'target':'/models/test','manifest':str(manifest),
+                   'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest()}
+            with self.assertRaisesRegex(Blocked,'symlink_changed'):
+                docker_host.verify_mount(mount)
+
     def receipt(self):
         return {"status": "ready", "key": "rn_test", "address": "http://127.0.0.1:18100",
                 "node_id": "test-node", "gpu_uuid": "GPU-test1234", "runtime": docker_host.RUNTIME,

@@ -7,10 +7,12 @@ import re
 import signal
 import threading
 import time
+import os
+import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-from common import ID, Blocked, integer, private_json
+from common import ID, Blocked, integer, private_json, validate_deployments
 from host import Node, make_handler, run
 
 RUNTIME = "docker-wsl2-nvidia"
@@ -35,8 +37,40 @@ def validate_target(data):
                              ("guest_vcpus", 1, 256), ("scratch_mb", 16, 4096),
                              ("max_timeout_seconds", 60, 86400), ("boot_timeout_seconds", 30, 900)):
         integer(data, field, low, high)
-    if data["guest_job_command"] != ["/usr/local/bin/gpu-job-runner"] or data["deployments"] != {}:
-        raise ValueError("this_docker_image_supports_only_the_generic_runner")
+    if data["guest_job_command"] != ["/usr/local/bin/gpu-job-runner"]:
+        raise ValueError("invalid_generic_runner")
+    deployments=data["deployments"]
+    if not isinstance(deployments,dict) or len(deployments)>16:
+        raise ValueError("invalid_deployments")
+    for alias,deployment in deployments.items():
+        if not ID.fullmatch(alias) or set(deployment)!={"command","metadata","mounts","environment","network"}:
+            raise ValueError("invalid_inference_deployment")
+        validate_deployments({alias:{k:deployment[k] for k in ("command","metadata")}})
+        if not ID.fullmatch(deployment["network"]):
+            raise ValueError("invalid_internal_network")
+        allowed_env={"PYTHONPATH","PYTHONDONTWRITEBYTECODE","HOME","HF_HOME","HF_HUB_OFFLINE","TRANSFORMERS_OFFLINE",
+                     "VLLM_LOGGING_LEVEL","OMP_NUM_THREADS","TORCHINDUCTOR_CACHE_DIR","TRITON_CACHE_DIR",
+                     "CUDA_CACHE_PATH","VLLM_CACHE_ROOT","LD_LIBRARY_PATH","TOKENIZERS_PARALLELISM"}
+        allowed_env.add('PYTORCH_ALLOC_CONF')
+        if not isinstance(deployment["environment"],dict) or set(deployment["environment"])-allowed_env:
+            raise ValueError("unapproved_inference_environment")
+        if any(not isinstance(value,str) or '\0' in value or len(value)>4096 for value in deployment["environment"].values()):
+            raise ValueError("invalid_inference_environment")
+        if not isinstance(deployment["mounts"],list) or not 1<=len(deployment["mounts"])<=4:
+            raise ValueError("invalid_approved_mounts")
+        destinations=set()
+        for mount in deployment["mounts"]:
+            if set(mount)!={"source","target","manifest","manifest_sha256"}:
+                raise ValueError("invalid_approved_mount")
+            for field in ("source","target","manifest"):
+                path=mount[field]
+                if not isinstance(path,str) or not path.startswith('/') or any(c in path for c in (',','\0','\n','\r')) or '..' in Path(path).parts:
+                    raise ValueError("unsafe_mount_path")
+            if not mount["target"].startswith(('/opt/','/models/')) or mount["target"] in destinations:
+                raise ValueError("unsafe_mount_destination")
+            destinations.add(mount["target"])
+            if not re.fullmatch('[a-f0-9]{64}',mount["manifest_sha256"]):
+                raise ValueError("mount_manifest_must_be_pinned")
     return dict(data)
 
 
@@ -53,13 +87,40 @@ def preflight(config):
     return {"virtual_disk_mb": 0, "runtime": RUNTIME, "image": image["Id"]}
 
 
+def verify_mount(mount):
+    payload=Path(mount["manifest"]).read_bytes()
+    if hashlib.sha256(payload).hexdigest()!=mount["manifest_sha256"]:
+        raise Blocked("approved_mount_manifest_changed")
+    manifest=json.loads(payload)
+    root=Path(mount["source"]).resolve(strict=True)
+    actual={str(path.relative_to(root)) for path in root.rglob('*') if path.is_file() or path.is_symlink()}
+    if actual != set(manifest['files']) | set(manifest.get('symlinks',{})):
+        raise Blocked("approved_mount_file_set_changed")
+    for relative,expected in manifest["files"].items():
+        path=root/relative
+        if Path(relative).is_absolute() or '..' in Path(relative).parts or not path.resolve(strict=True).is_relative_to(root):
+            raise Blocked("approved_mount_path_escape")
+        digest=hashlib.sha256()
+        with path.open('rb') as stream:
+            while chunk:=stream.read(8*1024**2): digest.update(chunk)
+            if hasattr(os,'posix_fadvise'):
+                os.posix_fadvise(stream.fileno(),0,0,os.POSIX_FADV_DONTNEED)
+        if digest.hexdigest()!=expected:
+            raise Blocked("approved_mount_content_changed")
+    for relative,expected in manifest.get("symlinks",{}).items():
+        path=root/relative
+        if os.readlink(path)!=expected or not path.resolve(strict=True).is_relative_to(root):
+            raise Blocked("approved_mount_symlink_changed")
+
+
 class DockerGuest:
     def __init__(self, config, job):
         self.config, self.job, self.target = config, job, config["target"]
         self.name = "crusoe-" + self.target["id"] + "-" + job["id"]
         self.directory = Path(config["state_dir"]) / "jobs" / job["id"]
-        self.ip = None  # No inference alias/network is approved for the generic image.
+        self.ip = None
         self.create_uncertain = job.get("creation_pending", False)
+        self.cache_stop=threading.Event()
 
     def persist(self):
         private_json(self.directory / "job.json", {
@@ -75,20 +136,39 @@ class DockerGuest:
 
     def boot(self):
         self.directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+        scratch = self.job.get("scratch_mb", self.target["scratch_mb"])
+        alias=self.job.get("deployment_alias")
+        deployment=self.target["deployments"].get(alias) if alias else None
+        network="none"
+        extras=[]
+        if deployment:
+            network=deployment["network"]
+            details=json.loads(run(["docker","network","inspect",network]).stdout)[0]
+            if details.get("Internal") is not True:
+                raise Blocked("inference_network_must_be_internal")
+            for mount in deployment["mounts"]:
+                verify_mount(mount)
+                extras += ["--mount",f'type=bind,src={mount["source"]},dst={mount["target"]},readonly']
+            for name,value in deployment["environment"].items():
+                extras += ["--env",name+'='+value]
         self.create_uncertain = True
         self.persist()
-        scratch = self.job.get("scratch_mb", self.target["scratch_mb"])
         run(["docker", "create", "--name", self.name, "--label", "crusoe.node=" + self.target["id"],
-             "--label", "crusoe.job=" + self.job["id"], "--network", "none", "--read-only",
+             "--label", "crusoe.job=" + self.job["id"], "--network", network, "--read-only",
              "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--user", "1000:1000",
-             "--pids-limit", "128", "--cpus", str(self.job["cpus"]),
+             "--pids-limit", "512" if deployment else "128", "--shm-size", "512m", "--cpus", str(self.job["cpus"]),
              "--memory", str(self.job["memory_mb"]) + "m", "--memory-swap", str(self.job["memory_mb"]) + "m",
-             "--tmpfs", f"/tmp:rw,nosuid,nodev,size={scratch}m,mode=1777", "--gpus", "all",
+             "--tmpfs", f"/tmp:rw,nosuid,nodev,{'exec' if deployment else 'noexec'},size={scratch}m,mode=1777", "--gpus", "all",
              "--env", "NVIDIA_DRIVER_CAPABILITIES=compute,utility", "--init",
-             self.target["container_image"], "/bin/sleep", "infinity"], timeout=60)
+             *extras,self.target["container_image"], "/bin/sleep", "infinity"], timeout=60)
         self.create_uncertain = False
         self.persist()
         run(["docker", "start", self.name], timeout=60)
+        if deployment:
+            details=json.loads(run(["docker","inspect",self.name]).stdout)[0]
+            self.ip=details["NetworkSettings"]["Networks"][network]["IPAddress"]
+            if deployment['metadata']['settings'].get('checkpoint_page_cache')=='evict_during_load':
+                threading.Thread(target=self.limit_checkpoint_cache,args=(deployment,),daemon=True).start()
         value = json.loads(self.execute([*self.target["guest_job_command"], "--self-test"]).stdout)
         if value != {"ready": True, "protocol": "execution_result-jsonl-v1"}:
             raise Blocked("container_runner_self_test_failed")
@@ -96,6 +176,28 @@ class DockerGuest:
         if self.compute.get("gpu_compute_verified") is not True:
             raise Blocked("container_cuda_kernel_failed")
         return self.hardware()
+
+    def limit_checkpoint_cache(self,deployment):
+        # WSL file cache can consume Windows commit needed for WDDM GPU allocations.
+        # Advise away clean checkpoint pages only; never delete or modify model files.
+        paths=[path for mount in deployment['mounts'] if mount['target'].startswith('/models/')
+               for path in Path(mount['source']).glob('*.safetensors')]
+        opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        while not self.cache_stop.is_set():
+            for path in paths:
+                try:
+                    with path.open('rb') as stream:
+                        os.posix_fadvise(stream.fileno(),0,0,os.POSIX_FADV_DONTNEED)
+                except OSError:
+                    pass
+            try:
+                with opener.open(f'http://{self.ip}:{self.target["inference_port"]}/health',timeout=1) as response:
+                    if response.status==200:
+                        return
+            except OSError:
+                pass
+            if self.cache_stop.wait(2):
+                return
 
     def hardware(self):
         output = self.execute(["nvidia-smi", "--query-gpu=uuid,name,memory.total,power.limit,driver_version",
@@ -110,6 +212,7 @@ class DockerGuest:
                 "container_id": self.job["id"]}
 
     def cleanup(self):
+        self.cache_stop.set()
         try:
             containers = json.loads(run(["docker", "container", "ls", "--all", "--format", "json",
                                         "--filter", "name=^/" + self.name + "$" ]).stdout.decode().strip() or "null")
@@ -139,6 +242,17 @@ class DockerNode(Node):
 
     def compatibility(self):
         patch = (Path(__file__).parent / "docker-support.patch").read_bytes()
+        preparation=Path(__file__).parent / "baseline-preparation.json"
+        evidence_path=Path(__file__).parent/'inference-verification.json'
+        provenance_path=Path(__file__).parent/'runtime-provenance.json'
+        evidence=json.loads(evidence_path.read_text()) if evidence_path.exists() else None
+        ready=False
+        if evidence and evidence.get('status')=='ready':
+            deployment=self.target['deployments'].get(evidence.get('deployment_alias'))
+            ready=bool(deployment and evidence.get('metadata')==deployment['metadata']
+                       and evidence.get('container_image')==self.target['container_image']
+                       and evidence.get('mount_manifests')==[x['manifest_sha256'] for x in deployment['mounts']]
+                       and evidence.get('gpu_uuid')==self.target['gpu_uuid'])
         if len(patch) > 1024 * 1024:
             raise Blocked("source_patch_limit")
         return {"runtime": self.runtime, "source_commit": self.config.get("source_commit"),
@@ -149,7 +263,10 @@ class DockerNode(Node):
                     "address": "http://127.0.0.1:18100", "gpu_uuid": self.target["gpu_uuid"],
                     "target": self.target, "verification": self.probe_result,
                     "key": "USE_EXISTING_PRIVATE_SCOPED_KEY"},
-                "inference_ready": False, "approved_deployments": list(self.target["deployments"])}
+                "inference_ready": ready, "approved_deployments": list(self.target["deployments"]),
+                "baseline_preparation":json.loads(preparation.read_text()) if preparation.exists() else None,
+                "inference_verification":evidence,
+                "runtime_provenance":json.loads(provenance_path.read_text()) if provenance_path.exists() else None}
 
     def verification(self, gpu):
         return {"gpu": gpu, "vm_isolation": False, "boot_verified": False,

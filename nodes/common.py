@@ -136,7 +136,11 @@ def validate_target(data):
         raise ValueError(
             "guest_job_command must be an approved absolute executable argv"
         )
-    deployments = result.get("deployments", {})
+    result["deployments"] = validate_deployments(result.get("deployments", {}))
+    return result
+
+
+def validate_deployments(deployments):
     if not isinstance(deployments, dict) or len(deployments) > 16:
         raise ValueError("deployments must be an operator-approved alias map")
     for alias, deployment in deployments.items():
@@ -183,8 +187,7 @@ def validate_target(data):
             )
         ):
             raise ValueError("deployment source and model revisions must be immutable")
-    result["deployments"] = deployments
-    return result
+    return deployments
 
 
 def load_inventory(path):

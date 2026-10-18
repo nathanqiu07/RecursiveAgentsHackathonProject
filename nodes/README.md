@@ -120,6 +120,37 @@ This refreshes every 30 seconds only after probing the authenticated real node. 
 
 ## Approved inference deployments
 
+Docker/WSL nodes can also launch approved inference aliases. Each alias includes
+the same immutable source/model metadata as a VM deployment, plus an internal
+Docker network, an environment allowlist, and up to four read-only runtime/model
+mounts. Each mount has a SHA256-pinned manifest of its files and symlinks; the node
+checks file contents and rejects escaping symlinks before launch. Generic jobs
+retain network isolation and non-executable temporary storage. Inference jobs
+use executable, size-limited private temporary storage for Triton compilation.
+
+Build `Dockerfile.inference-toolchain` on top of the GPU runner to supply Triton's
+C compiler, then pin the resulting image ID in the node target. Updating an idle
+node with `docker_setup.py --update-image --update-deployments` preserves its
+identity and scoped key. Re-enroll the controller with the new receipt and image
+verification before measuring a baseline.
+
+The first working A5000 Nemotron setup uses vLLM source
+`f98ae6a9fd2c73a2f80dd9fe4c534676f689394d`, the pinned checkpoint revision
+`bee7596271d1495f6992ae224aefde4410e816b8`, Marlin W4A16, BF16 activations and KV
+cache, Triton attention, eager execution, context 4096, four active sequences,
+GPU memory utilization 0.9, and prefix caching disabled. WSL required the native
+CUDA allocator and `checkpoint_page_cache=evict_during_load`: the node advises
+away clean checkpoint pages until the engine becomes healthy. It does not change
+or delete checkpoint files. Expandable allocations failed on the tested WSL
+driver; automatic FP8 KV cache was incompatible with Triton on this A5000.
+
+Real generation and teacher-forced prompt-logprob checks passed on that setup.
+These installation checks are not benchmark scores. The controller measures the
+first valid mini MMLU/GSM8K/PPL and C20 throughput results as the baseline, with
+no minimum reference quality threshold. Record the exact live settings and image
+in its private enrollment/configuration; do not reuse a baseline after changing
+the hardware, runtime, model, or settings.
+
 The default VM job command is the generic JSONL executor. A verifier can instead choose an operator-approved inference launch command using an alias declared in each target's `deployments` map:
 
 ```json

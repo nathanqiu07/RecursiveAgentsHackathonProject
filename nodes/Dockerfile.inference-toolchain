@@ -1,0 +1,6 @@
+# Build the generic GPU runner first; pin its local image ID with --build-arg.
+ARG GPU_RUNNER_IMAGE=crusoe-gpu-runner:local
+FROM ${GPU_RUNNER_IMAGE}
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
+USER 1000:1000

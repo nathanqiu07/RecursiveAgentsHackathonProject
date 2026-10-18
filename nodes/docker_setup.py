@@ -23,6 +23,10 @@ def main():
     parser.add_argument("--ssh-hostname", required=True)
     parser.add_argument("--ssh-port", type=int, default=2222)
     parser.add_argument("--ssh-user", default="gpu-node")
+    parser.add_argument("--update-deployments", action="store_true",
+                        help="Operator-approved deployment-only update; preserve identity and scoped key")
+    parser.add_argument("--update-image", action="store_true",
+                        help="Operator-approved immutable image update on an idle node; preserve identity and scoped key")
     args = parser.parse_args()
     if os.geteuid() != 0:
         raise Blocked("local_install_requires_root")
@@ -36,7 +40,18 @@ def main():
     if receipt_path.exists():
         existing = read_private(receipt_path)
         if existing["target"] != target:
-            raise Blocked("existing_configuration_differs_do_not_rotate_key")
+            permitted=set()
+            if args.update_deployments:
+                permitted.add('deployments')
+            if args.update_image:
+                permitted.add('container_image')
+            old_base={key:value for key,value in existing['target'].items() if key not in permitted}
+            new_base={key:value for key,value in target.items() if key not in permitted}
+            if not permitted or old_base!=new_base:
+                raise Blocked("existing_configuration_differs_do_not_rotate_key")
+            health=http(existing['address'],existing['key'],'/v1/health')
+            if health.get('busy') or health.get('status')!='ready':
+                raise Blocked('deployment_update_requires_idle_verified_node')
         key = existing["key"]
     else:
         key = "rn_" + secrets.token_urlsafe(32)
@@ -62,7 +77,7 @@ def main():
                "source_commit": subprocess.check_output(["git", "-c", "safe.directory=" + str(source.parent), "-C", str(source.parent), "rev-parse", "HEAD"], text=True).strip(),
                "local_modifications": "Docker backend; apply nodes/docker-support.patch on controller",
                "inference_ready": False,
-               "inference_blocker": "Generic CUDA runner only; pinned reference/candidate W4A16 runtimes and model are not installed or verified.",
+               "inference_blocker": "Configured inference deployment awaits live C1 validation." if target['deployments'] else "Generic CUDA runner only; inference runtime/model not configured.",
                "ssh_connection": {"hostname": args.ssh_hostname, "user": args.ssh_user, "port": args.ssh_port,
                    "host_public_key": host_key.read_text().strip(),
                    "reachability": "controller_must_verify_route"}}
