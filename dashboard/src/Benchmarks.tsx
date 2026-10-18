@@ -80,6 +80,13 @@ const RUN_NOTES: Record<string, { summary: string; row: string }> = {
       + '47/48 to 48/48 is one question, so no accuracy gain is claimed. Median call latency doubled (9.7 s to 19.0 s); '
       + 'time per hall halved (163 s to 77 s).',
   },
+  'datahall-live-5': {
+    summary: 'v0 cold 68.79 to final 72.75 (+3.96) on datahall-live-5, 6 unseen halls. The Reviewer switched on a '
+      + 'verifier-guided search tool (polish); greedy + polish with no LLM scores the same 72.75, so the gain comes '
+      + 'from the tool and the team chose it.',
+    row: 'Final scores 72.75 vs v0 cold 68.79 (+3.96) on 6 unseen halls. The gain comes from the polish tool the '
+      + 'Reviewer switched on; greedy + polish with no LLM scores the same.',
+  },
 };
 const runNote = (title: string) => RUN_NOTES[finalRun(title) ?? runOf(title)] ?? null;
 // A "<run> final" row explains itself against its own run's v0 cold row, then the reference.
