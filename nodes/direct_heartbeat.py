@@ -15,9 +15,12 @@ def main():
     path = Path(args.receipt)
     if path.stat().st_mode & 0o077:
         raise SystemExit('Receipt must be private')
-    receipt = json.loads(path.read_text())
     while True:
         try:
+            # Re-enrollment can replace the pinned image while this relay stays up.
+            if path.stat().st_mode & 0o077:
+                raise ValueError('Receipt must be private')
+            receipt = json.loads(path.read_text())
             request = urllib.request.Request(receipt['address'] + '/v1/health', headers={'Authorization': 'Bearer ' + receipt['key']})
             with urllib.request.urlopen(request, timeout=5) as response:
                 health = json.load(response)
